@@ -1,69 +1,39 @@
-import Image from "next/image";
+import Link from 'next/link';
 
-export default function Home() {
+const features = [
+  ['01', 'Grammar that makes sense', 'Learn particles and sentence patterns with guided explanations and targeted practice.'],
+  ['02', 'Words and kanji that stick', 'Review vocabulary, readings and characters with a spaced-repetition routine.'],
+  ['03', 'Practice with purpose', 'Use short daily exercises, reading passages and timed N5-style mock exams.'],
+];
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="landing">
+      <header className="landingNav">
+        <Link href="/" className="wordmark"><span className="wordmarkIcon">日</span><span>Nihongo <b>Labs</b></span></Link>
+        <nav><Link href="#method">How it works</Link><Link href="/pricing">Plans</Link><Link href="/login">Sign in</Link><Link href="/signup" className="navCta">Start learning <span>↗</span></Link></nav>
+      </header>
+      <section className="hero">
+        <div className="heroCopy">
+          <div className="eyebrow"><span /> A BETTER WAY TO STUDY JAPANESE <i>JLPT N5</i></div>
+          <h1>Make Japanese<br/><em>make sense.</em></h1>
+          <p className="heroLead">A thoughtful learning space for the words, grammar and kanji that take you from your first kana to N5 confidence.</p>
+          <div className="heroActions"><Link href="/signup" className="primaryCta">Start your free journey <span>↗</span></Link><Link href="/learn" className="secondaryCta">Explore the workspace <span>→</span></Link></div>
+          <div className="heroFootnote"><span>●</span> Build a steady daily habit, one lesson at a time.</div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="heroVisual" aria-label="Japanese study card preview">
+          <div className="paperCard paperCardBack"><span className="tinyLabel">TODAY'S PRACTICE</span><span className="backGlyph">学</span><span className="backCaption">Learn · Repeat · Remember</span></div>
+          <div className="paperCard mainCard"><div className="cardTop"><span>GRAMMAR NOTE <b>01 / 26</b></span><span className="cardDot">●</span></div><div className="cardPattern">は <small>wa</small></div><h2>Marking the topic</h2><p>わたしは がくせいです。</p><div className="cardTranslation">I am a student.</div><div className="cardRule"><span>KEY IDEA</span><p>は introduces what the sentence is about. It is pronounced <b>wa</b> when used as a particle.</p></div><div className="cardBottom"><span>FOUNDATION GRAMMAR</span><span>↗</span></div></div>
+          <div className="floatingChip streakChip"><b>7</b><span>DAY STREAK<br/>KEEP IT GOING</span></div>
+          <div className="floatingChip progressChip"><div className="miniRing">68%</div><span>YOUR N5<br/>FOUNDATION</span></div>
+          <span className="heroSeal">日本語<br/>を学ぼう</span>
         </div>
-      </main>
-    </div>
+      </section>
+      <section id="method" className="featureSection"><div className="sectionIntro"><span className="eyebrow">THE LEARNING SYSTEM</span><h2>Small steps.<br/><em>Real progress.</em></h2><p>Everything you need to build a reliable Japanese study habit, arranged in one clear path.</p></div><div className="featureList">{features.map(([number,title,copy])=><article key={number}><span>{number}</span><div><h3>{title}</h3><p>{copy}</p></div><b>↗</b></article>)}</div></section>
+      <footer className="landingFooter"><Link href="/" className="wordmark"><span className="wordmarkIcon">日</span><span>Nihongo <b>Labs</b></span></Link><span>Learn with intention. Grow every day.</span><Link href="/signup">Create your account ↗</Link></footer>
+      <style>{`
+        .landing{overflow:hidden}.landingNav{height:82px;max-width:1240px;margin:auto;padding:0 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.wordmark{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-size:17px;letter-spacing:-.5px}.wordmark b{font-weight:750}.wordmarkIcon{width:31px;height:31px;display:grid;place-items:center;border-radius:9px;background:#b54c43;color:#fff;font-size:17px}.landingNav nav{display:flex;align-items:center;gap:28px}.landingNav nav a,.landingFooter>a:last-child{font-size:12px;text-decoration:none;color:#4f5b64}.landingNav nav .navCta,.primaryCta{background:#b54c43;color:#fff;border-radius:7px;padding:13px 17px;box-shadow:0 8px 20px rgba(181,76,67,.14)}.navCta span,.primaryCta span{margin-left:12px}.hero{max-width:1240px;margin:auto;padding:82px 36px 96px;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:50px;min-height:620px}.heroCopy{max-width:540px}.eyebrow{font-size:9px;letter-spacing:1.5px;font-weight:750;color:#8a969f;display:flex;align-items:center;gap:10px}.eyebrow>span{width:7px;height:7px;background:#b54c43;border-radius:50%}.eyebrow i{font-style:normal;color:#b54c43;background:#f5e8e5;padding:5px 8px;border-radius:4px;letter-spacing:.8px}.hero h1{font-size:clamp(56px,7vw,88px);line-height:.98;letter-spacing:-5px;font-weight:650;margin:29px 0 22px}.hero h1 em,.sectionIntro h2 em{font-family:Georgia,serif;font-weight:400;color:#b54c43}.heroLead{max-width:470px;color:#687682;font-size:15px;line-height:1.8}.heroActions{display:flex;gap:22px;align-items:center;margin-top:34px}.heroActions a{text-decoration:none;font-size:12px;font-weight:650}.secondaryCta{color:#53616b}.secondaryCta span{font-size:18px;margin-left:6px}.heroFootnote{margin-top:42px;font-size:10px;color:#89959e}.heroFootnote span{color:#2e9178;margin-right:8px}.heroVisual{height:430px;position:relative;display:grid;place-items:center;background:radial-gradient(ellipse at 56% 46%,#f0e8e3 0%,#f7f1ed 42%,rgba(247,241,237,0) 73%)}.paperCard{position:absolute;border:1px solid #ece8e3;border-radius:10px;background:#fff;box-shadow:0 25px 65px rgba(54,45,37,.12)}.paperCardBack{width:300px;height:350px;transform:rotate(8deg) translate(36px,5px);background:#f4eee8;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#b7a69b}.tinyLabel{position:absolute;top:24px;font-size:8px;letter-spacing:1.5px}.backGlyph{font-size:100px;color:#b9a99f;font-family:serif}.backCaption{font-size:9px;letter-spacing:1px}.mainCard{width:310px;min-height:365px;padding:22px 24px;transform:rotate(-3deg);z-index:1}.cardTop,.cardBottom{display:flex;justify-content:space-between;color:#9aa2a7;font-size:8px;letter-spacing:1.15px;font-weight:700}.cardTop b{color:#b54c43;margin-left:10px}.cardDot{color:#b54c43}.cardPattern{font-size:57px;text-align:center;margin:24px auto 7px;font-family:serif}.cardPattern small{font:italic 11px Georgia;color:#b54c43}.mainCard h2{text-align:center;font-size:17px;margin:0 0 19px;letter-spacing:-.3px}.mainCard>p{text-align:center;font-family:serif;font-size:20px;margin:0 0 5px}.cardTranslation{text-align:center;font-size:10px;color:#929ca3}.cardRule{margin-top:24px;padding:14px;background:#faf6f3;border-radius:6px}.cardRule>span{font-size:8px;letter-spacing:1px;color:#b54c43;font-weight:800}.cardRule p{font-size:10px;line-height:1.65;color:#64717b;margin:7px 0 0}.cardBottom{margin-top:20px}.floatingChip{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #eceff1;border-radius:9px;padding:10px 13px;box-shadow:0 12px 35px rgba(30,45,56,.09)}.floatingChip span{font-size:7px;line-height:1.6;letter-spacing:.9px;color:#89949b;font-weight:750}.streakChip{top:60px;left:3%}.streakChip b{font:26px Georgia;color:#b54c43}.progressChip{right:1%;bottom:38px}.miniRing{border:3px solid #e4eee9;border-top-color:#2e9178;border-radius:50%;height:41px;width:41px;display:grid;place-items:center;font-size:9px;color:#287a65;font-weight:800}.heroSeal{position:absolute;top:38px;right:6%;font-family:serif;font-size:15px;line-height:1.35;color:#c7a79a;writing-mode:vertical-rl;letter-spacing:3px}.featureSection{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:100px max(36px,calc((100vw - 1168px)/2));display:grid;grid-template-columns:.85fr 1.15fr;gap:90px}.sectionIntro h2{font-size:46px;line-height:1.05;letter-spacing:-2px;margin:22px 0 15px}.sectionIntro p{font-size:13px;line-height:1.8;color:#73808a;max-width:330px}.featureList article{display:grid;grid-template-columns:40px 1fr 20px;gap:18px;padding:24px 0;border-bottom:1px solid var(--line);align-items:start}.featureList article>span{font:13px Georgia;color:#b54c43}.featureList h3{font-size:16px;margin:0 0 8px;letter-spacing:-.3px}.featureList p{max-width:460px;color:#79858e;font-size:11px;line-height:1.7;margin:0}.featureList article>b{color:#b54c43;font-size:15px}.landingFooter{max-width:1240px;margin:auto;padding:27px 36px;display:flex;justify-content:space-between;align-items:center}.landingFooter>span{font-size:10px;color:#8c979e}.landingFooter>a:last-child{color:#b54c43;font-weight:700}@media(max-width:800px){.landingNav{padding:0 20px}.landingNav nav{gap:14px}.landingNav nav a:not(.navCta){display:none}.hero{padding:54px 22px 64px;grid-template-columns:1fr;gap:12px}.hero h1{font-size:64px}.heroVisual{height:400px}.featureSection{padding:66px 22px;grid-template-columns:1fr;gap:26px}.landingFooter{padding:23px 20px;gap:10px;flex-wrap:wrap}.landingFooter>span{display:none}}@media(max-width:430px){.hero h1{font-size:56px;letter-spacing:-3px}.heroActions{gap:14px;flex-wrap:wrap}.mainCard{width:280px}.paperCardBack{width:270px}.streakChip{left:0}.progressChip{right:0}}
+      `}</style>
+    </main>
   );
 }
