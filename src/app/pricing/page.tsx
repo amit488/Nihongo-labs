@@ -2,8 +2,6 @@ import Link from 'next/link';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { listPlans } from '@/lib/nihongo/server/services/billing';
 
-export const dynamic = 'force-dynamic';
-
 function amount(minor: number, currency: string) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(minor / 100);
 }
