@@ -1,0 +1,33 @@
+{
+  "name": "nihongo-labs",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=20.9.0" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test:backend": "tsx --test tests/*.test.ts",
+    "smoke:local": "node scripts/smoke-local.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.0",
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "ts-fsrs": "5.4.2",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.4.5",
+    "tsx": "4.20.6",
+    "typescript": "5.8.3"
+  }
+}

@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+function readSql(name: string): string {
+  const candidates = [
+    resolve(process.cwd(), 'sql', name),
+    resolve(process.cwd(), 'nihongo-labs-backend', 'sql', name),
+  ];
+  const path = candidates.find(existsSync);
+  if (!path) throw new Error(`Could not find ${name}; run tests from the repository root or backend source folder.`);
+  return readFileSync(path, 'utf8');
+}
+const sql = readSql('011_backend_rpc.sql');
+const seed = readSql('010_n5_content_and_plans_seed.sql');
+
+test('quiz answer keys stay private and backend RPC is service-role-only', () => {
+  assert.match(seed, /insert\s+into\s+private\.quiz_answer_keys/i);
+  assert.doesNotMatch(seed, /insert\s+into\s+public\.quiz_answer_keys/i);
+  assert.match(sql, /create or replace function public\.get_quiz_answer_keys/i);
+  assert.match(sql, /revoke all on function public\.get_quiz_answer_keys\(uuid\[\]\) from public, anon, authenticated/i);
+  assert.match(sql, /grant execute on function public\.get_quiz_answer_keys\(uuid\[\]\) to service_role/i);
+});
+
+test('atomic writes exist for quizzes, lessons, flashcards, vocabulary and refunds', () => {
+  for (const fn of ['reserve_quiz_attempt', 'finalize_quiz_attempt', 'persist_lesson_progress', 'persist_flashcard_review', 'persist_vocabulary_review', 'record_payment_refund']) {
+    assert.match(sql, new RegExp(`create or replace function public\\.${fn}`, 'i'), `${fn} RPC missing`);
+  }
+});
+
+test('FSRS review writes enforce daily new/review quotas under an activity-row lock', () => {
+  assert.match(sql, /_daily_new_limit integer/i);
+  assert.match(sql, /_daily_review_limit integer/i);
+  assert.match(sql, /for update;/i);
+  assert.match(sql, /Daily new-card limit reached/i);
+  assert.match(sql, /Daily review limit reached/i);
+});
+
+test('trusted heartbeat table is blocked from browser roles', () => {
+  assert.match(sql, /revoke all on public\.user_activity_heartbeat from public, anon, authenticated/i);
+  assert.match(sql, /grant all privileges on public\.user_activity_heartbeat to service_role/i);
+});
+
+
+test('refund ledger supports local idempotency before provider submission', () => {
+  assert.match(sql, /add column if not exists idempotency_key text/i);
+  assert.match(sql, /payment_refunds_idempotency_uidx/i);
+  assert.match(sql, /record_payment_refund/i);
+});
