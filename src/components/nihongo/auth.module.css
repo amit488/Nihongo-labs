@@ -1,1 +1,39 @@
-.authPage{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;background:#f7f8f5;color:#20352e;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.authVisual{background:#203e34;padding:29px 42px;display:flex;flex-direction:column;position:relative;overflow:hidden;color:#edf3ee}.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}.brandMark{width:38px;height:38px;border-radius:12px;background:#e6a47b;color:#254337;display:grid;place-items:center;font-family:Georgia,serif;font-size:22px}.brand strong{font-size:20px;letter-spacing:-.8px;display:block;line-height:1}.brand strong span{color:#e6a47b}.brand small{display:block;color:#a9bcb0;font-size:8px;letter-spacing:1.5px;margin-top:5px;font-weight:700}.visualCopy{position:relative;z-index:1;margin:auto 0;max-width:510px;padding:50px 0}.visualEyebrow,.authEyebrow{font-size:9px;letter-spacing:1.8px;font-weight:800;color:#a6bdb0}.visualKanji{font-family:Georgia,serif;font-size:190px;line-height:.95;color:#e9ac84;opacity:.92;margin:16px 0 4px;text-shadow:0 22px 80px #0f231c}.visualCopy h1{font-family:Georgia,serif;font-weight:500;font-size:42px;line-height:1.04;letter-spacing:-1px;margin:0;color:#f4f2e9}.visualCopy h1 em{font-weight:400;color:#e6a87f}.visualCopy p{max-width:370px;font-size:11px;line-height:1.8;color:#c0d0c5;margin-top:16px}.visualFooter{font-size:9px;color:#91a99b;letter-spacing:.5px}.visualFooter span{color:#e5a47a;margin-left:8px}.authPanel{display:grid;place-items:center;padding:36px}.authCard{width:100%;max-width:390px}.authEyebrow{color:#6c9177}.authCard h2{font-family:Georgia,serif;font-size:30px;font-weight:500;letter-spacing:-.7px;line-height:1.12;margin:13px 0 9px}.authCard>p{font-size:10px;line-height:1.7;color:#8b9990;margin:0 0 24px}.authCard form{display:flex;flex-direction:column;gap:14px}.authCard label{display:flex;flex-direction:column;gap:7px;font-size:9px;color:#52665a;font-weight:750}.authCard input{height:42px;border:1px solid #e0e8e0;background:#fff;border-radius:8px;padding:0 12px;font:inherit;font-size:10px;color:#32483b;outline-color:#7ca68a}.authCard input::placeholder{color:#adb7b0;font-weight:400}.authCard form button{height:43px;border:0;border-radius:8px;background:#2d5745;color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:16px;cursor:pointer;margin-top:6px;transition:background .18s,transform .18s}.authCard form button:hover{background:#3a7158;transform:translateY(-1px)}.authCard form button:disabled{opacity:.55;cursor:wait}.authMessage{margin-top:14px;background:#eef5ef;border:1px solid #d9e9db;color:#557a60;border-radius:7px;padding:10px;font-size:9px;line-height:1.55}.authSwitch{font-size:9px;text-align:center;color:#87958d;margin-top:21px}.authSwitch a{color:#4b8462;font-weight:800;text-decoration:none;margin-left:3px}.authLegal{text-align:center;color:#a3ada6;font-size:8px;margin-top:33px}.authLegal a{color:#71887a;text-decoration:underline}.authMobileBrand{display:none}.authMobileBrand .brandMark{display:inline-grid;vertical-align:middle;margin-right:8px}.authMobileBrand strong{font-size:18px}.authMobileBrand strong span{color:#d68f65}@media(max-width:760px){.authPage{grid-template-columns:1fr}.authVisual{display:none}.authPanel{padding:25px 18px;min-height:100vh;align-content:center}.authMobileBrand{display:block;margin-bottom:35px;text-align:center;color:#244a39}.authCard h2{font-size:27px}}
+.authPage{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;background:#f7f8fa;color:#17212b;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.authVisual{background:linear-gradient(145deg,#f6efec 0%,#f1e6e2 58%,#f8f3f0 100%);padding:29px 42px;display:flex;flex-direction:column;position:relative;overflow:hidden;color:#17212b}
+.authVisual:after{content:"";position:absolute;width:430px;height:430px;border:1px solid rgba(181,76,67,.12);border-radius:50%;right:-190px;bottom:-190px;box-shadow:0 0 0 34px rgba(181,76,67,.035),0 0 0 72px rgba(181,76,67,.025)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;position:relative;z-index:1}
+.brandMark{width:38px;height:38px;border-radius:11px;background:#b54c43;color:#fff;display:grid;place-items:center;font-family:Georgia,serif;font-size:22px;box-shadow:0 7px 18px rgba(181,76,67,.18)}
+.brand strong{font-size:20px;letter-spacing:-.8px;display:block;line-height:1;color:#17212b}
+.brand strong span{color:#b54c43}
+.brand small{display:block;color:#687682;font-size:8px;letter-spacing:1.5px;margin-top:5px;font-weight:700}
+.visualCopy{position:relative;z-index:1;margin:auto 0;max-width:510px;padding:50px 0}
+.visualEyebrow,.authEyebrow{font-size:9px;letter-spacing:1.8px;font-weight:800;color:#b54c43}
+.visualKanji{font-family:Georgia,serif;font-size:190px;line-height:.95;color:#b54c43;opacity:.88;margin:16px 0 4px;text-shadow:0 18px 55px rgba(181,76,67,.10)}
+.visualCopy h1{font-family:Georgia,serif;font-weight:500;font-size:42px;line-height:1.04;letter-spacing:-1px;margin:0;color:#17212b}
+.visualCopy h1 em{font-weight:400;color:#b54c43}
+.visualCopy p{max-width:370px;font-size:11px;line-height:1.8;color:#687682;margin-top:16px}
+.visualFooter{font-size:9px;color:#687682;letter-spacing:.5px;position:relative;z-index:1}
+.visualFooter span{color:#b54c43;margin-left:8px}
+.authPanel{display:grid;place-items:center;padding:36px;background:#f7f8fa}
+.authCard{width:100%;max-width:390px}
+.authEyebrow{color:#b54c43}
+.authCard h2{font-family:Georgia,serif;font-size:30px;font-weight:500;letter-spacing:-.7px;line-height:1.12;margin:13px 0 9px;color:#17212b}
+.authCard>p{font-size:10px;line-height:1.7;color:#687682;margin:0 0 24px}
+.authCard form{display:flex;flex-direction:column;gap:14px}
+.authCard label{display:flex;flex-direction:column;gap:7px;font-size:9px;color:#46515c;font-weight:750}
+.authCard input{height:42px;border:1px solid #e6e9ed;background:#fff;border-radius:8px;padding:0 12px;font:inherit;font-size:10px;color:#17212b;outline:none;transition:border-color .18s,box-shadow .18s}
+.authCard input:focus{border-color:#b54c43;box-shadow:0 0 0 3px rgba(181,76,67,.12)}
+.authCard input::placeholder{color:#a3adb5;font-weight:400}
+.authCard form button{height:43px;border:0;border-radius:8px;background:#b54c43;color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:16px;cursor:pointer;margin-top:6px;transition:background .18s,transform .18s}
+.authCard form button:hover{background:#913b35;transform:translateY(-1px)}
+.authCard form button:disabled{opacity:.55;cursor:wait}
+.authMessage{margin-top:14px;background:#f5e8e5;border:1px solid #edd3ce;color:#913b35;border-radius:7px;padding:10px;font-size:9px;line-height:1.55}
+.authSwitch{font-size:9px;text-align:center;color:#687682;margin-top:21px}
+.authSwitch a{color:#b54c43;font-weight:800;text-decoration:none;margin-left:3px}
+.authLegal{text-align:center;color:#9aa4ad;font-size:8px;margin-top:33px}
+.authLegal a{color:#913b35;text-decoration:underline}
+.authMobileBrand{display:none}
+.authMobileBrand .brandMark{display:inline-grid;vertical-align:middle;margin-right:8px}
+.authMobileBrand strong{font-size:18px;color:#17212b}
+.authMobileBrand strong span{color:#b54c43}
+@media(max-width:760px){.authPage{grid-template-columns:1fr}.authVisual{display:none}.authPanel{padding:25px 18px;min-height:100vh;align-content:center}.authMobileBrand{display:block;margin-bottom:35px;text-align:center;color:#17212b}.authCard h2{font-size:27px}}
