@@ -14,3 +14,7 @@
 .vocabCardBody{display:block;width:100%;border:0;background:transparent;text-align:left;color:inherit;padding:8px 18px 14px;cursor:pointer}
 
 .kanjiFamiliarity{margin-top:15px;padding-top:13px;border-top:1px solid #e6e9ed;display:flex;flex-direction:column;gap:10px}.kanjiFamiliarity>span{font-size:12px;font-weight:650;color:#46515c}.kanjiFamiliarity>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kanjiFamiliarity button{border:1px solid #e2e6eb;background:#fff;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;color:#45515d;cursor:pointer}.kanjiFamiliarity button:last-child{background:#faf0ee;border-color:#de978c;color:#aa5047}.kanjiFamiliarity small{font-size:10px;color:#8995a1}
+
+@media(max-width:1100px){.kanjiLayout{grid-template-columns:minmax(0,1fr) 280px}.kanjiTile span{font-size:13px}}
+@media(max-width:780px){.kanjiLayout{grid-template-columns:1fr}.kanjiDetail{position:static;grid-row:1}.kanjiGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.kanjiTile{min-height:126px}.kanjiTile span{font-size:13px}}
+@media(max-width:480px){.kanjiGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.kanjiTile strong{font-size:40px}.kanjiTile span{font-size:13px}.kanjiDetail{padding:16px}.kanjiMeaning{font-size:18px}}
