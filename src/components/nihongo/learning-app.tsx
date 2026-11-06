@@ -184,7 +184,7 @@ export default function LearningApp({ section = [] }: Props) {
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} onContinue={() => router.push('/learn/grammar')} />}
-          {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} />}
+          {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
           {active === 'practice' && <Practice signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'vocabulary' && <Vocabulary items={filteredVocabulary} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'kanji' && <Kanji items={filteredKanji} />}
@@ -235,7 +235,7 @@ function FocusCard({ number, title, description, meta, tag, href, tone }: { numb
   return <Link href={href} className={`${styles.focusCard} ${styles[`focus_${tone}`]}`}><div className={styles.focusTop}><span>{number}</span><small>{tag} ↗</small></div><h3>{title}</h3><p>{description}</p><div className={styles.focusMeta}><span>◷ {meta}</span><span>→</span></div></Link>;
 }
 
-function GrammarStudio({ items, romaji, setRomaji }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void }) {
+function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean }) {
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [showExample, setShowExample] = useState(true);
   const [saved, setSaved] = useState<string[]>([]);
@@ -243,6 +243,10 @@ function GrammarStudio({ items, romaji, setRomaji }: { items: GrammarItem[]; rom
   const item = items.find((row) => row.id === selected) || items[0];
   async function toggleSave() {
     if (!item) return;
+    if (!signedIn) {
+      setNotice('Sign in to save grammar notes to your bookmarks.');
+      return;
+    }
     const isSaved = saved.includes(item.id);
     const response = await fetch('/api/learning/bookmarks', { method: isSaved ? 'DELETE' : 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resourceType: 'grammar', resourceId: item.id }) });
     const body = await response.json().catch(() => ({}));
@@ -251,19 +255,26 @@ function GrammarStudio({ items, romaji, setRomaji }: { items: GrammarItem[]; rom
     setNotice(isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
   }
   useEffect(() => {
+    if (!signedIn) {
+      setSaved([]);
+      return;
+    }
+    let active = true;
     fetch('/api/learning/bookmarks', { credentials: 'same-origin', cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<unknown> : null)
       .then((body) => {
+        if (!active) return;
         const items = asRecord(body)?.items;
         if (!Array.isArray(items)) return;
-        const savedIds = items.flatMap((item) => {
-          const row = asRecord(item);
+        const savedIds = items.flatMap((entry) => {
+          const row = asRecord(entry);
           return row?.resource_type === 'grammar' && typeof row.resource_id === 'string' ? [row.resource_id] : [];
         });
         setSaved(savedIds);
       })
       .catch(() => undefined);
-  }, []);
+    return () => { active = false; };
+  }, [signedIn]);
   if (!item) return <EmptyState title="Grammar lessons are being prepared" description="Published grammar points will appear here once your content team adds them to the N5 curriculum." />;
   return <><SectionHeading eyebrow="BUILD YOUR FOUNDATION" title="Grammar, made clear." description="Understand the patterns behind everyday Japanese, one idea at a time." action={<button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/><div className={styles.splitLayout}><div className={styles.lessonList}>{items.map((row,i)=><button type="button" key={row.id} onClick={()=>{setSelected(row.id);setShowExample(true);}} className={`${styles.lessonRow} ${item.id===row.id?styles.lessonRowActive:''}`}><span className={styles.lessonNumber}>{String(i+1).padStart(2,'0')}</span><span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span><span className={styles.lessonArrow}>→</span></button>)}</div><div className={styles.lessonDetail}><div className={styles.eyebrow}>GRAMMAR NOTE · JLPT N5</div><div className={styles.patternChip}>{item.pattern}</div><h2>{item.title}</h2><p>{item.explanation}</p><div className={styles.formationBox}><span>FORMATION</span><strong>{item.formation}</strong></div><div className={styles.exampleHeader}><strong>Examples in context</strong><button type="button" onClick={()=>setShowExample((v)=>!v)}>{showExample?'Hide':'Show'} examples</button></div>{showExample && item.examples.map((example,i)=><div className={styles.exampleCard} key={i}><strong className={styles.japaneseText}>{example.japanese}</strong>{romaji?<small>{example.romaji}</small>:null}<p>{example.meaning}</p></div>)}<button type="button" className={styles.primaryButton} onClick={()=>void toggleSave()}>{saved.includes(item.id)?'Saved grammar note':'Save grammar note'} <span>{saved.includes(item.id)?'★':'☆'}</span></button>{notice?<small className={styles.mutedMeta}>{notice}</small>:null}</div></div></>;
 }
