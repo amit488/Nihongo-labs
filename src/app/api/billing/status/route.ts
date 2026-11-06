@@ -5,7 +5,7 @@ import { getBillingStatus } from '@/lib/nihongo/server/services/billing';
 
 
 export async function GET() {
-    await connection();
+  await connection();
   try {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
