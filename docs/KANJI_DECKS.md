@@ -1,0 +1,21 @@
+# Nihongo Labs Kanji Decks
+
+## Decks
+
+- N5: product-owner supplied list, curated content seed reused from the existing starter N5 data.
+- N4: product-owner supplied list, with English glosses, readings, example vocabulary and stroke metadata.
+- The JLPT does not publish a fixed official kanji inventory per level. These are Nihongo Labs curriculum groupings and should be editorially reviewed before launch.
+
+## Apply the migration
+
+Run `supabase/migrations/20261107010000_kanji_n5_n4_decks.sql` against the project database.
+
+## Routes
+
+- `GET /api/learning/content?kind=kanji&level=N5|N4&limit=250`
+- `GET /api/kanji/progress?level=N5|N4` (authenticated)
+- `POST /api/kanji/review` with `{ "kanjiId": "<uuid>", "status": "known" | "learning" }` (authenticated)
+
+## UI
+
+The learning workspace kanji area has N5/N4 tabs, search, selectable cards and a flipped detail panel. Meaning/reading typography has been increased to improve legibility. Familiarity controls are enabled when signed in.
