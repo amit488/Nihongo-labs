@@ -34,7 +34,7 @@ const kana = {
 };
 
 export async function GET(request: NextRequest) {
-    await connection();
+  await connection();
   try {
     const kind = request.nextUrl.searchParams.get('kind') || 'grammar';
     const level = request.nextUrl.searchParams.get('level') || 'N5';
