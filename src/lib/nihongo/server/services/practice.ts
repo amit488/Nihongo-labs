@@ -9,6 +9,15 @@ type QuizAnswerKey = {
   answer_key: JsonValue;
   explanation: JsonValue;
 };
+type QuizOptionRow = { option_key: string; option_content: JsonValue; sort_order: number };
+type QuizQuestionRow = {
+  id: string; question_type: string; prompt: JsonValue; points: number;
+  sort_order: number; media_asset_id: string | null; quiz_options: QuizOptionRow[] | null;
+};
+type GradedResponse = {
+  attempt_id: string; user_id: string; question_id: string; response: unknown;
+  is_correct: boolean; points_awarded: number; answered_at: string;
+};
 
 export async function startQuizAttempt(userClient: SupabaseClient, admin: SupabaseClient, userId: string, quizId: string) {
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
@@ -26,26 +35,28 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
     if (!entitlement) throw new HttpError(403, requiredFeature === 'mock_exams' ? 'Mock examinations require the Plus plan.' : 'This quiz requires Premium access.');
   }
 
-  let questionQuery = userClient.from('quiz_questions')
+  const questionQuery = userClient.from('quiz_questions')
     .select('id,question_type,prompt,points,sort_order,media_asset_id,quiz_options(id,option_key,option_content,sort_order)')
     .eq('quiz_id', quizId).eq('is_active', true).order('sort_order', { ascending: true });
   const { data: questions, error: questionsError } = await questionQuery;
   if (questionsError) throw new HttpError(500, 'Could not load quiz questions.', questionsError.message);
   if (!questions?.length) throw new HttpError(409, 'This quiz has no published questions yet.');
-  const orderedQuestions = [...questions];
+  const orderedQuestions = [...(questions as unknown as QuizQuestionRow[])];
   if (quiz.shuffle_questions) {
     for (let index = orderedQuestions.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(Math.random() * (index + 1));
       [orderedQuestions[index], orderedQuestions[swap]] = [orderedQuestions[swap], orderedQuestions[index]];
     }
   }
-  const safeQuestions = orderedQuestions.map((question: any) => ({
+  const safeQuestions = orderedQuestions.map((question) => ({
     id: question.id,
     type: question.question_type,
     prompt: question.prompt,
     points: Number(question.points),
     mediaAssetId: question.media_asset_id,
-    options: (question.quiz_options ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((option: any) => ({ key: option.option_key, content: option.option_content })),
+    options: [...(question.quiz_options ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((option) => ({ key: option.option_key, content: option.option_content })),
   }));
 
   const { data: reserved, error: attemptError } = await admin.rpc('reserve_quiz_attempt', {
@@ -102,7 +113,7 @@ export async function submitQuizAttempt(
 
   let totalPoints = 0;
   let earnedPoints = 0;
-  const graded: any[] = [];
+  const graded: GradedResponse[] = [];
   for (const question of questions) {
     const points = Number(question.points);
     totalPoints += points;
