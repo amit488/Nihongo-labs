@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { billingProfileSchema } from '@/lib/nihongo/server/validation';
@@ -7,6 +7,7 @@ import { getBillingProfile, saveBillingProfile } from '@/lib/nihongo/server/serv
 
 export async function GET() {
   try {
+    await connection();
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     return NextResponse.json({ profile: await getBillingProfile(context.supabase, context.user.id) }, { headers: { 'Cache-Control': 'private, no-store' } });
