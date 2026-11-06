@@ -7,7 +7,7 @@ import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedKanji, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot, type ReadingPassage } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
-import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, kanaRows, katakanaRows, kanaRomajiRows } from '@/lib/nihongo/demo-content';
+import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
