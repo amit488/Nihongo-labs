@@ -334,7 +334,7 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   const countdownRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const current = questions[index];
-  const prompt = asJsonObject(current?.prompt) ?? { text: String(current?.prompt ?? '') };
+  const prompt: JsonObject = asJsonObject(current?.prompt) ?? { text: String(current?.prompt ?? '') };
   const savedResponse = current ? responses[current.id] : undefined;
   const typed = typeof savedResponse === 'string' ? savedResponse : '';
   const ordered = Array.isArray(savedResponse)
