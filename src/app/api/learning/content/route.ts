@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
@@ -19,6 +19,7 @@ const kana = {
 
 export async function GET(request: NextRequest) {
   try {
+    await connection();
     const kind = request.nextUrl.searchParams.get('kind') || 'grammar';
     const level = request.nextUrl.searchParams.get('level') || 'N5';
     const rawSearch = request.nextUrl.searchParams.get('q')?.trim() ?? '';
