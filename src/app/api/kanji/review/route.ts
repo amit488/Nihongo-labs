@@ -1,4 +1,5 @@
-import { connection, NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { z } from 'zod';
@@ -10,7 +11,6 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    await connection();
     assertSameOrigin(request);
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
@@ -34,5 +34,8 @@ export async function POST(request: NextRequest) {
     }, { onConflict: 'user_id,kanji_id' }).select('kanji_id,status,repetitions,interval_days,due_at,last_reviewed_at').single();
     if (error) throw new HttpError(500, 'Could not save kanji progress.', error.message);
     return NextResponse.json({ progress: data });
-  } catch (error) { return jsonError(error); }
+  } catch (error) {
+    unstable_rethrow(error);
+    return jsonError(error);
+  }
 }
