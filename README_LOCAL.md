@@ -148,7 +148,7 @@ npx supabase stop
 npx supabase start
 ```
 
-The local signup flow sends users to `/auth/callback?next=/learn`. The callback exchanges Supabase's PKCE authorization code for a cookie-backed session. Ask users to open the confirmation email in the same browser where they started signup so the PKCE verifier cookie is available.
+The local signup flow sends users to `/auth/callback?next=/learn`. The callback exchanges Supabase's PKCE authorization code for a cookie-backed session. Ask users to open the confirmation email in the same browser where they started signup so the PKCE verifier cookie is available. Keep the Supabase **Confirm signup** email template's link based on `{{ .ConfirmationURL }}`; this application exchanges the PKCE `code` at `/auth/callback`. Do not replace it with a direct `{{ .TokenHash }}` URL unless you also implement the matching `verifyOtp` callback.
 
 For local email testing, open the mail catcher exposed by the local Supabase stack (normally `http://localhost:54324`) and use the message there. Local emails are captured for testing; they are not delivered to real inboxes.
 
