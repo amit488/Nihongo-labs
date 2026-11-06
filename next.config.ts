@@ -1,17 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  // Next.js handles global CSS and CSS Modules natively. Do not route
+  // *.module.css files through the Tailwind Turbopack loader: doing so
+  // turns CSS Modules into plain CSS and leaves imported class maps empty.
 };
 
 export default nextConfig;
