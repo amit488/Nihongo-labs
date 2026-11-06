@@ -9,9 +9,6 @@ import {
   syncSubscriptionEvent,
 } from '@/lib/nihongo/server/services/billing';
 
-export const runtime = 'nodejs';
-
-
 const MAX_WEBHOOK_BYTES = 1_000_000;
 const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 
