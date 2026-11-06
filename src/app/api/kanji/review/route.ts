@@ -1,10 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { z } from 'zod';
-
-// Authenticated routes read request cookies and must not be prerendered.
-export const dynamic = 'force-dynamic';
 
 const schema = z.object({
   kanjiId: z.string().uuid(),
@@ -13,6 +10,7 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    await connection();
     assertSameOrigin(request);
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
