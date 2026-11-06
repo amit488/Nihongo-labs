@@ -11,3 +11,24 @@
 
 .headingActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .vocabCardBody{display:block;width:100%;border:0;background:transparent;text-align:left;color:inherit;padding:8px 18px 14px;cursor:pointer}
+
+
+/* Kana chart readability: larger characters, headings and romaji labels. */
+.kanaChartHeader strong{font-size:21px;font-weight:600;color:#232c37}
+.kanaChartHeader>div>span{font-size:12px;line-height:1.5;color:#667381}
+.kanaCell{height:72px;gap:5px}
+.kanaCell strong{font-size:27px;font-weight:600}
+.kanaCell span{font-size:14px;line-height:1.2;font-weight:650;color:#525e6a}
+.kanaBlank{height:72px}
+.kanaExtraHeader{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 12px;padding-top:17px;border-top:1px solid #e6e9ed}
+.kanaExtraHeader strong{font-family:Georgia,serif;font-size:18px;font-weight:600;color:#232c37}
+.kanaExtraHeader span{font-size:11px;color:#73808c}
+@media(max-width:480px){
+  .kanaChartHeader strong{font-size:19px}
+  .kanaChartHeader>div>span{font-size:11px}
+  .kanaCell{height:65px}
+  .kanaCell strong{font-size:24px}
+  .kanaCell span{font-size:13px}
+  .kanaBlank{height:65px}
+  .kanaExtraHeader{align-items:flex-start;flex-direction:column;gap:4px}
+}
