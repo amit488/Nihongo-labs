@@ -30,6 +30,7 @@ export default function AuthForm({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
   const [confirmationMessage, setConfirmationMessage] = useState('');
+  const [confirmationFeedbackError, setConfirmationFeedbackError] = useState(false);
   const [resending, setResending] = useState(false);
   const signup = mode === 'signup';
 
@@ -46,6 +47,7 @@ export default function AuthForm({
       if (result.confirmationRequired) {
         setConfirmationEmail(result.email || email.trim());
         setConfirmationMessage(result.message);
+        setConfirmationFeedbackError(false);
         setShowConfirmation(true);
         return;
       }
@@ -63,14 +65,17 @@ export default function AuthForm({
     if (!confirmationEmail || resending) return;
     setResending(true);
     setConfirmationMessage('');
+    setConfirmationFeedbackError(false);
 
     try {
       const result = await resendSignupConfirmationAction(confirmationEmail);
       setConfirmationMessage(result.message);
+      setConfirmationFeedbackError(!result.success);
     } catch (error) {
       setConfirmationMessage(
         error instanceof Error ? error.message : 'We could not resend the confirmation email. Please try again.',
       );
+      setConfirmationFeedbackError(true);
     } finally {
       setResending(false);
     }
@@ -123,7 +128,7 @@ export default function AuthForm({
                 <span>↗</span>
               </button>
               {confirmationMessage ? (
-                <div className={styles.confirmationFeedback} role="status">{confirmationMessage}</div>
+                <div className={confirmationFeedbackError ? styles.confirmationFeedbackError : styles.confirmationFeedback} role="status">{confirmationMessage}</div>
               ) : null}
               <button type="button" className={styles.confirmationSecondary} onClick={useDifferentEmail}>
                 Use a different email address
