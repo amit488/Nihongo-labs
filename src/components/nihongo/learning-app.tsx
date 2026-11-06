@@ -532,6 +532,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   const [flipped, setFlipped] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Record<string, 'known' | 'learning'>>({});
+  const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
@@ -541,6 +542,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
 
   useEffect(() => {
     let alive = true;
+    void fetch('/api/kanji/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<{ signedIn?: boolean }> : null).then((body) => { if (alive) setSignedIn(Boolean(body?.signedIn)); }).catch(() => undefined);
     setLoading(true);
     setNotice('');
     void fetch(`/api/learning/content?kind=kanji&level=${level}&limit=250`, { credentials: 'same-origin', cache: 'no-store' })
@@ -573,8 +575,8 @@ function Kanji({ items }: { items: KanjiItem[] }) {
     setNotice(value === 'known' ? 'Marked as known.' : 'Added to your learning review.');
     try {
       const response = await fetch('/api/kanji/review', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kanjiId:selectedItem.id, status:value }) });
-      if (!response.ok && response.status !== 401) throw new Error('Progress could not be saved. Please try again.');
-      if (response.status === 401) setNotice('Preview: sign in to save your kanji progress.');
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || (response.status === 401 ? 'Sign in to save your kanji progress.' : 'Progress could not be saved.')); }
+      setNotice(value === 'known' ? 'Your progress has been saved.' : 'Added to your review list.');
     } catch { setNotice('Your selection is shown for this session, but could not be saved.'); }
   }
 
@@ -605,7 +607,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
             <div className={styles.kanjiExample}><small>EXAMPLE WORD</small><strong>{selectedItem.example||'Examples being prepared'}</strong><span>{selectedItem.exampleMeaning||'See the readings above for common usage.'}</span></div>
             <div className={styles.kanjiFamiliarity}>
               <span>How familiar are you with this kanji?</span>
-              <div><button type="button" onClick={()=>void markFamiliarity('learning')}>Still learning</button><button type="button" onClick={()=>void markFamiliarity('known')}>Know it ✓</button></div>
+              <div><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} onClick={()=>void markFamiliarity('learning')}>Still learning</button><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} onClick={()=>void markFamiliarity('known')}>Know it ✓</button></div>
               <small>{status[selectedItem.id]==='known'?'Marked as known':status[selectedItem.id]==='learning'?'In your learning review':'Not reviewed yet'}</small>
             </div>
           </div> : null}
