@@ -14,7 +14,7 @@ type QuizListRow = {
 };
 
 export async function GET(request: NextRequest) {
-    await connection();
+  await connection();
   try {
     const kind = request.nextUrl.searchParams.get('kind') || 'practice';
     const supabase = await createServerSupabase();
