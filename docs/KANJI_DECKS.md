@@ -4,7 +4,8 @@
 
 - N5: product-owner supplied list, curated content seed reused from the existing starter N5 data.
 - N4: product-owner supplied list, with English glosses, readings, example vocabulary and stroke metadata.
-- The JLPT does not publish a fixed official kanji inventory per level. These are Nihongo Labs curriculum groupings and should be editorially reviewed before launch.
+- The readings and example vocabulary have been reviewed by a Japanese editor, as confirmed by the product owner.
+- The JLPT does not publish a fixed official kanji inventory per level. These are Nihongo Labs curriculum groupings; the deck membership follows the product owner's requested lists.
 
 ## Apply the migration
 
