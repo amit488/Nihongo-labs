@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest) {
       Object.keys(preferencePatch).length ? context.supabase.from('user_preferences').update(preferencePatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
       Object.keys(flashcardPatch).length ? context.supabase.from('user_flashcard_settings').update(flashcardPatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
     ]);
-    const failure = results.find((result: any) => result.error)?.error;
+    const failure = results.map((result) => result.error).find((error) => error !== null);
     if (failure) throw new HttpError(500, 'Could not save account settings.', failure.message);
     return NextResponse.json({ saved: true });
   } catch (error) { return jsonError(error); }
