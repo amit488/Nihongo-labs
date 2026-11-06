@@ -1,6 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
+
+type FlashcardContentRow = {
+  id: string; deck_id: string; front_text: string; back_text: string;
+  front_reading: string | null; back_reading: string | null;
+  front_romaji: string | null; back_romaji: string | null;
+  hint: string | null; example_sentence: string | null; example_translation: string | null;
+  sort_order: number; source_type: string | null;
+};
+type FlashcardDeckRow = { id: string; slug: string; title: string; flashcards: FlashcardContentRow[] | null };
+type ReadingBlockRow = { id: string; block_type: string; content: Record<string, unknown>; sort_order: number };
+type ReadingLessonRow = {
+  id: string; title: string; lesson_type: string; publication_status: string;
+  lesson_content_blocks: ReadingBlockRow[] | null;
+};
+type ReadingUnitRow = { id: string; lessons: ReadingLessonRow[] | null };
+type ReadingCourseRow = { id: string; course_units: ReadingUnitRow[] | null };
 
 const kana = {
   hiragana: [
@@ -18,6 +34,7 @@ const kana = {
 };
 
 export async function GET(request: NextRequest) {
+  await connection();
   try {
     const kind = request.nextUrl.searchParams.get('kind') || 'grammar';
     const level = request.nextUrl.searchParams.get('level') || 'N5';
@@ -62,23 +79,27 @@ export async function GET(request: NextRequest) {
         .select('id,slug,title,description,jlpt_level,access_level,deck_type,flashcards(id,deck_id,front_text,back_text,front_reading,back_reading,front_romaji,back_romaji,hint,example_sentence,example_translation,sort_order,source_type)')
         .eq('deck_type', 'official').eq('jlpt_level', level).eq('visibility', 'public').eq('publication_status', 'published').limit(limit);
       if (deckError) throw new HttpError(500, 'Could not load flashcard decks.', deckError.message);
-      const items = (decks ?? []).flatMap((deck: any) => (deck.flashcards ?? [])
-        .sort((a: any, b: any) => a.sort_order - b.sort_order)
-        .map((card: any) => ({ ...card, deckId: deck.id, deckTitle: deck.title, deckSlug: deck.slug })));
+      const deckRows = (decks ?? []) as unknown as FlashcardDeckRow[];
+      const items = deckRows.flatMap((deck) => [...(deck.flashcards ?? [])]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((card) => ({ ...card, deckId: deck.id, deckTitle: deck.title, deckSlug: deck.slug })));
       return NextResponse.json({ items }, { headers: { 'Cache-Control': 'private, max-age=30' } });
     }
     if (kind === 'reading') {
       const { data, error } = await supabase.from('courses').select('id,course_units(id,lessons(id,slug,title,summary,lesson_type,publication_status,access_level,lesson_content_blocks(id,block_type,content,sort_order)))').eq('jlpt_level', level).eq('publication_status', 'published').limit(10);
       if (error) throw new HttpError(500, 'Could not load reading lessons.', error.message);
-      const lessons = (data ?? []).flatMap((course: any) =>
-        (course.course_units ?? []).flatMap((unit: any) =>
-          (unit.lessons ?? []).filter((lesson: any) =>
+      const courseRows = (data ?? []) as unknown as ReadingCourseRow[];
+      const lessons = courseRows.flatMap((course) =>
+        (course.course_units ?? []).flatMap((unit) =>
+          (unit.lessons ?? []).filter((lesson) =>
             lesson.publication_status === 'published' &&
             (lesson.lesson_type === 'lesson' || lesson.lesson_type === 'practice'),
           ),
         ),
       );
-      const passages = lessons.flatMap((lesson: any) => (lesson.lesson_content_blocks ?? []).filter((block: any) => block.block_type === 'rich_text' && block.content?.kind === 'reading_passage').map((block: any) => ({ lessonId: lesson.id, lessonTitle: lesson.title, ...block.content })));
+      const passages = lessons.flatMap((lesson) => (lesson.lesson_content_blocks ?? [])
+        .filter((block) => block.block_type === 'rich_text' && block.content.kind === 'reading_passage')
+        .map((block) => ({ lessonId: lesson.id, lessonTitle: lesson.title, ...block.content })));
       return NextResponse.json({ items: passages.slice(0, limit) }, { headers: { 'Cache-Control': 'private, max-age=30' } });
     }
     throw new HttpError(400, 'Unsupported content kind. Use grammar, vocabulary, kanji, kana, courses, flashcards or reading.');

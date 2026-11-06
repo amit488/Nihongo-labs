@@ -5,7 +5,6 @@ import { verifyPaymentSchema } from '@/lib/nihongo/server/validation';
 import { verifyCheckoutSignature, razorpayRequest } from '@/lib/nihongo/server/services/razorpay';
 import { activateLifetimeOrder } from '@/lib/nihongo/server/services/billing';
 
-export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);

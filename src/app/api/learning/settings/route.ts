@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { settingsSchema } from '@/lib/nihongo/server/validation';
 
 
 export async function GET() {
+  await connection();
   try {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
@@ -45,7 +46,7 @@ export async function PATCH(request: NextRequest) {
       Object.keys(preferencePatch).length ? context.supabase.from('user_preferences').update(preferencePatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
       Object.keys(flashcardPatch).length ? context.supabase.from('user_flashcard_settings').update(flashcardPatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
     ]);
-    const failure = results.find((result: any) => result.error)?.error;
+    const failure = results.map((result) => result.error).find((error) => error !== null);
     if (failure) throw new HttpError(500, 'Could not save account settings.', failure.message);
     return NextResponse.json({ saved: true });
   } catch (error) { return jsonError(error); }

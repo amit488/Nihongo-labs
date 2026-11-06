@@ -1,11 +1,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '../http';
-import { razorpayRequest, unixToIso } from './razorpay';
+import { razorpayRequest, unixToIso, type RazorpayResponse } from './razorpay';
 
 type Plan = {
   id: string; code: string; name: string; description: string | null; plan_kind: string;
   amount_minor: number; currency: string; billing_interval: 'month' | 'year' | 'lifetime';
   interval_count: number; provider_price_id: string | null; is_active: boolean;
+};
+
+type PlanFeatureRow = { feature_key: string; feature_value: unknown };
+type PlanRow = {
+  id: string; code: string; name: string; description: string | null; plan_kind: string;
+  amount_minor: number; currency: string; billing_interval: 'month' | 'year' | 'lifetime';
+  interval_count: number; plan_features: PlanFeatureRow[] | null;
+};
+type BillingOwnerRef = { id: string; user_id: string | null };
+type EntitlementRow = { feature_key: string };
+type PlanFeature = { key: string; value: unknown };
+type PlanSummary = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  planKind: string;
+  amountMinor: number;
+  currency: string;
+  billingInterval: 'month' | 'year' | 'lifetime';
+  intervalCount: number;
+  features: PlanFeature[];
 };
 
 function isEnabledFeature(value: unknown): boolean {
@@ -26,7 +48,8 @@ async function syncPlanEntitlements(
     .select('feature_key,feature_value').eq('plan_id', input.planId);
   if (featureError) throw new HttpError(500, 'Could not load purchased plan features.', featureError.message);
 
-  const enabled = (features ?? []).filter((feature: any) => isEnabledFeature(feature.feature_value));
+  const featureRows = (features ?? []) as PlanFeatureRow[];
+  const enabled = featureRows.filter((feature) => isEnabledFeature(feature.feature_value));
   for (const feature of enabled) {
     let lookup = admin.from('user_entitlements').select('id')
       .eq('user_id', input.userId).eq('feature_key', feature.feature_key)
@@ -48,19 +71,20 @@ async function syncPlanEntitlements(
     if (insertError?.code === '23505') continue; // another identical webhook created the entitlement first
     if (insertError) throw new HttpError(500, `Could not activate ${feature.feature_key} entitlement.`, insertError.message);
   }
-  return enabled.map((feature: any) => String(feature.feature_key));
+  return enabled.map((feature) => feature.feature_key);
 }
 
-export async function listPlans(supabase: SupabaseClient) {
+export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]> {
   const { data: plans, error } = await supabase.from('subscription_plans')
     .select('id,code,name,description,plan_kind,amount_minor,currency,billing_interval,interval_count,is_active,display_order,plan_features(feature_key,feature_value)')
     .eq('is_active', true).order('display_order');
   if (error) throw new HttpError(500, 'Could not load subscription plans.', error.message);
-  return (plans ?? []).map((plan: any) => ({
+  const planRows = (plans ?? []) as PlanRow[];
+  return planRows.map((plan) => ({
     id: plan.id, code: plan.code, name: plan.name, description: plan.description,
     planKind: plan.plan_kind, amountMinor: Number(plan.amount_minor), currency: plan.currency,
     billingInterval: plan.billing_interval, intervalCount: plan.interval_count,
-    features: (plan.plan_features ?? []).map((item: any) => ({ key: item.feature_key, value: item.feature_value })),
+    features: (plan.plan_features ?? []).map((item) => ({ key: item.feature_key, value: item.feature_value })),
   }));
 }
 
@@ -187,7 +211,7 @@ export async function createCheckout(admin: SupabaseClient, userId: string, plan
   }
 }
 
-export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId: string, providerPayment: Record<string, any>) {
+export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId: string, providerPayment: RazorpayResponse) {
   const { data: order, error } = await admin.from('payment_orders').select('*,subscription_plans(*)').eq('id', localOrderId).maybeSingle();
   if (error || !order) throw new HttpError(404, 'Local payment order not found.');
   if (!order.user_id || !order.plan_id || !order.subscription_plans) throw new HttpError(409, 'This order no longer has a valid learner or plan association.');
@@ -220,6 +244,12 @@ export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId:
     }
   }
 
+  // A lifetime payment must be linked to the local subscription created or found above.
+  // Keep this invariant explicit before writing the payment ledger row.
+  if (!subscriptionId) {
+    throw new HttpError(500, 'Could not resolve a local subscription for this lifetime payment.');
+  }
+
   const { data: payment, error: paymentError } = await admin.from('payments').upsert({
     user_id: order.user_id,
     order_id: order.id,
@@ -242,11 +272,11 @@ export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId:
   });
   const { error: orderUpdateError } = await admin.from('payment_orders').update({ status: 'paid', paid_at: startsAt }).eq('id', order.id);
   if (orderUpdateError) throw new HttpError(500, 'Payment was captured but the local order status could not be updated.', orderUpdateError.message);
-  await issueInvoiceForPayment(admin, { userId: order.user_id, subscriptionId, paymentId: payment.id, amountMinor: Number(providerPayment.amount), currency: providerPayment.currency, planName: plan.name, providerInvoiceId: providerPayment.invoice_id });
+  await issueInvoiceForPayment(admin, { userId: order.user_id, subscriptionId, paymentId: payment.id, amountMinor: Number(providerPayment.amount ?? 0), currency: providerPayment.currency ?? order.currency, planName: plan.name, providerInvoiceId: providerPayment.invoice_id ?? null });
   return { alreadyProcessed: Boolean(wasPaid), subscriptionId, paymentId: payment.id, grantedFeatures };
 }
 
-export async function syncSubscriptionEvent(admin: SupabaseClient, event: string, entity: Record<string, any>, paymentEntity?: Record<string, any>) {
+export async function syncSubscriptionEvent(admin: SupabaseClient, event: string, entity: RazorpayResponse, paymentEntity?: RazorpayResponse) {
   const providerSubscriptionId = entity?.id || entity?.subscription_id || paymentEntity?.subscription_id;
   if (!providerSubscriptionId) return { ignored: true };
   const { data: subscription, error } = await admin.from('subscriptions').select('id,user_id,plan_id,status,current_period_end,metadata')
@@ -319,7 +349,7 @@ export async function syncSubscriptionEvent(admin: SupabaseClient, event: string
   return { subscriptionId: subscription.id, paymentId };
 }
 
-export async function syncPaymentFailure(admin: SupabaseClient, paymentEntity: Record<string, any>) {
+export async function syncPaymentFailure(admin: SupabaseClient, paymentEntity: RazorpayResponse) {
   if (!paymentEntity?.id) return { ignored: true };
   const { data: existing } = await admin.from('payments').select('id,subscription_id,order_id')
     .eq('provider', 'razorpay').eq('provider_payment_id', paymentEntity.id).maybeSingle();
@@ -337,19 +367,19 @@ export async function syncPaymentFailure(admin: SupabaseClient, paymentEntity: R
     return { ignored: false, paymentId: existing.id };
   }
 
-  let subscription: any = null;
+  let subscription: BillingOwnerRef | null = null;
   if (paymentEntity.subscription_id) {
     const lookup = await admin.from('subscriptions').select('id,user_id').eq('provider', 'razorpay').eq('provider_subscription_id', paymentEntity.subscription_id).maybeSingle();
-    subscription = lookup.data;
+    subscription = lookup.data as BillingOwnerRef | null;
     if (subscription) {
       const update = await admin.from('subscriptions').update({ status: 'past_due' }).eq('id', subscription.id);
       if (update.error) throw new HttpError(500, 'Could not update subscription after failed payment.', update.error.message);
     }
   }
-  let order: any = null;
+  let order: BillingOwnerRef | null = null;
   if (paymentEntity.order_id) {
     const lookup = await admin.from('payment_orders').select('id,user_id').eq('provider', 'razorpay').eq('provider_order_id', paymentEntity.order_id).maybeSingle();
-    order = lookup.data;
+    order = lookup.data as BillingOwnerRef | null;
     if (order) {
       const update = await admin.from('payment_orders').update({ status: 'failed' }).eq('id', order.id).eq('status', 'created');
       if (update.error) throw new HttpError(500, 'Could not update order after failed payment.', update.error.message);
@@ -379,7 +409,13 @@ export async function getBillingStatus(userClient: SupabaseClient, userId: strin
     userClient.from('user_entitlements').select('feature_key,status,starts_at,ends_at').eq('user_id', userId).eq('status', 'active').lte('starts_at', now).or(`ends_at.is.null,ends_at.gt.${now}`).limit(100),
   ]);
   if (subscriptionError || entitlementError) throw new HttpError(500, 'Could not load subscription status.');
-  return { hasPremium: Boolean((entitlements ?? []).some((item: any) => item.feature_key === 'premium_content')), activeFeatures: (entitlements ?? []).map((item: any) => item.feature_key), subscriptions: subscriptions ?? [], entitlements: entitlements ?? [] };
+  const entitlementRows = (entitlements ?? []) as EntitlementRow[];
+  return {
+    hasPremium: entitlementRows.some((item) => item.feature_key === 'premium_content'),
+    activeFeatures: entitlementRows.map((item) => item.feature_key),
+    subscriptions: subscriptions ?? [],
+    entitlements: entitlements ?? [],
+  };
 }
 
 export async function cancelSubscription(admin: SupabaseClient, userId: string, subscriptionId: string) {
@@ -485,10 +521,11 @@ export async function createPaymentRefund(
     throw new HttpError(400, 'Refund amount must be positive and cannot exceed the remaining captured amount.');
   }
 
-  let { data: ledger, error: ledgerError } = await admin.from('payment_refunds')
+  const { data: existingLedger, error: ledgerError } = await admin.from('payment_refunds')
     .select('id,amount_minor,status,provider_refund_id,reason')
     .eq('payment_id', payment.id).eq('idempotency_key', input.idempotencyKey).maybeSingle();
   if (ledgerError) throw new HttpError(500, 'Could not inspect refund idempotency record.', ledgerError.message);
+  let ledger = existingLedger;
 
   if (ledger) {
     if (Number(ledger.amount_minor) !== input.amountMinor || String(ledger.reason ?? '') !== String(input.reason ?? '')) {
@@ -531,7 +568,7 @@ export async function createPaymentRefund(
     ledger = { id: inserted.id, amount_minor: input.amountMinor, status: 'pending', provider_refund_id: null, reason: input.reason ?? null };
   }
 
-  let providerRefund: Record<string, any>;
+  let providerRefund: RazorpayResponse;
   try {
     providerRefund = await razorpayRequest(
       `/payments/${payment.provider_payment_id}/refund`,

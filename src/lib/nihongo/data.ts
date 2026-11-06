@@ -22,6 +22,51 @@ export type LearnerSnapshot = {
   source: 'database' | 'preview';
 };
 
+type DashboardResponse = {
+  profile?: { displayName?: string | null };
+  progress?: {
+    grammarTotal?: number | null; vocabularyTotal?: number | null; kanjiTotal?: number | null;
+    lessonsCompleted?: number | null; overallPercentage?: number | null;
+    mastery?: LearnerSnapshot['mastery'];
+  };
+  recentActivity?: LearnerSnapshot['recentActivity'];
+  recentAttempts?: Array<{ score_percentage?: number | null }>;
+  streak?: number | null;
+  due?: LearnerSnapshot['due'];
+  dailyGoal?: LearnerSnapshot['dailyGoal'];
+  totalStudySeconds?: number | null;
+  preferences?: { show_romaji?: boolean | null; show_furigana?: boolean | null } | null;
+  flashcardSettings?: { show_romaji?: boolean | null; show_furigana?: boolean | null } | null;
+};
+type BillingStatusResponse = { hasPremium?: boolean };
+type ContentResponse<T> = { items: T[] };
+type VocabularyContentRow = {
+  id: string; word: string; kana: string; romaji: string | null; meaning: string;
+  part_of_speech: string | null; example_sentence: string | null;
+  example_reading: string | null; example_translation: string | null;
+};
+type KanjiExampleWord = { word?: string; vocabulary?: string; meaning?: string; translation?: string };
+type KanjiContentRow = {
+  id: string; character: string; meaning: string; on_yomi: string[] | null; kun_yomi: string[] | null;
+  stroke_count: number | null; radical: string | null; example_words: KanjiExampleWord[] | null;
+};
+type GrammarExampleRow = { japanese?: string; sentence?: string; romaji?: string; meaning?: string; translation?: string };
+type GrammarContentRow = {
+  id: string; title: string; pattern: string; explanation: string;
+  formation: string | null; examples: GrammarExampleRow[] | null;
+};
+type FlashcardContentRow = {
+  id: string; deckId: string; deckTitle: string; deckSlug: string;
+  front_text: string; front_reading: string | null; front_romaji: string | null;
+  back_text: string; back_reading: string | null; back_romaji: string | null;
+  example_sentence: string | null; example_translation: string | null; hint: string | null;
+};
+export type ReadingPassage = {
+  title: string; text: string; romaji?: string; translation?: string;
+  vocabulary?: Array<{ word: string; reading: string; meaning: string; romaji?: string }>;
+  [key: string]: unknown;
+};
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(path, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
   if (!response.ok) {
@@ -44,17 +89,17 @@ export async function loadLearnerSnapshot(): Promise<LearnerSnapshot> {
   const { data: { user } } = await client.auth.getUser();
   if (!user) return previewSnapshot();
   const [dashboard, billing] = await Promise.all([
-    apiGet<any>('/api/learning/dashboard'),
-    apiGet<any>('/api/billing/status').catch(() => ({ hasPremium: false })),
+    apiGet<DashboardResponse>('/api/learning/dashboard'),
+    apiGet<BillingStatusResponse>('/api/billing/status').catch(() => ({ hasPremium: false })),
   ]);
   return {
     displayName: dashboard.profile?.displayName || user.email?.split('@')[0] || 'Learner',
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
     vocabularyCount: Number(dashboard.progress?.vocabularyTotal ?? 0),
     kanjiCount: Number(dashboard.progress?.kanjiTotal ?? 0),
-    activeDays: (dashboard.recentActivity ?? []).map((row: any) => String(row.activity_date)),
+    activeDays: (dashboard.recentActivity ?? []).map((row) => String(row.activity_date)),
     lessonsCompleted: Number(dashboard.progress?.lessonsCompleted ?? 0),
-    recentScores: (dashboard.recentAttempts ?? []).map((row: any) => Number(row.score_percentage ?? 0)).reverse(),
+    recentScores: (dashboard.recentAttempts ?? []).map((row) => Number(row.score_percentage ?? 0)).reverse(),
     overallPercentage: Number(dashboard.progress?.overallPercentage ?? 0),
     mastery: dashboard.progress?.mastery ?? previewSnapshot().mastery,
     streak: Number(dashboard.streak ?? 0),
@@ -71,7 +116,7 @@ export async function loadLearnerSnapshot(): Promise<LearnerSnapshot> {
 
 export async function getPublishedVocabulary() {
   try {
-    const { items } = await apiGet<{ items: any[] }>('/api/learning/content?kind=vocabulary&level=N5&limit=250');
+    const { items } = await apiGet<ContentResponse<VocabularyContentRow>>('/api/learning/content?kind=vocabulary&level=N5&limit=250');
     if (!items.length) return vocabulary;
     return items.map((row) => ({
       id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
@@ -83,7 +128,7 @@ export async function getPublishedVocabulary() {
 
 export async function getPublishedKanji() {
   try {
-    const { items } = await apiGet<{ items: any[] }>('/api/learning/content?kind=kanji&level=N5&limit=250');
+    const { items } = await apiGet<ContentResponse<KanjiContentRow>>('/api/learning/content?kind=kanji&level=N5&limit=250');
     if (!items.length) return kanji;
     return items.map((row) => {
       const first = Array.isArray(row.example_words) ? row.example_words[0] : {};
@@ -99,12 +144,12 @@ export async function getPublishedKanji() {
 
 export async function getPublishedGrammar() {
   try {
-    const { items } = await apiGet<{ items: any[] }>('/api/learning/content?kind=grammar&level=N5&limit=250');
+    const { items } = await apiGet<ContentResponse<GrammarContentRow>>('/api/learning/content?kind=grammar&level=N5&limit=250');
     if (!items.length) return grammar;
     return items.map((row) => ({
       id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
       formation: row.formation || '', category: 'Grammar', difficulty: 'Core' as const,
-      examples: Array.isArray(row.examples) ? row.examples.map((item: any) => ({
+      examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
         japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
       })) : [],
     }));
@@ -129,7 +174,7 @@ export type LearnerFlashcard = {
 
 export async function getPublishedFlashcards(): Promise<LearnerFlashcard[]> {
   try {
-    const { items } = await apiGet<{ items: any[] }>('/api/learning/content?kind=flashcards&level=N5&limit=20');
+    const { items } = await apiGet<ContentResponse<FlashcardContentRow>>('/api/learning/content?kind=flashcards&level=N5&limit=20');
     return items.map((card) => ({
       id: card.id, deckId: card.deckId, deckTitle: card.deckTitle, deckSlug: card.deckSlug,
       front: card.front_text, reading: card.front_reading || '', romaji: card.front_romaji || '',
@@ -139,7 +184,7 @@ export async function getPublishedFlashcards(): Promise<LearnerFlashcard[]> {
   } catch { return []; }
 }
 
-export async function getReadingPassages() {
-  try { return (await apiGet<{ items: any[] }>('/api/learning/content?kind=reading&level=N5&limit=50')).items; }
+export async function getReadingPassages(): Promise<ReadingPassage[]> {
+  try { return (await apiGet<ContentResponse<ReadingPassage>>('/api/learning/content?kind=reading&level=N5&limit=50')).items; }
   catch { return []; }
 }

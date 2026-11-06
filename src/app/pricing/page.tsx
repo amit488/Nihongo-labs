@@ -24,7 +24,7 @@ export default async function PricingPage() {
       <section className="pricingHero">
         <div className="pricingEyebrow">SIMPLE PLANS · STEADY PROGRESS</div>
         <h1>A little practice.<br/><em>A lot of progress.</em></h1>
-        <p>Start free, build a daily habit, then unlock deeper revision and exam preparation when you're ready.</p>
+        <p>Start free, build a daily habit, then unlock deeper revision and exam preparation when you&apos;re ready.</p>
       </section>
       {unavailable ? <div className="pricingAlert">Plan information is temporarily unavailable. Check your local Supabase connection and the subscription plan seed.</div> : null}
       <section className="pricingGrid" aria-label="Subscription plans">

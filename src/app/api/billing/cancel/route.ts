@@ -4,7 +4,6 @@ import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/
 import { cancelSubscription } from '@/lib/nihongo/server/services/billing';
 import { subscriptionIdSchema } from '@/lib/nihongo/server/validation';
 
-export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);

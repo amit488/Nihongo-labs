@@ -22,7 +22,7 @@ export default function HomePage() {
           <div className="heroFootnote"><span>●</span> Build a steady daily habit, one lesson at a time.</div>
         </div>
         <div className="heroVisual" aria-label="Japanese study card preview">
-          <div className="paperCard paperCardBack"><span className="tinyLabel">TODAY'S PRACTICE</span><span className="backGlyph">学</span><span className="backCaption">Learn · Repeat · Remember</span></div>
+          <div className="paperCard paperCardBack"><span className="tinyLabel">TODAY&apos;S PRACTICE</span><span className="backGlyph">学</span><span className="backCaption">Learn · Repeat · Remember</span></div>
           <div className="paperCard mainCard"><div className="cardTop"><span>GRAMMAR NOTE <b>01 / 26</b></span><span className="cardDot">●</span></div><div className="cardPattern">は <small>wa</small></div><h2>Marking the topic</h2><p>わたしは がくせいです。</p><div className="cardTranslation">I am a student.</div><div className="cardRule"><span>KEY IDEA</span><p>は introduces what the sentence is about. It is pronounced <b>wa</b> when used as a particle.</p></div><div className="cardBottom"><span>FOUNDATION GRAMMAR</span><span>↗</span></div></div>
           <div className="floatingChip streakChip"><b>7</b><span>DAY STREAK<br/>KEEP IT GOING</span></div>
           <div className="floatingChip progressChip"><div className="miniRing">68%</div><span>YOUR N5<br/>FOUNDATION</span></div>
