@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
-import { verifyWebhookSignature } from '@/lib/nihongo/server/services/razorpay';
+import { verifyWebhookSignature, type RazorpayResponse } from '@/lib/nihongo/server/services/razorpay';
 import {
   activateLifetimeOrder,
   syncPaymentFailure,
@@ -15,6 +15,11 @@ function asObject(value: unknown): JsonObject | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonObject
     : null;
+}
+
+function asRazorpayEntity(value: unknown): RazorpayResponse | null {
+  const record = asObject(value);
+  return typeof record?.id === 'string' ? record as unknown as RazorpayResponse : null;
 }
 
 const MAX_WEBHOOK_BYTES = 1_000_000;
@@ -87,11 +92,10 @@ export async function POST(request: NextRequest) {
 
     try {
       const eventPayload = asObject(payload.payload);
-      const paymentEntity = asObject(asObject(eventPayload?.payment)?.entity);
-      const subscriptionEntity = asObject(asObject(eventPayload?.subscription)?.entity);
+      const paymentEntity = asRazorpayEntity(asObject(eventPayload?.payment)?.entity);
+      const subscriptionEntity = asRazorpayEntity(asObject(eventPayload?.subscription)?.entity);
       const refund = asObject(asObject(eventPayload?.refund)?.entity);
       const paymentOrderId = typeof paymentEntity?.order_id === 'string' ? paymentEntity.order_id : null;
-      const paymentId = typeof paymentEntity?.id === 'string' ? paymentEntity.id : null;
 
       if (event === 'payment.captured' && paymentOrderId && paymentEntity) {
         const { data: order, error } = await admin.from('payment_orders').select('id')
@@ -100,7 +104,7 @@ export async function POST(request: NextRequest) {
         if (order) await activateLifetimeOrder(admin, order.id, paymentEntity);
       } else if (event.startsWith('subscription.') && subscriptionEntity) {
         await syncSubscriptionEvent(admin, event, subscriptionEntity, paymentEntity ?? undefined);
-      } else if (event === 'payment.failed' && paymentEntity && paymentId) {
+      } else if (event === 'payment.failed' && paymentEntity) {
         await syncPaymentFailure(admin, paymentEntity);
       } else if ((event === 'refund.processed' || event === 'refund.failed') && refund) {
         const refundPaymentId = typeof refund.payment_id === 'string' ? refund.payment_id : null;
