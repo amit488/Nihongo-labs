@@ -12,3 +12,5 @@
 
 .headingActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .vocabCardBody{display:block;width:100%;border:0;background:transparent;text-align:left;color:inherit;padding:8px 18px 14px;cursor:pointer}
+
+.kanjiFamiliarity{margin-top:15px;padding-top:13px;border-top:1px solid #e6e9ed;display:flex;flex-direction:column;gap:10px}.kanjiFamiliarity>span{font-size:12px;font-weight:650;color:#46515c}.kanjiFamiliarity>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kanjiFamiliarity button{border:1px solid #e2e6eb;background:#fff;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;color:#45515d;cursor:pointer}.kanjiFamiliarity button:last-child{background:#faf0ee;border-color:#de978c;color:#aa5047}.kanjiFamiliarity small{font-size:10px;color:#8995a1}
