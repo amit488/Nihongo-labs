@@ -3,6 +3,9 @@ import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { z } from 'zod';
 
+// Authenticated routes read request cookies and must not be prerendered.
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   kanjiId: z.string().uuid(),
   status: z.enum(['known', 'learning']),
