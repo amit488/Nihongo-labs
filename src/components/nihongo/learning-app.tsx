@@ -262,7 +262,18 @@ function GrammarStudio({ items, romaji, setRomaji }: { items: GrammarItem[]; rom
     setNotice(isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
   }
   useEffect(() => {
-    fetch('/api/learning/bookmarks', { credentials: 'same-origin', cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((body) => { if (body?.items) setSaved(body.items.filter((row: any) => row.resource_type === 'grammar').map((row: any) => row.resource_id)); }).catch(() => undefined);
+    fetch('/api/learning/bookmarks', { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<unknown> : null)
+      .then((body) => {
+        const items = asRecord(body)?.items;
+        if (!Array.isArray(items)) return;
+        const savedIds = items.flatMap((item) => {
+          const row = asRecord(item);
+          return row?.resource_type === 'grammar' && typeof row.resource_id === 'string' ? [row.resource_id] : [];
+        });
+        setSaved(savedIds);
+      })
+      .catch(() => undefined);
   }, []);
   if (!item) return <EmptyState title="Grammar lessons are being prepared" description="Published grammar points will appear here once your content team adds them to the N5 curriculum." />;
   return <><SectionHeading eyebrow="BUILD YOUR FOUNDATION" title="Grammar, made clear." description="Understand the patterns behind everyday Japanese, one idea at a time." action={<button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/><div className={styles.splitLayout}><div className={styles.lessonList}>{items.map((row,i)=><button type="button" key={row.id} onClick={()=>{setSelected(row.id);setShowExample(true);}} className={`${styles.lessonRow} ${item.id===row.id?styles.lessonRowActive:''}`}><span className={styles.lessonNumber}>{String(i+1).padStart(2,'0')}</span><span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span><span className={styles.lessonArrow}>→</span></button>)}</div><div className={styles.lessonDetail}><div className={styles.eyebrow}>GRAMMAR NOTE · JLPT N5</div><div className={styles.patternChip}>{item.pattern}</div><h2>{item.title}</h2><p>{item.explanation}</p><div className={styles.formationBox}><span>FORMATION</span><strong>{item.formation}</strong></div><div className={styles.exampleHeader}><strong>Examples in context</strong><button type="button" onClick={()=>setShowExample((v)=>!v)}>{showExample?'Hide':'Show'} examples</button></div>{showExample && item.examples.map((example,i)=><div className={styles.exampleCard} key={i}><strong className={styles.japaneseText}>{example.japanese}</strong>{romaji?<small>{example.romaji}</small>:null}<p>{example.meaning}</p></div>)}<button type="button" className={styles.primaryButton} onClick={()=>void toggleSave()}>{saved.includes(item.id)?'Saved grammar note':'Save grammar note'} <span>{saved.includes(item.id)?'★':'☆'}</span></button>{notice?<small className={styles.mutedMeta}>{notice}</small>:null}</div></div></>;
@@ -322,7 +333,6 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<QuizRecord | null>(null);
   const [attemptId, setAttemptId] = useState('');
-  const [startedAt, setStartedAt] = useState('');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [index, setIndex] = useState(0);
@@ -348,7 +358,6 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetch(`/api/practice/quizzes?kind=${kind}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load practice sets.'); return body; })
       .then((body) => { if (alive) setQuizzes(body.quizzes ?? []); })
@@ -365,7 +374,7 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       const response = await fetch('/api/practice/start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quizId: quiz.id }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not start this practice set.');
-      setActiveQuiz(quiz); setAttemptId(body.attemptId); setStartedAt(body.startedAt);
+      setActiveQuiz(quiz); setAttemptId(body.attemptId);
       setQuestions(body.quiz.questions ?? []); setResponses({}); setIndex(0); setResult(null);
       const timeLimit = Number(body.quiz.time_limit_seconds ?? quiz.timeLimitSeconds ?? 0);
       countdownRef.current = timeLimit;
@@ -660,7 +669,7 @@ function Membership({signedIn}:{signedIn:boolean}) {
       const response=await fetch('/api/billing/checkout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({planCode,idempotencyKey:crypto.randomUUID()})});
       const body=await response.json() as CheckoutResponse;if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
       if(body.mode==='subscription' && body.checkoutUrl){window.location.assign(body.checkoutUrl);return;}
-      if(body.mode!=='order' || !body.orderId || !body.keyId)throw new Error('Razorpay Checkout details are incomplete. Check payment configuration.');
+      if(body.mode!=='order' || !body.orderId || !body.keyId || typeof body.amountMinor !== 'number' || !body.currency)throw new Error('Razorpay Checkout details are incomplete. Check payment configuration.');
       if(!window.Razorpay){
         await new Promise<void>((resolve,reject)=>{const existing=document.querySelector<HTMLScriptElement>('script[data-razorpay-checkout]');if(existing){existing.addEventListener('load',()=>resolve(),{once:true});existing.addEventListener('error',()=>reject(new Error('Razorpay Checkout failed to load.')),{once:true});return;}const script=document.createElement('script');script.src='https://checkout.razorpay.com/v1/checkout.js';script.async=true;script.dataset.razorpayCheckout='true';script.onload=()=>resolve();script.onerror=()=>reject(new Error('Razorpay Checkout failed to load.'));document.body.appendChild(script);});
       }
