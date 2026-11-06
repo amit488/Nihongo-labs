@@ -2,9 +2,9 @@
 
 ## Decks
 
-- N5: product-owner supplied list, curated content seed reused from the existing starter N5 data.
-- N4: product-owner supplied list, with English glosses, readings, example vocabulary and stroke metadata.
-- The readings and example vocabulary have been reviewed by a Japanese editor, as confirmed by the product owner.
+- N5: the complete 99-character list supplied by the product owner.
+- N4: the complete 204-character list supplied by the product owner, with English glosses, readings, example vocabulary and stroke metadata.
+- The N5 and N4 readings and example vocabulary have been reviewed by a Japanese editor, as confirmed by the product owner.
 - The JLPT does not publish a fixed official kanji inventory per level. These are Nihongo Labs curriculum groupings; the deck membership follows the product owner's requested lists.
 
 ## Apply the migration
