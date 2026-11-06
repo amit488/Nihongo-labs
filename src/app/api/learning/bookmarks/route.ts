@@ -6,8 +6,8 @@ import { bookmarkSchema } from '@/lib/nihongo/server/validation';
 
 
 export async function GET() {
-  try {
     await connection();
+  try {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     const { data, error } = await context.supabase.from('user_bookmarks').select('id,resource_type,resource_id,created_at').eq('user_id', context.user.id).order('created_at', { ascending: false });
