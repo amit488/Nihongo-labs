@@ -466,7 +466,7 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       <ProgressBar value={(index + 1) / questions.length * 100} />
       <div className={styles.examQuestion}>
         <div className={styles.questionType}>{current.type.replaceAll('_', ' ').toUpperCase()}</div>
-        <h2>{prompt.text || prompt.question || 'Complete the question.'}</h2>
+        <h2>{jsonDisplayText(prompt.text ?? prompt.question, 'Complete the question.')}</h2>
         {romaji && prompt.romaji ? <div className={styles.questionRomaji}>{jsonDisplayText(prompt.romaji)}</div> : null}
         {prompt.meaning ? <div className={styles.questionMeaning}>{jsonDisplayText(prompt.meaning)}</div> : null}
         {current.type === 'fill_blank' || current.type === 'short_answer' ? <div className={styles.fillForm}><input value={typed} onChange={(event) => setResponses((state) => ({ ...state, [current.id]: event.target.value }))} placeholder="Type your answer" /><span /></div> : null}
