@@ -32,15 +32,16 @@ export async function POST(request: NextRequest) {
       throw new HttpError(400, 'Invalid Razorpay webhook signature.');
     }
 
-    let payload: JsonObject;
-    try {
-      const parsed: unknown = JSON.parse(rawBody);
-      const parsedObject = asObject(parsed);
-      if (!parsedObject) throw new Error('Expected a JSON object.');
-      payload = parsedObject;
-    } catch {
-      throw new HttpError(400, 'Webhook body must be a JSON object.');
-    }
+    const payload: JsonObject = (() => {
+      try {
+        const parsed: unknown = JSON.parse(rawBody);
+        const parsedObject = asObject(parsed);
+        if (!parsedObject) throw new Error('Expected a JSON object.');
+        return parsedObject;
+      } catch {
+        throw new HttpError(400, 'Webhook body must be a JSON object.');
+      }
+    })();
 
     const event = (typeof payload.event === 'string' ? payload.event : 'unknown').slice(0, 160);
     const eventId = (request.headers.get('x-razorpay-event-id') || createHash('sha256').update(rawBody).digest('hex')).slice(0, 255);
