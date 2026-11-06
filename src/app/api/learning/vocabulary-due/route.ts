@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
@@ -6,6 +6,7 @@ import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
 export async function GET(request: NextRequest) {
   try {
+    await connection();
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     const limit = Math.min(100, Math.max(1, Number(request.nextUrl.searchParams.get('limit') || 30)));
