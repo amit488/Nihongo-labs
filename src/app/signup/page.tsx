@@ -1,2 +1,10 @@
 import AuthForm from '@/components/nihongo/auth-form';
-export default function SignupPage(){ return <AuthForm mode="signup"/>; }
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ confirmation?: string }>;
+}) {
+  const { confirmation } = await searchParams;
+  return <AuthForm mode="signup" confirmationError={confirmation === 'failed'} />;
+}
