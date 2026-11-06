@@ -534,6 +534,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   const [status, setStatus] = useState<Record<string, 'known' | 'learning'>>({});
   const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
   const filtered = useMemo(() => deckItems.filter((row) => `${row.character} ${row.meaning} ${row.radical}`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
@@ -570,7 +571,8 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   }, [level]);
 
   async function markFamiliarity(value: 'known' | 'learning') {
-    if (!selectedItem) return;
+    if (!selectedItem || !signedIn || reviewLoading) return;
+    setReviewLoading(true);
     setStatus((current) => ({ ...current, [selectedItem.id]: value }));
     setNotice(value === 'known' ? 'Marked as known.' : 'Added to your learning review.');
     try {
@@ -578,6 +580,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || (response.status === 401 ? 'Sign in to save your kanji progress.' : 'Progress could not be saved.')); }
       setNotice(value === 'known' ? 'Your progress has been saved.' : 'Added to your review list.');
     } catch { setNotice('Your selection is shown for this session, but could not be saved.'); }
+    finally { setReviewLoading(false); }
   }
 
   return <>
@@ -596,10 +599,10 @@ function Kanji({ items }: { items: KanjiItem[] }) {
         <div className={styles.kanjiGrid}>{filtered.map((row)=> <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={`${styles.kanjiTile} ${row.id===selected?styles.kanjiSelected:''}`}><strong>{row.character}</strong><span>{row.meaning}</span><small>{row.strokes} strokes</small></button>)}</div>
         {selectedItem&&<div className={styles.kanjiDetail}>
           <button type="button" aria-label={flipped?'Show kanji front':'Flip kanji card'} onClick={()=>setFlipped((value)=>!value)} style={{width:'100%',border:0,background:'transparent',padding:0,cursor:'pointer'}} aria-pressed={flipped}>
-            <div className={styles.kanjiBig}>{flipped ? selectedItem.character : selectedItem.character}</div>
-            <div className={styles.kanjiMeaning}>{flipped ? selectedItem.meaning : selectedItem.meaning}</div>
+            <div className={styles.kanjiBig}>{selectedItem.character}</div>
+            <div className={styles.kanjiMeaning}>{selectedItem.meaning}</div>
             <div className={styles.kanjiMeta}><span>{selectedItem.strokes} strokes</span><span>Radical · {selectedItem.radical || '—'}</span><span>{level}</span></div>
-            <div className={styles.kanjiCardHint}>{flipped?'TAP TO SHOW FRONT':'TAP CARD TO FLIP ↻'}</div>
+            <div className={styles.kanjiCardHint}>{flipped?'TAP TO HIDE DETAILS':'TAP CARD TO REVEAL READINGS ↻'}</div>
           </button>
           {flipped ? <div className={styles.readingBlock}>
             <div><small>ONYOMI · 音読み</small><strong>{selectedItem.onYomi.join(' · ')||'—'}</strong><p>Chinese-origin readings, commonly used in compound words.</p></div>
@@ -607,7 +610,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
             <div className={styles.kanjiExample}><small>EXAMPLE WORD</small><strong>{selectedItem.example||'Examples being prepared'}</strong><span>{selectedItem.exampleMeaning||'See the readings above for common usage.'}</span></div>
             <div className={styles.kanjiFamiliarity}>
               <span>How familiar are you with this kanji?</span>
-              <div><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} onClick={()=>void markFamiliarity('learning')}>Still learning</button><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} onClick={()=>void markFamiliarity('known')}>Know it ✓</button></div>
+              <div><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} disabled={!signedIn || reviewLoading} onClick={()=>void markFamiliarity('learning')}>{reviewLoading?'Saving…':'Still learning'}</button><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} disabled={!signedIn || reviewLoading} onClick={()=>void markFamiliarity('known')}>Know it ✓</button></div>
               <small>{status[selectedItem.id]==='known'?'Marked as known':status[selectedItem.id]==='learning'?'In your learning review':'Not reviewed yet'}</small>
             </div>
           </div> : null}
