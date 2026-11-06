@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { connection, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
 
 export async function GET() {
   try {
+    await connection();
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     const { data, error } = await context.supabase.from('quiz_attempts')
