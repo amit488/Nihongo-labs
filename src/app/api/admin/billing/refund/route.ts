@@ -4,9 +4,6 @@ import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/
 import { refundSchema } from '@/lib/nihongo/server/validation';
 import { createPaymentRefund } from '@/lib/nihongo/server/services/billing';
 
-export const runtime = 'nodejs';
-
-
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
