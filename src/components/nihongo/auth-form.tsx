@@ -165,6 +165,20 @@ export default function AuthForm({
                     required
                   />
                 </label>
+                {signup && confirmationError ? (
+                  <button
+                    type="button"
+                    className={styles.inlineResend}
+                    disabled={!email.trim()}
+                    onClick={() => {
+                      setConfirmationEmail(email.trim());
+                      setShowConfirmation(true);
+                      setConfirmationMessage('');
+                    }}
+                  >
+                    Resend a fresh confirmation link
+                  </button>
+                ) : null}
                 <label>
                   Password
                   <input
