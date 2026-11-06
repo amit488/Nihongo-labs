@@ -1,12 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
-// Authenticated routes read request cookies and must not be prerendered.
-export const dynamic = 'force-dynamic';
-
 export async function GET(request: NextRequest) {
   try {
+    await connection();
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     const level = request.nextUrl.searchParams.get('level') || 'N5';
