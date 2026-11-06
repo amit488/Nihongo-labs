@@ -4,8 +4,6 @@ import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/
 import { syncPlanSchema } from '@/lib/nihongo/server/validation';
 import { syncRazorpayPlan } from '@/lib/nihongo/server/services/billing';
 
-export const runtime = 'nodejs';
-
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
