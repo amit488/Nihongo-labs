@@ -129,6 +129,24 @@ export const kanaRomajiRows = [
   ['ma','mi','mu','me','mo'], ['ya','','yu','','yo'], ['ra','ri','ru','re','ro'], ['wa','','','','wo'], ['n','','','','']
 ];
 
+// Voiced (dakuten) and semi-voiced (handakuten) kana, shown beneath the basic chart.
+export const hiraganaVoicedRows = [
+  ['が','ぎ','ぐ','げ','ご'], ['ざ','じ','ず','ぜ','ぞ'], ['だ','ぢ','づ','で','ど'],
+  ['ば','び','ぶ','べ','ぼ'], ['ぱ','ぴ','ぷ','ぺ','ぽ']
+];
+export const hiraganaVoicedRomajiRows = [
+  ['ga','gi','gu','ge','go'], ['za','ji','zu','ze','zo'], ['da','ji','zu','de','do'],
+  ['ba','bi','bu','be','bo'], ['pa','pi','pu','pe','po']
+];
+export const katakanaVoicedRows = [
+  ['ガ','ギ','グ','ゲ','ゴ'], ['ザ','ジ','ズ','ゼ','ゾ'], ['ダ','ヂ','ヅ','デ','ド'],
+  ['バ','ビ','ブ','ベ','ボ'], ['パ','ピ','プ','ペ','ポ']
+];
+export const katakanaVoicedRomajiRows = [
+  ['ga','gi','gu','ge','go'], ['za','ji','zu','ze','zo'], ['da','ji','zu','de','do'],
+  ['ba','bi','bu','be','bo'], ['pa','pi','pu','pe','po']
+];
+
 export const readingPassage = {
   title: 'A Sunday in the city',
   japanese: '日曜日に、わたしは友達と公園へ行きました。公園でたくさん写真を撮りました。それから、小さい店でお茶を飲みました。とても楽しい日でした。',
