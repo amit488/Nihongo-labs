@@ -526,9 +526,97 @@ function Vocabulary({ items, romaji, setRomaji }: { items: VocabularyItem[]; rom
 }
 
 function Kanji({ items }: { items: KanjiItem[] }) {
+  const [level, setLevel] = useState<'N5' | 'N4'>('N5');
+  const [deckItems, setDeckItems] = useState<KanjiItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
-  const item = items.find((row)=>row.id===selected)||items[0];
-  return <><SectionHeading eyebrow="THE BUILDING BLOCKS" title="Meet your kanji." description="Learn the meaning, readings and words that bring each character to life." action={<span className={styles.counterPill}>{items.length} characters</span>}/><div className={styles.kanjiLayout}><div className={styles.kanjiGrid}>{items.map((row)=> <button type="button" key={row.id} onClick={()=>setSelected(row.id)} className={`${styles.kanjiTile} ${row.id===item?.id?styles.kanjiSelected:''}`}><strong>{row.character}</strong><span>{row.meaning}</span><small>{row.strokes} strokes</small></button>)}</div>{item&&<div className={styles.kanjiDetail}><div className={styles.kanjiBig}>{item.character}</div><div className={styles.kanjiMeaning}>{item.meaning}</div><div className={styles.kanjiMeta}><span>{item.strokes} strokes</span><span>Radical · {item.radical}</span></div><div className={styles.readingBlock}><div><small>ONYOMI · 音読み</small><strong>{item.onYomi.join(' · ')||'—'}</strong><p>Chinese-origin reading, commonly used in compounds.</p></div><div><small>KUNYOMI · 訓読み</small><strong>{item.kunYomi.join(' · ')||'—'}</strong><p>Native Japanese reading, often used with okurigana.</p></div></div><div className={styles.kanjiExample}><small>EXAMPLE WORD</small><strong>{item.example}</strong><span>{item.exampleMeaning}</span></div></div>}</div></>;
+  const [flipped, setFlipped] = useState(false);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<Record<string, 'known' | 'learning'>>({});
+  const [signedIn, setSignedIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+  const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
+  const filtered = useMemo(() => deckItems.filter((row) => `${row.character} ${row.meaning} ${row.radical}`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
+  const knownCount = Object.values(status).filter((value) => value === 'known').length;
+  const learningCount = Object.values(status).filter((value) => value === 'learning').length;
+
+  useEffect(() => {
+    let alive = true;
+    void fetch('/api/kanji/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<{ signedIn?: boolean }> : null).then((body) => { if (alive) setSignedIn(Boolean(body?.signedIn)); }).catch(() => undefined);
+    setLoading(true);
+    setNotice('');
+    void fetch(`/api/learning/content?kind=kanji&level=${level}&limit=250`, { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load this kanji deck.');
+        const body = await response.json() as { items?: Array<{ id:string; character:string; meaning:string; on_yomi:string[]|null; kun_yomi:string[]|null; stroke_count:number|null; radical:string|null; example_words:Array<{word?:string;reading?:string;meaning?:string}>|null }> };
+        const mapped = (body.items || []).map((row) => {
+          const example = row.example_words?.[0];
+          return { id:row.id, character:row.character, meaning:row.meaning, onYomi:row.on_yomi||[], kunYomi:row.kun_yomi||[], strokes:row.stroke_count||0, radical:row.radical||'', example: example ? `${example.word||''}${example.reading ? `（${example.reading}）` : ''}` : '', exampleMeaning:example?.meaning||'' };
+        });
+        if (alive) { setDeckItems(mapped); setSelected(mapped[0]?.id || ''); setFlipped(false); }
+      })
+      .catch((error) => { if (alive) { setDeckItems(level === 'N5' ? items : []); setSelected(level === 'N5' ? items[0]?.id || '' : ''); setNotice(error instanceof Error ? error.message : 'Could not load kanji.'); } })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [level, items]);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch(`/api/kanji/progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() as Promise<{ progress?: Array<{kanji_id:string;status:'known'|'learning'}> }> : null)
+      .then((body) => { if (alive && body?.progress) setStatus(Object.fromEntries(body.progress.map((row) => [row.kanji_id,row.status]))); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [level]);
+
+  async function markFamiliarity(value: 'known' | 'learning') {
+    if (!selectedItem || !signedIn || reviewLoading) return;
+    setReviewLoading(true);
+    setStatus((current) => ({ ...current, [selectedItem.id]: value }));
+    setNotice(value === 'known' ? 'Marked as known.' : 'Added to your learning review.');
+    try {
+      const response = await fetch('/api/kanji/review', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kanjiId:selectedItem.id, status:value }) });
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || (response.status === 401 ? 'Sign in to save your kanji progress.' : 'Progress could not be saved.')); }
+      setNotice(value === 'known' ? 'Your progress has been saved.' : 'Added to your review list.');
+    } catch { setNotice('Your selection is shown for this session, but could not be saved.'); }
+    finally { setReviewLoading(false); }
+  }
+
+  return <>
+    <SectionHeading eyebrow="THE BUILDING BLOCKS" title="Meet your kanji." description="Explore each character, flip for meanings and readings, and build your own familiarity over time." action={<span className={styles.counterPill}>{deckItems.length} characters</span>}/>
+    <div className={styles.kanjiLevelTabs} aria-label="Kanji deck level">
+      <button type="button" aria-pressed={level==='N5'} onClick={()=>{setLevel('N5');setQuery('');}}>N5 kanji</button>
+      <button type="button" aria-pressed={level==='N4'} onClick={()=>{setLevel('N4');setQuery('');}}>N4 kanji</button>
+    </div>
+    <div className={styles.kanjiControls}>
+      <input aria-label="Search kanji" placeholder="Search kanji or meaning…" value={query} onChange={(event)=>setQuery(event.target.value)}/>
+      <span className={styles.kanjiCount}>{filtered.length} of {deckItems.length} characters · {knownCount} known · {learningCount} learning</span>
+    </div>
+    {notice ? <div className={styles.billingNote}>{notice}</div> : null}
+    {loading ? <div className={styles.kanjiDeckEmpty}>Loading {level} kanji…</div> : !filtered.length ? <div className={styles.kanjiDeckEmpty}>No kanji found in this deck.</div> :
+      <div className={styles.kanjiLayout}>
+        <div className={styles.kanjiGrid}>{filtered.map((row)=> <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={`${styles.kanjiTile} ${row.id===selected?styles.kanjiSelected:''}`}><strong>{row.character}</strong><span>{row.meaning}</span><small>{row.strokes} strokes</small></button>)}</div>
+        {selectedItem&&<div className={styles.kanjiDetail}>
+          <button type="button" aria-label={flipped?'Show kanji front':'Flip kanji card'} onClick={()=>setFlipped((value)=>!value)} style={{width:'100%',border:0,background:'transparent',padding:0,cursor:'pointer'}} aria-pressed={flipped}>
+            <div className={styles.kanjiBig}>{selectedItem.character}</div>
+            {flipped ? <div className={styles.kanjiMeaning}>{selectedItem.meaning}</div> : <div className={styles.kanjiMeaning} aria-hidden="true" style={{opacity:0,fontSize:12}}>Tap to reveal</div>}
+            <div className={styles.kanjiMeta}><span>{selectedItem.strokes} strokes</span><span>Radical · {selectedItem.radical || '—'}</span><span>{level}</span></div>
+            <div className={styles.kanjiCardHint}>{flipped?'TAP TO HIDE DETAILS':'TAP CARD TO REVEAL READINGS ↻'}</div>
+          </button>
+          {flipped ? <div className={styles.readingBlock}>
+            <div><small>ONYOMI · 音読み</small><strong>{selectedItem.onYomi.join(' · ')||'—'}</strong><p>Chinese-origin readings, commonly used in compound words.</p></div>
+            <div><small>KUNYOMI · 訓読み</small><strong>{selectedItem.kunYomi.join(' · ')||'—'}</strong><p>Native Japanese readings, often used with okurigana.</p></div>
+            <div className={styles.kanjiExample}><small>EXAMPLE WORD</small><strong>{selectedItem.example||'Examples being prepared'}</strong><span>{selectedItem.exampleMeaning||'See the readings above for common usage.'}</span></div>
+            <div className={styles.kanjiFamiliarity}>
+              <span>How familiar are you with this kanji?</span>
+              <div><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} disabled={!signedIn || reviewLoading} onClick={()=>void markFamiliarity('learning')}>{reviewLoading?'Saving…':'Still learning'}</button><button type="button" disabled={!signedIn} title={signedIn?'Save learning status':'Sign in to save progress'} disabled={!signedIn || reviewLoading} onClick={()=>void markFamiliarity('known')}>Know it ✓</button></div>
+              <small>{status[selectedItem.id]==='known'?'Marked as known':status[selectedItem.id]==='learning'?'In your learning review':'Not reviewed yet'}</small>
+            </div>
+          </div> : null}
+        </div>}
+      </div>}
+  </>;
 }
 
 function Kana({ mode, setMode, quiz, setQuiz, signedIn, romaji, setRomaji }: { mode: 'hiragana'|'katakana'; setMode: (value:'hiragana'|'katakana')=>void; quiz: boolean; setQuiz: (value:boolean)=>void; signedIn:boolean; romaji:boolean; setRomaji:(v:boolean)=>void }) {
