@@ -49,16 +49,6 @@ type CheckoutResponse = {
   amountMinor?: number; currency?: string; planName?: string; error?: string;
 };
 
-function calculateStreak(days: string[]) {
-  const completed = new Set(days);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-  if (!completed.has(iso(today))) today.setDate(today.getDate()-1);
-  let count = 0;
-  while (completed.has(iso(today))) { count += 1; today.setDate(today.getDate()-1); }
-  return count;
-}
 
 const navGroups = [
   { label: 'LEARN', items: [
@@ -124,11 +114,11 @@ export default function LearningApp({ section = [] }: Props) {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     const load = async () => {
-      setConnected(true);
       const [{ data: { user } }, dataSnapshot, grammarRows, vocabRows, kanjiRows, flashcardRows] = await Promise.all([
         client.auth.getUser(), loadLearnerSnapshot(), getPublishedGrammar(), getPublishedVocabulary(), getPublishedKanji(), getPublishedFlashcards(),
       ]);
       if (!alive) return;
+      setConnected(true);
       if (user) {
         setSignedIn(true);
         setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
@@ -173,7 +163,7 @@ export default function LearningApp({ section = [] }: Props) {
   const filteredVocabulary = useMemo(() => vocabData.filter((item) => `${item.word} ${item.kana} ${item.romaji} ${item.meaning}`.toLowerCase().includes(search.toLowerCase())), [vocabData, search]);
   const filteredKanji = useMemo(() => kanjiData.filter((item) => `${item.character} ${item.meaning} ${item.radical}`.toLowerCase().includes(search.toLowerCase())), [kanjiData, search]);
   const activeDays = snapshot.activeDays;
-  const streak = signedIn ? Number(snapshot.streak || calculateStreak(activeDays)) : 0;
+  const streak = signedIn ? snapshot.streak : 0;
 
   return (
     <div className={styles.appFrame}>
@@ -641,8 +631,8 @@ function Membership({signedIn}:{signedIn:boolean}) {
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
   const [loading,setLoading]=useState(true);
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const planResponse = await fetch('/api/billing/plans', { cache: 'no-store' });
       const planBody = await planResponse.json() as { plans?: MembershipPlan[]; error?: string };
@@ -661,7 +651,7 @@ function Membership({signedIn}:{signedIn:boolean}) {
       setLoading(false);
     }
   }, [signedIn]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { void refresh(false); }, [refresh]);
   async function checkout(planCode:string){
     if(!signedIn){router.push('/signup');return;}
     setBusy(true);setNotice('');
