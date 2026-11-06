@@ -1,8 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '../http';
-import { answerForLearner, explanationText, gradeAnswer } from '../grading';
+import { answerForLearner, explanationText, gradeAnswer, type JsonValue } from '../grading';
 import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
+
+type QuizAnswerKey = {
+  question_id: string;
+  answer_key: JsonValue;
+  explanation: JsonValue;
+};
 
 export async function startQuizAttempt(userClient: SupabaseClient, admin: SupabaseClient, userId: string, quizId: string) {
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
@@ -87,7 +93,12 @@ export async function submitQuizAttempt(
 
   const { data: keys, error: keyError } = await admin.rpc('get_quiz_answer_keys', { _question_ids: questionIds });
   if (keyError) throw new HttpError(500, 'Could not load grading keys. Run sql/011_backend_rpc.sql to install the restricted grading RPC.', keyError.message);
-  const keyByQuestion = new Map((keys ?? []).map((key: any) => [key.question_id, key]));
+  // The RPC returns one private grading-key row per question; make the Map tuple
+  // and value types explicit so Map#get retains the database result shape.
+  const answerKeys = (keys ?? []) as QuizAnswerKey[];
+  const keyByQuestion = new Map<string, QuizAnswerKey>(
+    answerKeys.map((key): [string, QuizAnswerKey] => [key.question_id, key]),
+  );
 
   let totalPoints = 0;
   let earnedPoints = 0;
@@ -143,6 +154,7 @@ export async function submitQuizAttempt(
 
   const feedback = quiz.show_results_after_submit ? questions.map((question) => {
     const answer = keyByQuestion.get(question.id);
+    if (!answer) throw new HttpError(500, `A grading key is missing for question ${question.id}.`);
     const response = graded.find((row) => row.question_id === question.id);
     return {
       questionId: question.id,
