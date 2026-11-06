@@ -3,6 +3,7 @@ import { HttpError, requireEnv } from '../http';
 
 export type RazorpayResponse = {
   id: string;
+  item?: { id?: string };
   status?: string;
   amount?: number;
   currency?: string;
