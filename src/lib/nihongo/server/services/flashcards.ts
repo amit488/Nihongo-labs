@@ -5,6 +5,14 @@ import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
 type RatingName = 'again' | 'hard' | 'good' | 'easy';
+type FlashcardQueueRow = {
+  id: string; front_text: string; back_text: string;
+  front_reading: string | null; back_reading: string | null;
+  front_romaji: string | null; back_romaji: string | null;
+  hint: string | null; example_sentence: string | null; example_translation: string | null;
+  source_type: string; vocabulary_id: string | null; kanji_id: string | null;
+  grammar_id: string | null; sort_order: number;
+};
 type FlashcardStateRow = {
   flashcard_id: string;
   scheduler_state: string;
@@ -88,7 +96,7 @@ export async function getDueFlashcards(userClient: SupabaseClient, userId: strin
   const stateById = new Map<string, FlashcardStateRow>(
     stateRows.map((row): [string, FlashcardStateRow] => [row.flashcard_id, row]),
   );
-  const cardRows = (cards ?? []) as Array<{ id: string }>;
+  const cardRows = (cards ?? []) as unknown as FlashcardQueueRow[];
   const now = Date.now();
   const currentSettings = settings ?? { daily_new_limit: 20, daily_review_limit: 200, show_romaji: true, show_furigana: true };
   const reviewedToday = Number(activity?.flashcards_reviewed ?? 0);
