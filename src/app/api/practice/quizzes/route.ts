@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
 export async function GET(request: NextRequest) {
   try {
+    await connection();
     const kind = request.nextUrl.searchParams.get('kind') || 'practice';
     const supabase = await createServerSupabase();
     let query = supabase.from('quizzes')
