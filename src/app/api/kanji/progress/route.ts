@@ -1,10 +1,12 @@
 import { connection, NextRequest, NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
 export async function GET(request: NextRequest) {
+  // Keep the prerender bailout outside the application error handler.
+  await connection();
   try {
-    await connection();
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     const level = request.nextUrl.searchParams.get('level') || 'N5';
@@ -18,5 +20,8 @@ export async function GET(request: NextRequest) {
       .select('kanji_id,status').eq('user_id', context.user.id).in('kanji_id', ids);
     if (error) throw new HttpError(500, 'Could not load kanji progress.', error.message);
     return NextResponse.json({ progress: data || [] }, { headers: { 'Cache-Control': 'private, no-store' } });
-  } catch (error) { return jsonError(error); }
+  } catch (error) {
+    unstable_rethrow(error);
+    return jsonError(error);
+  }
 }
