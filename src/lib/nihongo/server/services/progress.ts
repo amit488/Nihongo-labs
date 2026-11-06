@@ -3,6 +3,21 @@ import { HttpError } from '../http';
 import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
+type LessonWithUnit = {
+  id: string;
+  course_units: { slug: string } | Array<{ slug: string }> | null;
+};
+type FlashcardProgressRow = {
+  repetitions: number;
+  due_at: string;
+  scheduler_state: string;
+  flashcards: { source_type: string } | Array<{ source_type: string }> | null;
+};
+type QuizAttemptAreaRow = {
+  score_percentage: number | null;
+  quizzes: { slug: string | null; title: string | null } | Array<{ slug: string | null; title: string | null }> | null;
+};
+
 export async function saveLessonProgress(
   userClient: SupabaseClient,
   admin: SupabaseClient,
@@ -62,14 +77,15 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
   const firstError = [profile, preferences, lessonList, grammar, vocabulary, kanji, progress, activity, attempts, vocabState, flashcardState, flashcardSettings].find((item) => item.error)?.error;
   if (firstError) throw new HttpError(500, 'Could not load learning dashboard.', firstError.message);
 
-  const lessons = lessonList.data ?? [];
+  const lessons = (lessonList.data ?? []) as unknown as LessonWithUnit[];
   const lessonProgress = progress.data ?? [];
   const completedIds = new Set(lessonProgress.filter((row) => row.status === 'completed').map((row) => row.lesson_id));
   const completed = completedIds.size;
   const lessonPercent = lessons.length ? Math.round((completed / lessons.length) * 100) : 0;
   const unitLessons = new Map<string, { total: number; completed: number }>();
-  for (const lesson of lessons as any[]) {
-    const unitSlug = String(lesson.course_units?.slug ?? '');
+  for (const lesson of lessons) {
+    const courseUnit = Array.isArray(lesson.course_units) ? lesson.course_units[0] : lesson.course_units;
+    const unitSlug = String(courseUnit?.slug ?? '');
     const entry = unitLessons.get(unitSlug) ?? { total: 0, completed: 0 };
     entry.total += 1;
     if (completedIds.has(lesson.id)) entry.completed += 1;
@@ -84,8 +100,11 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
   const masteredVocabulary = vocabRows.filter((row) => Number(row.repetitions) >= 3).length;
   const totalVocabulary = vocabulary.count ?? 0;
   const vocabularyPercent = totalVocabulary ? Math.min(100, Math.round((masteredVocabulary / totalVocabulary) * 100)) : 0;
-  const flashRows = flashcardState.data ?? [];
-  const masteredKanji = flashRows.filter((row: any) => row.flashcards?.source_type === 'kanji' && Number(row.repetitions) >= 3).length;
+  const flashRows = (flashcardState.data ?? []) as unknown as FlashcardProgressRow[];
+  const masteredKanji = flashRows.filter((row) => {
+    const flashcard = Array.isArray(row.flashcards) ? row.flashcards[0] : row.flashcards;
+    return flashcard?.source_type === 'kanji' && Number(row.repetitions) >= 3;
+  }).length;
   const totalKanji = kanji.count ?? 0;
   const kanjiPercent = totalKanji ? Math.min(100, Math.round((masteredKanji / totalKanji) * 100)) : 0;
   const masteredFlashcards = flashRows.filter((row) => Number(row.repetitions) >= 3).length;
@@ -99,9 +118,15 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
   const dueVocabulary = vocabRows.filter((row) => new Date(row.due_at) <= now).length;
   const dueFlashcards = flashRows.filter((row) => new Date(row.due_at) <= now && row.scheduler_state !== 'new').length;
   const totalStudySeconds = recentActivity.reduce((sum, row) => sum + Number(row.study_seconds ?? 0), 0);
+  const attemptRows = (attempts.data ?? []) as unknown as QuizAttemptAreaRow[];
   const scoreByArea = (needle: string) => {
-    const matching = (attempts.data ?? []).filter((row: any) => `${row.quizzes?.slug ?? ''} ${row.quizzes?.title ?? ''}`.toLowerCase().includes(needle));
-    return matching.length ? Math.round(matching.reduce((sum: number, row: any) => sum + Number(row.score_percentage ?? 0), 0) / matching.length) : null;
+    const matching = attemptRows.filter((row) => {
+      const quiz = Array.isArray(row.quizzes) ? row.quizzes[0] : row.quizzes;
+      return `${quiz?.slug ?? ''} ${quiz?.title ?? ''}`.toLowerCase().includes(needle);
+    });
+    return matching.length
+      ? Math.round(matching.reduce((sum, row) => sum + Number(row.score_percentage ?? 0), 0) / matching.length)
+      : null;
   };
   const mastery = {
     grammar: scoreByArea('grammar') ?? percentForUnit('grammar'),
