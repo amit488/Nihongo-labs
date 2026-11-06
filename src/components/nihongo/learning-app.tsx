@@ -533,7 +533,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Record<string, 'known' | 'learning'>>({});
   const [signedIn, setSignedIn] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
@@ -544,8 +544,7 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   useEffect(() => {
     let alive = true;
     void fetch('/api/kanji/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<{ signedIn?: boolean }> : null).then((body) => { if (alive) setSignedIn(Boolean(body?.signedIn)); }).catch(() => undefined);
-    setLoading(true);
-    setNotice('');
+
     void fetch(`/api/learning/content?kind=kanji&level=${level}&limit=250`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load this kanji deck.');
@@ -570,6 +569,15 @@ function Kanji({ items }: { items: KanjiItem[] }) {
     return () => { alive = false; };
   }, [level]);
 
+  function changeLevel(nextLevel: 'N5' | 'N4') {
+    if (nextLevel === level) return;
+    setLoading(true);
+    setNotice('');
+    setLevel(nextLevel);
+    setQuery('');
+    setFlipped(false);
+  }
+
   async function markFamiliarity(value: 'known' | 'learning') {
     if (!selectedItem || !signedIn || reviewLoading) return;
     setReviewLoading(true);
@@ -586,8 +594,8 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   return <>
     <SectionHeading eyebrow="THE BUILDING BLOCKS" title="Meet your kanji." description="Explore each character, flip for meanings and readings, and build your own familiarity over time." action={<span className={styles.counterPill}>{deckItems.length} characters</span>}/>
     <div className={styles.kanjiLevelTabs} aria-label="Kanji deck level">
-      <button type="button" aria-pressed={level==='N5'} onClick={()=>{setLevel('N5');setQuery('');}}>N5 kanji</button>
-      <button type="button" aria-pressed={level==='N4'} onClick={()=>{setLevel('N4');setQuery('');}}>N4 kanji</button>
+      <button type="button" aria-pressed={level==='N5'} onClick={()=>changeLevel('N5')}>N5 kanji</button>
+      <button type="button" aria-pressed={level==='N4'} onClick={()=>changeLevel('N4')}>N4 kanji</button>
     </div>
     <div className={styles.kanjiControls}>
       <input aria-label="Search kanji" placeholder="Search kanji or meaning…" value={query} onChange={(event)=>setQuery(event.target.value)}/>
