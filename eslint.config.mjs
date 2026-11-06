@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Archived snapshot kept for reference; do not lint it as part of the active app.
+    "nihongo_labs_complete_source/**",
   ]),
 ]);
 
