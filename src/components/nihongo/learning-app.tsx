@@ -623,6 +623,22 @@ function Progress({snapshot,streak}:{snapshot:LearnerSnapshot;streak:number}) {
 }
 function Mastery({label,value,tone}:{label:string;value:number;tone:Tone}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended'}</small></div>}
 
+async function fetchMembershipData(signedIn: boolean): Promise<{
+  plans: MembershipPlan[];
+  status: MembershipStatus | null;
+}> {
+  const planResponse = await fetch('/api/billing/plans', { cache: 'no-store' });
+  const planBody = await planResponse.json() as { plans?: MembershipPlan[]; error?: string };
+  if (!planResponse.ok) throw new Error(planBody.error || 'Could not load plans.');
+
+  let status: MembershipStatus | null = null;
+  if (signedIn) {
+    const statusResponse = await fetch('/api/billing/status', { credentials: 'same-origin', cache: 'no-store' });
+    if (statusResponse.ok) status = await statusResponse.json() as MembershipStatus;
+  }
+  return { plans: planBody.plans ?? [], status };
+}
+
 function Membership({signedIn}:{signedIn:boolean}) {
   const router = useRouter();
   const [plans,setPlans]=useState<MembershipPlan[]>([]);
@@ -630,27 +646,34 @@ function Membership({signedIn}:{signedIn:boolean}) {
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
   const [loading,setLoading]=useState(true);
-  const refresh = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
+  const refresh = useCallback(async () => {
+    setLoading(true);
     try {
-      const planResponse = await fetch('/api/billing/plans', { cache: 'no-store' });
-      const planBody = await planResponse.json() as { plans?: MembershipPlan[]; error?: string };
-      if (!planResponse.ok) throw new Error(planBody.error || 'Could not load plans.');
-      setPlans(planBody.plans ?? []);
-      if (signedIn) {
-        const statusResponse = await fetch('/api/billing/status', { credentials: 'same-origin', cache: 'no-store' });
-        const statusBody = await statusResponse.json() as MembershipStatus;
-        if (statusResponse.ok) setStatus(statusBody);
-      } else {
-        setStatus(null);
-      }
+      const data = await fetchMembershipData(signedIn);
+      setPlans(data.plans);
+      setStatus(data.status);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not load membership.');
     } finally {
       setLoading(false);
     }
   }, [signedIn]);
-  useEffect(() => { void refresh(false); }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    fetchMembershipData(signedIn)
+      .then((data) => {
+        if (!active) return;
+        setPlans(data.plans);
+        setStatus(data.status);
+      })
+      .catch((error: unknown) => {
+        if (active) setNotice(error instanceof Error ? error.message : 'Could not load membership.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [signedIn]);
   async function checkout(planCode:string){
     if(!signedIn){router.push('/signup');return;}
     setBusy(true);setNotice('');
