@@ -8,6 +8,20 @@ type Plan = {
   interval_count: number; provider_price_id: string | null; is_active: boolean;
 };
 
+type PlanFeature = { key: string; value: unknown };
+type PlanSummary = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  planKind: string;
+  amountMinor: number;
+  currency: string;
+  billingInterval: 'month' | 'year' | 'lifetime';
+  intervalCount: number;
+  features: PlanFeature[];
+};
+
 function isEnabledFeature(value: unknown): boolean {
   if (value === true || value === 1 || value === 'true') return true;
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -51,7 +65,7 @@ async function syncPlanEntitlements(
   return enabled.map((feature: any) => String(feature.feature_key));
 }
 
-export async function listPlans(supabase: SupabaseClient) {
+export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]> {
   const { data: plans, error } = await supabase.from('subscription_plans')
     .select('id,code,name,description,plan_kind,amount_minor,currency,billing_interval,interval_count,is_active,display_order,plan_features(feature_key,feature_value)')
     .eq('is_active', true).order('display_order');
@@ -218,6 +232,12 @@ export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId:
         throw new HttpError(500, 'Could not activate lifetime subscription.', subError?.message);
       } else subscriptionId = inserted.id;
     }
+  }
+
+  // A lifetime payment must be linked to the local subscription created or found above.
+  // Keep this invariant explicit before writing the payment ledger row.
+  if (!subscriptionId) {
+    throw new HttpError(500, 'Could not resolve a local subscription for this lifetime payment.');
   }
 
   const { data: payment, error: paymentError } = await admin.from('payments').upsert({
