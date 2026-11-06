@@ -2,17 +2,52 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedKanji, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard } from '@/lib/nihongo/data';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedKanji, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot, type ReadingPassage } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
-import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, practiceQuestions, kanaRows, katakanaRows, kanaRomajiRows } from '@/lib/nihongo/demo-content';
+import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, kanaRows, katakanaRows, kanaRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
-declare global { interface Window { Razorpay?: new (options: Record<string, any>) => { open: () => void; on: (event: string, callback: (payload: any) => void) => void } } }
-type AnswerState = { selected: string; correct: boolean; explanation: string; rule: string } | null;
+type Tone = 'green' | 'orange' | 'blue' | 'purple';
+type RazorpayPaymentResult = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+type RazorpayFailure = { error?: { description?: string } };
+type RazorpayCheckoutOptions = {
+  key: string; amount: number; currency: string; name: string; description: string;
+  order_id: string; theme: { color: string };
+  handler: (payment: RazorpayPaymentResult) => void | Promise<void>;
+};
+type RazorpayCheckout = {
+  open: () => void;
+  on: (event: 'payment.failed', callback: (payload: RazorpayFailure) => void) => void;
+};
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayCheckout;
+  }
+}
+type MembershipPlan = {
+  id: string; code: string; name: string; description: string | null;
+  planKind: string; amountMinor: number; currency: string;
+  billingInterval: string; intervalCount: number;
+  features: Array<{ key: string; value: unknown }>;
+};
+type MembershipSubscription = {
+  id: string; status: string; current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  subscription_plans: { name: string | null; billing_interval: string | null } | null;
+};
+type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
+type CheckoutResponse = {
+  mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string;
+  amountMinor?: number; currency?: string; planName?: string; error?: string;
+};
 
 function calculateStreak(days: string[]) {
   const completed = new Set(days);
@@ -63,7 +98,14 @@ export default function LearningApp({ section = [] }: Props) {
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [connected, setConnected] = useState(false);
-  const [snapshot, setSnapshot] = useState({ grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, lessonsCompleted: 0, activeDays: [] as string[], recentScores: [] as number[], overallPercentage: 0, mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 }, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, recentActivity: [] as any[] });
+  const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
+    displayName: 'Learner', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0,
+    activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
+    mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
+    streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
+    dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0,
+    premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
+  });
   const [grammarData, setGrammarData] = useState<GrammarItem[]>(demoGrammar);
   const [vocabData, setVocabData] = useState<VocabularyItem[]>(demoVocabulary);
   const [kanjiData, setKanjiData] = useState<KanjiItem[]>(demoKanji);
@@ -73,25 +115,16 @@ export default function LearningApp({ section = [] }: Props) {
     setRomaji(value);
     if (signedIn) void fetch('/api/learning/settings', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showRomaji: value }) }).catch(() => undefined);
   };
-  const [answer, setAnswer] = useState<AnswerState>(null);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [flashIndex, setFlashIndex] = useState(0);
-  const [flashFlipped, setFlashFlipped] = useState(false);
-  const [flashStats, setFlashStats] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
   const [search, setSearch] = useState('');
   const [kanaMode, setKanaMode] = useState<'hiragana' | 'katakana'>('hiragana');
   const [kanaQuiz, setKanaQuiz] = useState(false);
-  const [examStarted, setExamStarted] = useState(false);
-  const [examIndex, setExamIndex] = useState(0);
-  const [examAnswers, setExamAnswers] = useState<Record<number, string>>({});
-  const [examSubmitted, setExamSubmitted] = useState(false);
 
   useEffect(() => {
     let alive = true;
     const client = getSupabaseBrowserClient();
     if (!client) return;
-    setConnected(true);
     const load = async () => {
+      setConnected(true);
       const [{ data: { user } }, dataSnapshot, grammarRows, vocabRows, kanjiRows, flashcardRows] = await Promise.all([
         client.auth.getUser(), loadLearnerSnapshot(), getPublishedGrammar(), getPublishedVocabulary(), getPublishedKanji(), getPublishedFlashcards(),
       ]);
@@ -101,7 +134,7 @@ export default function LearningApp({ section = [] }: Props) {
         setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
       }
       setRomaji(dataSnapshot.showRomaji);
-      setSnapshot({ grammarCount: dataSnapshot.grammarCount, vocabularyCount: dataSnapshot.vocabularyCount, kanjiCount: dataSnapshot.kanjiCount, lessonsCompleted: dataSnapshot.lessonsCompleted, activeDays: dataSnapshot.activeDays, recentScores: dataSnapshot.recentScores, overallPercentage: dataSnapshot.overallPercentage, mastery: dataSnapshot.mastery, due: dataSnapshot.due, dailyGoal: dataSnapshot.dailyGoal, totalStudySeconds: dataSnapshot.totalStudySeconds, premiumActive: dataSnapshot.premiumActive, recentActivity: dataSnapshot.recentActivity });
+      setSnapshot(dataSnapshot);
       if (grammarRows.length) setGrammarData(grammarRows);
       if (vocabRows.length) setVocabData(vocabRows);
       if (kanjiRows.length) setKanjiData(kanjiRows);
@@ -137,16 +170,10 @@ export default function LearningApp({ section = [] }: Props) {
 
 
 
-  function submitPractice(selected: string) {
-    const q = practiceQuestions[questionIndex % practiceQuestions.length];
-    setAnswer({ selected, correct: selected === q.answer, explanation: q.explanation, rule: q.rule });
-  }
-  function nextPractice() { setQuestionIndex((value) => value + 1); setAnswer(null); }
-
   const filteredVocabulary = useMemo(() => vocabData.filter((item) => `${item.word} ${item.kana} ${item.romaji} ${item.meaning}`.toLowerCase().includes(search.toLowerCase())), [vocabData, search]);
   const filteredKanji = useMemo(() => kanjiData.filter((item) => `${item.character} ${item.meaning} ${item.radical}`.toLowerCase().includes(search.toLowerCase())), [kanjiData, search]);
   const activeDays = snapshot.activeDays;
-  const streak = signedIn ? Number((snapshot as any).streak ?? calculateStreak(activeDays)) : 0;
+  const streak = signedIn ? Number(snapshot.streak || calculateStreak(activeDays)) : 0;
 
   return (
     <div className={styles.appFrame}>
@@ -185,7 +212,7 @@ export default function LearningApp({ section = [] }: Props) {
   );
 }
 
-function Dashboard({ name, snapshot, streak, onContinue }: { name: string; snapshot: any; streak: number; onContinue: () => void }) {
+function Dashboard({ name, snapshot, streak, onContinue }: { name: string; snapshot: LearnerSnapshot; streak: number; onContinue: () => void }) {
   const ready = Number(snapshot.overallPercentage ?? 0);
   const words = Number(snapshot.vocabularyCount ?? 0);
   const kanjiCount = Number(snapshot.kanjiCount ?? 0);
@@ -193,7 +220,7 @@ function Dashboard({ name, snapshot, streak, onContinue }: { name: string; snaps
   const goal = Number(snapshot.dailyGoal?.minutes ?? 15);
   const goalPercent = goal ? Math.min(100, Math.round((minutes / goal) * 100)) : 0;
   const activity = Array.isArray(snapshot.recentActivity) ? snapshot.recentActivity.slice(0, 7).reverse() : [];
-  const maximum = Math.max(1, ...activity.map((row: any) => Number(row.study_seconds ?? 0)));
+  const maximum = Math.max(1, ...activity.map((row) => Number(row.study_seconds ?? 0)));
   const dayLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
   return <>
     <div className={styles.welcomeRow}><div><div className={styles.eyebrow}>YOUR STUDY SPACE</div><h1>おかえりなさい, {name}. <span>ようこそ!</span></h1><p>A little practice every day adds up. Ready to keep your momentum?</p></div></div>
@@ -205,15 +232,15 @@ function Dashboard({ name, snapshot, streak, onContinue }: { name: string; snaps
       <StatCard icon="字" label="N5 kanji in library" value={`${kanjiCount}`} note="Published kanji" progress={Math.min(100, kanjiCount / 100 * 100)} tone="blue" />
       <StatCard icon="✳" label="Current streak" value={`${streak} days`} note="Days with learning activity" progress={Math.min(100, streak / 30 * 100)} tone="purple" />
     </section>
-    <section className={styles.dashboardGrid}><div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div><div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div><div className={styles.chartBars}>{(activity.length ? activity : Array.from({length:7},(_,i)=>({activity_date:'',study_seconds:0,key:i}))).map((row:any,i:number)=><div className={styles.chartColumn} key={row.activity_date || i}><div className={styles.chartTrack}><span className={styles.chartBar} style={{height:`${Math.max(2,Math.min(100,Number(row.study_seconds ?? 0)/Math.max(3600,maximum)*100))}%`}} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>)}</div></div><div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0)/60)} min</strong></span></div></div>
+    <section className={styles.dashboardGrid}><div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div><div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div><div className={styles.chartBars}>{(activity.length ? activity : Array.from({length:7},(_,i)=>({activity_date:'',study_seconds:0,key:i}))).map((row,i)=><div className={styles.chartColumn} key={row.activity_date || i}><div className={styles.chartTrack}><span className={styles.chartBar} style={{height:`${Math.max(2,Math.min(100,Number(row.study_seconds ?? 0)/Math.max(3600,maximum)*100))}%`}} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>)}</div></div><div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0)/60)} min</strong></span></div></div>
       <div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div><div className={styles.goalContent}><div className={styles.goalRing}><div><strong>{minutes}</strong><span>/ {goal} min</span></div></div><div className={styles.goalText}><strong>{goalPercent >= 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong><p>{goalPercent >= 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0,goal-minutes)} more minutes to reach today's learning goal.`}</p><ProgressBar value={goalPercent} /><div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0,goal-minutes)} min left</span></div></div></div></div></section>
     <div className={styles.sectionTop}><div><div className={styles.eyebrow}>A GOOD PLACE TO START</div><h2>Today's focus</h2></div><span className={styles.mutedMeta}>Choose a short activity</span></div>
     <section className={styles.focusGrid}><FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/><FocusCard number="02" title="Everyday essentials" description="Revise useful words about daily routines." meta="Vocabulary · 6 min" tag="REVIEW" href="/learn/vocabulary" tone="orange"/><FocusCard number="03" title="A short N5 story" description="Read a beginner passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/></section>
   </>;
 }
 
-function StatCard({ icon, label, value, note, progress, tone }: { icon: string; label: string; value: string; note: string; progress: number; tone: string }) {
-  return <div className={styles.statCard}><div className={styles.statTop}><span className={`${styles.statIcon} ${styles[`tone_${tone}`]}`}>{icon}</span><span className={styles.statMore}>···</span></div><div className={styles.statLabel}>{label}</div><div className={styles.statValue}>{value}</div><div className={styles.statNote}>{note}</div><ProgressBar value={progress} tone={tone === 'purple' ? 'blue' : tone as any}/></div>;
+function StatCard({ icon, label, value, note, progress, tone }: { icon: string; label: string; value: string; note: string; progress: number; tone: Tone }) {
+  return <div className={styles.statCard}><div className={styles.statTop}><span className={`${styles.statIcon} ${styles[`tone_${tone}`]}`}>{icon}</span><span className={styles.statMore}>···</span></div><div className={styles.statLabel}>{label}</div><div className={styles.statValue}>{value}</div><div className={styles.statNote}>{note}</div><ProgressBar value={progress} tone={tone === 'purple' ? 'blue' : tone}/></div>;
 }
 function FocusCard({ number, title, description, meta, tag, href, tone }: { number: string; title: string; description: string; meta: string; tag: string; href: string; tone: string }) {
   return <Link href={href} className={`${styles.focusCard} ${styles[`focus_${tone}`]}`}><div className={styles.focusTop}><span>{number}</span><small>{tag} ↗</small></div><h3>{title}</h3><p>{description}</p><div className={styles.focusMeta}><span>◷ {meta}</span><span>→</span></div></Link>;
@@ -304,24 +331,20 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   const [remaining, setRemaining] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [typed, setTyped] = useState('');
-  const [ordered, setOrdered] = useState<string[]>([]);
+  const countdownRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const current = questions[index];
   const prompt = asJsonObject(current?.prompt) ?? { text: String(current?.prompt ?? '') };
+  const savedResponse = current ? responses[current.id] : undefined;
+  const typed = typeof savedResponse === 'string' ? savedResponse : '';
+  const ordered = Array.isArray(savedResponse)
+    ? savedResponse.filter((value): value is string => typeof value === 'string')
+    : [];
   const optionLabel = (option: QuizChoice) => {
     if (typeof option.content === 'string') return option.content;
     const content = asJsonObject(option.content);
     return jsonDisplayText(content?.text ?? content?.label, JSON.stringify(option.content));
   };
-
-  // Restore typed and ordered responses when learners navigate back to a question.
-  useEffect(() => {
-    if (!current) return;
-    const saved = responses[current.id];
-    setTyped(typeof saved === 'string' ? saved : '');
-    setOrdered(Array.isArray(saved) ? saved as string[] : []);
-  }, [current?.id]);
 
   useEffect(() => {
     let alive = true;
@@ -343,13 +366,15 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not start this practice set.');
       setActiveQuiz(quiz); setAttemptId(body.attemptId); setStartedAt(body.startedAt);
-      setQuestions(body.quiz.questions ?? []); setResponses({}); setIndex(0); setResult(null); setTyped(''); setOrdered([]);
-      setRemaining(Number(body.quiz.time_limit_seconds ?? quiz.timeLimitSeconds ?? 0));
+      setQuestions(body.quiz.questions ?? []); setResponses({}); setIndex(0); setResult(null);
+      const timeLimit = Number(body.quiz.time_limit_seconds ?? quiz.timeLimitSeconds ?? 0);
+      countdownRef.current = timeLimit;
+      setRemaining(timeLimit);
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not start this practice set.'); }
     finally { setBusy(false); }
   }
 
-  async function submit() {
+  const submit = useCallback(async () => {
     if (!attemptId || busy || result) return;
     setBusy(true); setError('');
     try {
@@ -360,25 +385,24 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       setResult(body as QuizResult);
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your answers.'); }
     finally { setBusy(false); }
-  }
+  }, [attemptId, busy, result, responses]);
 
   useEffect(() => {
     submitRef.current = submit;
   }, [submit]);
 
   useEffect(() => {
-    if (!attemptId || result || remaining <= 0) return;
-    const deadline = Date.now() + remaining * 1000;
+    if (!attemptId || result || countdownRef.current <= 0) return;
     const timer = window.setInterval(() => {
-      const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setRemaining(secondsLeft);
-      if (secondsLeft === 0) {
+      countdownRef.current = Math.max(0, countdownRef.current - 1);
+      setRemaining(countdownRef.current);
+      if (countdownRef.current === 0) {
         window.clearInterval(timer);
         void submitRef.current();
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [attemptId, result, remaining > 0]);
+  }, [attemptId, result]);
 
   function choose(optionKey: string) {
     if (!current) return;
@@ -447,10 +471,10 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
         <h2>{prompt.text || prompt.question || 'Complete the question.'}</h2>
         {romaji && prompt.romaji ? <div className={styles.questionRomaji}>{jsonDisplayText(prompt.romaji)}</div> : null}
         {prompt.meaning ? <div className={styles.questionMeaning}>{jsonDisplayText(prompt.meaning)}</div> : null}
-        {current.type === 'fill_blank' || current.type === 'short_answer' ? <div className={styles.fillForm}><input value={typed} onChange={(event) => { setTyped(event.target.value); setResponses((state) => ({ ...state, [current.id]: event.target.value })); }} placeholder="Type your answer" /><span /></div> : null}
+        {current.type === 'fill_blank' || current.type === 'short_answer' ? <div className={styles.fillForm}><input value={typed} onChange={(event) => setResponses((state) => ({ ...state, [current.id]: event.target.value }))} placeholder="Type your answer" /><span /></div> : null}
         {current.type === 'ordering' ? <>
-          <div className={styles.builderAnswer}>{ordered.length ? ordered.map((key) => { const option = current.options.find((row) => row.key === key); return <button key={key} type="button" onClick={() => { setOrdered((value) => value.filter((part) => part !== key)); setResponses((value) => ({ ...value, [current.id]: ordered.filter((part) => part !== key) })); }}>{option ? optionLabel(option) : key} <small>×</small></button>; }) : <span>Build the sentence in the right order…</span>}</div>
-          <div className={styles.builderTiles}>{current.options.filter((option) => !ordered.includes(option.key)).map((option) => <button type="button" key={option.key} onClick={() => { const next = [...ordered, option.key]; setOrdered(next); setResponses((value) => ({ ...value, [current.id]: next })); }}>{optionLabel(option)}</button>)}</div>
+          <div className={styles.builderAnswer}>{ordered.length ? ordered.map((key) => { const option = current.options.find((row) => row.key === key); return <button key={key} type="button" onClick={() => { setResponses((value) => ({ ...value, [current.id]: ordered.filter((part) => part !== key) })); }}>{option ? optionLabel(option) : key} <small>×</small></button>; }) : <span>Build the sentence in the right order…</span>}</div>
+          <div className={styles.builderTiles}>{current.options.filter((option) => !ordered.includes(option.key)).map((option) => <button type="button" key={option.key} onClick={() => { const next = [...ordered, option.key]; setResponses((value) => ({ ...value, [current.id]: next })); }}>{optionLabel(option)}</button>)}</div>
         </> : null}
         {current.type !== 'fill_blank' && current.type !== 'short_answer' && current.type !== 'ordering' ? <div className={styles.choiceGrid}>{current.options.map((option) => {
           const picked = current.type === 'multiple_choice' ? (Array.isArray(responses[current.id]) && (responses[current.id] as string[]).includes(option.key)) : responses[current.id] === option.key;
@@ -458,7 +482,7 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
         })}</div> : null}
         <div className={styles.examControls}>
           <button className={styles.textButton} onClick={() => setIndex((value) => Math.max(0, value - 1))} disabled={index === 0}>← Previous</button>
-          {index < questions.length - 1 ? <button className={styles.primaryButton} onClick={() => { setIndex((value) => value + 1); setTyped(''); setOrdered([]); }}>Next question <span>→</span></button> : <button className={styles.primaryButton} disabled={busy} onClick={() => void submit()}>{busy ? 'Submitting…' : 'Submit answers'} <span>✓</span></button>}
+          {index < questions.length - 1 ? <button className={styles.primaryButton} onClick={() => setIndex((value) => value + 1)}>Next question <span>→</span></button> : <button className={styles.primaryButton} disabled={busy} onClick={() => void submit()}>{busy ? 'Submitting…' : 'Submit answers'} <span>✓</span></button>}
         </div>
         {index === questions.length - 1 && questions.length > 1 ? <button className={styles.textButton} onClick={() => void submit()} disabled={busy}>Submit now and finish the set</button> : null}
         {error ? <div className={styles.authMessage}>{error}</div> : null}
@@ -476,23 +500,6 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   </>;
 }
 
-
-function SentenceBuilder() {
-  const bank = ['わたしは', '毎日', '日本語を', '勉強します。'];
-  const [built, setBuilt] = useState<string[]>([]);
-  const [checked, setChecked] = useState<boolean | null>(null);
-  const [showMeaning, setShowMeaning] = useState(false);
-  const complete = built.length === bank.length;
-  const correct = built.join('') === bank.join('');
-  return <section className={styles.builderPanel}>
-    <div className={styles.builderHeader}><div><div className={styles.eyebrow}>SENTENCE CONSTRUCTION</div><h3>Put the sentence together.</h3><p>Tap the word tiles in the order that makes a natural Japanese sentence.</p></div><span className={styles.counterPill}>N5 · WORD ORDER</span></div>
-    <div className={styles.builderAnswer}>{built.length ? built.map((word,i)=><button type="button" key={`${word}-${i}`} onClick={()=>{setBuilt(v=>v.filter((_,j)=>j!==i));setChecked(null);}}>{word} <small>×</small></button>) : <span>Build your sentence here…</span>}</div>
-    <div className={styles.builderTiles}>{bank.filter((word)=>!built.includes(word)).map((word)=><button type="button" key={word} onClick={()=>{setBuilt(v=>[...v,word]);setChecked(null);}}>{word}</button>)}</div>
-    <div className={styles.builderControls}><button type="button" className={styles.textButton} onClick={()=>{setBuilt([]);setChecked(null);}}>Reset</button><button type="button" className={styles.ghostButton} onClick={()=>setShowMeaning(v=>!v)}>{showMeaning?'Hide meaning':'Show meaning'}</button><button type="button" className={styles.primaryButton} disabled={!complete} onClick={()=>setChecked(correct)}>Check sentence <span>→</span></button></div>
-    {showMeaning&&<div className={styles.builderMeaning}>Every day, I study Japanese.</div>}
-    {checked!==null&&<div className={`${styles.builderResult} ${checked?styles.feedbackGood:styles.feedbackBad}`}>{checked?'Perfect sentence order!':'Not quite. In this sentence, the time phrase comes before the object and verb.'}</div>}
-  </section>;
-}
 
 function Vocabulary({ items, romaji, setRomaji }: { items: VocabularyItem[]; romaji: boolean; setRomaji: (value: boolean) => void }) {
   const [expanded, setExpanded] = useState<string|null>(null);
@@ -537,7 +544,8 @@ type DueFlashcard = {
 };
 function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
   const decks = useMemo(() => Array.from(new Map(items.map((item) => [item.deckId, { id: item.deckId, title: item.deckTitle, slug: item.deckSlug }])).values()), [items]);
-  const [deckId, setDeckId] = useState('');
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
+  const deckId = selectedDeckId && decks.some((deck) => deck.id === selectedDeckId) ? selectedDeckId : (decks[0]?.id ?? '');
   const [sessionId, setSessionId] = useState('');
   const [queue, setQueue] = useState<DueFlashcard[]>([]);
   const [index, setIndex] = useState(0);
@@ -545,9 +553,8 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [stats, setStats] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
-  const [cardStartedAt, setCardStartedAt] = useState(Date.now());
+  const [cardStartedAt, setCardStartedAt] = useState(0);
   const [previewIndex, setPreviewIndex] = useState(0);
-  useEffect(() => { if (!deckId && decks[0]?.id) setDeckId(decks[0].id); }, [decks, deckId]);
   const card = queue[index];
   const preview = flashDeck[previewIndex % flashDeck.length];
   async function startSession() {
@@ -588,14 +595,14 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
     <div className={styles.flashSummary}><div><strong>{signedIn ? Math.max(0,queue.length-index) : flashDeck.length}</strong><span>cards remaining</span></div><div><strong>{stats.good+stats.easy}</strong><span>remembered this session</span></div><div><strong>{stats.again+stats.hard}</strong><span>to revisit</span></div></div>
     {!signedIn ? <div className={styles.flashStage}><div className={styles.flashTopline}><span>PREVIEW FLASHCARD</span><span>{previewIndex+1} / {flashDeck.length}</span></div><button type="button" className={`${styles.flashCard} ${flipped?styles.flashCardFlip:''}`} onClick={()=>setFlipped(!flipped)}><span className={styles.flashCardLabel}>{flipped?'MEANING':'JAPANESE'}</span>{flipped?<><strong className={styles.flashMeaning}>{preview.back}</strong><span className={styles.flashExample}>{preview.example}</span><span className={styles.flashReading}>{preview.meaning}</span></>:<><strong className={styles.flashJapanese}>{preview.front}</strong><span className={styles.flashReading}>{preview.reading}</span>{romaji&&<small>{preview.romaji}</small>}</>}<span className={styles.flipHint}>↻ Tap to reveal</span></button><div className={styles.flashActions}><Link href="/login" className={styles.primaryButton}>Sign in to save revision <span>→</span></Link><button className={styles.secondaryButton} onClick={()=>{setPreviewIndex((v)=>v+1);setFlipped(false);}}>Next preview</button></div></div>
     : !items.length ? <EmptyState title="No published flashcards yet" description="Run the N5 content seed once in your local database to publish the vocabulary, kanji and grammar decks." />
-    : <><div className={styles.toolbar}><span>{decks.length} published decks</span><select aria-label="Choose flashcard deck" value={deckId} onChange={(event)=>{setDeckId(event.target.value);setSessionId('');setQueue([]);setIndex(0);}}>{decks.map((deck)=><option key={deck.id} value={deck.id}>{deck.title}</option>)}</select><button className={styles.primaryButton} disabled={busy || !deckId} onClick={()=>void startSession()}>{busy?'Loading…':sessionId?'Start another session':'Start revision'} <span>→</span></button></div>
+    : <><div className={styles.toolbar}><span>{decks.length} published decks</span><select aria-label="Choose flashcard deck" value={deckId} onChange={(event)=>{setSelectedDeckId(event.target.value);setSessionId('');setQueue([]);setIndex(0);}}>{decks.map((deck)=><option key={deck.id} value={deck.id}>{deck.title}</option>)}</select><button className={styles.primaryButton} disabled={busy || !deckId} onClick={()=>void startSession()}>{busy?'Loading…':sessionId?'Start another session':'Start revision'} <span>→</span></button></div>
     {notice?<div className={styles.billingNote}>{notice}</div>:null}
     {card ? <div className={styles.flashStage}><div className={styles.flashTopline}><span>{decks.find((deck)=>deck.id===deckId)?.title || 'N5 DECK'}</span><span>{index+1} / {queue.length}</span></div><button type="button" className={`${styles.flashCard} ${flipped?styles.flashCardFlip:''}`} onClick={()=>setFlipped(!flipped)}><span className={styles.flashCardLabel}>{flipped?'MEANING':'JAPANESE'}</span>{flipped?<><strong className={styles.flashMeaning}>{card.back_text}</strong>{card.back_reading?<span className={styles.flashReading}>{card.back_reading}</span>:null}{card.example_sentence?<span className={styles.flashExample}>{card.example_sentence}</span>:null}{card.example_translation?<span className={styles.flashReading}>{card.example_translation}</span>:null}{card.hint?<small>{card.hint}</small>:null}{romaji&&card.back_romaji?<small>{card.back_romaji}</small>:null}</>:<><strong className={styles.flashJapanese}>{card.front_text}</strong>{card.front_reading?<span className={styles.flashReading}>{card.front_reading}</span>:null}{romaji&&card.front_romaji?<small>{card.front_romaji}</small>:null}</>}<span className={styles.flipHint}>↻ Tap to {flipped?'see Japanese':'reveal meaning'}</span></button>{flipped?<div className={styles.ratingRow}><span>How well did you know it?</span><div><button disabled={busy} onClick={()=>void rate('again')} className={styles.rateAgain}>Again</button><button disabled={busy} onClick={()=>void rate('hard')} className={styles.rateHard}>Hard</button><button disabled={busy} onClick={()=>void rate('good')} className={styles.rateGood}>Good</button><button disabled={busy} onClick={()=>void rate('easy')} className={styles.rateEasy}>Easy</button></div></div>:<div className={styles.flashActions}><button className={styles.primaryButton} onClick={()=>setFlipped(true)}>Reveal answer <span>↗</span></button></div>}</div> : sessionId ? <div className={styles.emptyState}><div>完</div><h2>Revision session complete</h2><p>{reviewed} cards reviewed. Your next due times have been saved.</p><button className={styles.primaryButton} onClick={()=>void startSession()}>Review another deck <span>→</span></button></div> : <div className={styles.emptyState}><div>復</div><h2>Ready when you are</h2><p>Start a session to load the cards due for review and your next new cards.</p></div>}</>}
   </>;
 }
 
 function Reading({ romaji, setRomaji, signedIn }: { romaji:boolean; setRomaji:(v:boolean)=>void; signedIn:boolean }) {
-  const [passages,setPassages] = useState<any[]>([]);
+  const [passages,setPassages] = useState<ReadingPassage[]>([]);
   const [selected,setSelected] = useState(0);
   const [translation,setTranslation] = useState(false);
   const [showQuiz,setShowQuiz] = useState(false);
@@ -603,7 +610,7 @@ function Reading({ romaji, setRomaji, signedIn }: { romaji:boolean; setRomaji:(v
   const p = passages[selected];
   if (showQuiz) return <><SectionHeading eyebrow="N5 READING CHECK" title="Test your comprehension." description="Your answers are submitted to the secure grading service." action={<button className={styles.ghostButton} onClick={()=>setShowQuiz(false)}>Back to passages</button>}/><QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji}/></>;
   return <><SectionHeading eyebrow="READING ROOM · JLPT N5" title="Read a little. Understand a lot." description="Graded passages with optional Romaji, English meaning and vocabulary notes." action={<button className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/>
-    {!p ? <EmptyState title="Reading library is being prepared" description="Run the local N5 content seed to add graded reading passages."/> : <div className={styles.readingLayout}><article className={styles.readingPanel}><div className={styles.readingTop}><span className={styles.readingLevel}>N5 READER · 3 MIN</span><span>Story {String(selected+1).padStart(2,'0')}</span></div><div className={styles.filterPills}>{passages.map((passage,index)=><button key={passage.title} className={selected===index?styles.filterActive:''} onClick={()=>{setSelected(index);setTranslation(false)}}>{passage.title}</button>)}</div><h2>{p.title}</h2><div className={styles.readingJapanese}>{p.text}</div>{romaji&&p.romaji?<div className={styles.readingRomaji}>{p.romaji}</div>:null}<button className={styles.translationToggle} onClick={()=>setTranslation((v)=>!v)}>{translation?'Hide translation':'Show English translation'} <span>⌄</span></button>{translation&&<div className={styles.translationBox}>{p.translation}</div>}<div className={styles.wordNotes}><div className={styles.eyebrow}>WORDS TO NOTICE</div>{(p.vocabulary??[]).map((word:any)=><div key={`${word.word}-${word.reading}`}><span>{word.word}</span><small>{word.reading} · {word.meaning}{romaji&&word.romaji?` · ${word.romaji}`:''}</small></div>)}</div><button type="button" className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start graded comprehension <span>→</span></button></article><aside className={styles.comprehensionPanel}><div className={styles.eyebrow}>READING PRACTICE</div><div className={styles.questionNumber}>{passages.length} PASSAGES</div><h3>Read the passage carefully, then answer comprehension questions in a graded practice set.</h3><p>Answers are checked server-side, and your result is saved to your learning history.</p><button className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start questions <span>→</span></button></aside></div>}
+    {!p ? <EmptyState title="Reading library is being prepared" description="Run the local N5 content seed to add graded reading passages."/> : <div className={styles.readingLayout}><article className={styles.readingPanel}><div className={styles.readingTop}><span className={styles.readingLevel}>N5 READER · 3 MIN</span><span>Story {String(selected+1).padStart(2,'0')}</span></div><div className={styles.filterPills}>{passages.map((passage,index)=><button key={passage.title} className={selected===index?styles.filterActive:''} onClick={()=>{setSelected(index);setTranslation(false)}}>{passage.title}</button>)}</div><h2>{p.title}</h2><div className={styles.readingJapanese}>{p.text}</div>{romaji&&p.romaji?<div className={styles.readingRomaji}>{p.romaji}</div>:null}<button className={styles.translationToggle} onClick={()=>setTranslation((v)=>!v)}>{translation?'Hide translation':'Show English translation'} <span>⌄</span></button>{translation&&<div className={styles.translationBox}>{p.translation}</div>}<div className={styles.wordNotes}><div className={styles.eyebrow}>WORDS TO NOTICE</div>{(p.vocabulary??[]).map((word)=><div key={`${word.word}-${word.reading}`}><span>{word.word}</span><small>{word.reading} · {word.meaning}{romaji&&word.romaji?` · ${word.romaji}`:''}</small></div>)}</div><button type="button" className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start graded comprehension <span>→</span></button></article><aside className={styles.comprehensionPanel}><div className={styles.eyebrow}>READING PRACTICE</div><div className={styles.questionNumber}>{passages.length} PASSAGES</div><h3>Read the passage carefully, then answer comprehension questions in a graded practice set.</h3><p>Answers are checked server-side, and your result is saved to your learning history.</p><button className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start questions <span>→</span></button></aside></div>}
   </>;
 }
 
@@ -611,45 +618,59 @@ function Exams({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boo
   return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
 }
 
-function Progress({snapshot,streak}:{snapshot:any;streak:number}) {
+function Progress({snapshot,streak}:{snapshot:LearnerSnapshot;streak:number}) {
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
   return <><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{snapshot.overallPercentage || 0}<span>%</span></div><p>Progress is calculated from completed lessons, reviewed vocabulary, mastered kanji and reading practice.</p></div><div className={styles.progressRingLarge}><strong>{snapshot.overallPercentage || 0}%</strong><span>complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green"/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange"/><Mastery label="Kanji" value={mastery.kanji} tone="blue"/><Mastery label="Reading" value={mastery.reading} tone="purple"/><Mastery label="Kana" value={mastery.kana} tone="green"/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange"/></div><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{['M','T','W','T','F','S','S'].map((d,i)=><div className={styles.dayEmpty} key={`${d}${i}`}><span>{d}</span><b>·</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
-function Mastery({label,value,tone}:{label:string;value:number;tone:string}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone as any}/><small>{value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended'}</small></div>}
+function Mastery({label,value,tone}:{label:string;value:number;tone:Tone}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended'}</small></div>}
 
 function Membership({signedIn}:{signedIn:boolean}) {
-  const [plans,setPlans]=useState<any[]>([]);
-  const [status,setStatus]=useState<any>(null);
+  const router = useRouter();
+  const [plans,setPlans]=useState<MembershipPlan[]>([]);
+  const [status,setStatus]=useState<MembershipStatus | null>(null);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
   const [loading,setLoading]=useState(true);
-  async function refresh(){
+  const refresh = useCallback(async () => {
     setLoading(true);
-    try{
-      const planResponse=await fetch('/api/billing/plans',{cache:'no-store'});const planBody=await planResponse.json();if(!planResponse.ok)throw new Error(planBody.error||'Could not load plans.');setPlans(planBody.plans??[]);
-      if(signedIn){const statusResponse=await fetch('/api/billing/status',{credentials:'same-origin',cache:'no-store'});const statusBody=await statusResponse.json();if(statusResponse.ok)setStatus(statusBody);}
-    }catch(error){setNotice(error instanceof Error?error.message:'Could not load membership.');}finally{setLoading(false);}
-  }
-  useEffect(()=>{void refresh()},[signedIn]);
+    try {
+      const planResponse = await fetch('/api/billing/plans', { cache: 'no-store' });
+      const planBody = await planResponse.json() as { plans?: MembershipPlan[]; error?: string };
+      if (!planResponse.ok) throw new Error(planBody.error || 'Could not load plans.');
+      setPlans(planBody.plans ?? []);
+      if (signedIn) {
+        const statusResponse = await fetch('/api/billing/status', { credentials: 'same-origin', cache: 'no-store' });
+        const statusBody = await statusResponse.json() as MembershipStatus;
+        if (statusResponse.ok) setStatus(statusBody);
+      } else {
+        setStatus(null);
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not load membership.');
+    } finally {
+      setLoading(false);
+    }
+  }, [signedIn]);
+  useEffect(() => { void refresh(); }, [refresh]);
   async function checkout(planCode:string){
-    if(!signedIn){window.location.assign('/signup');return;}
+    if(!signedIn){router.push('/signup');return;}
     setBusy(true);setNotice('');
     try{
       const response=await fetch('/api/billing/checkout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({planCode,idempotencyKey:crypto.randomUUID()})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
+      const body=await response.json() as CheckoutResponse;if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
       if(body.mode==='subscription' && body.checkoutUrl){window.location.assign(body.checkoutUrl);return;}
       if(body.mode!=='order' || !body.orderId || !body.keyId)throw new Error('Razorpay Checkout details are incomplete. Check payment configuration.');
       if(!window.Razorpay){
         await new Promise<void>((resolve,reject)=>{const existing=document.querySelector<HTMLScriptElement>('script[data-razorpay-checkout]');if(existing){existing.addEventListener('load',()=>resolve(),{once:true});existing.addEventListener('error',()=>reject(new Error('Razorpay Checkout failed to load.')),{once:true});return;}const script=document.createElement('script');script.src='https://checkout.razorpay.com/v1/checkout.js';script.async=true;script.dataset.razorpayCheckout='true';script.onload=()=>resolve();script.onerror=()=>reject(new Error('Razorpay Checkout failed to load.'));document.body.appendChild(script);});
       }
       if(!window.Razorpay)throw new Error('Razorpay Checkout is unavailable.');
-      const checkout=new window.Razorpay({key:body.keyId,amount:body.amountMinor,currency:body.currency,name:'Nihongo Labs',description:`${body.planName||'Premium membership'}`,order_id:body.orderId,theme:{color:'#b54c43'},handler:async(payment:any)=>{
+      const checkout=new window.Razorpay({key:body.keyId,amount:body.amountMinor,currency:body.currency,name:'Nihongo Labs',description:`${body.planName||'Premium membership'}`,order_id:body.orderId,theme:{color:'#b54c43'},handler:async(payment: RazorpayPaymentResult)=>{
         const verified=await fetch('/api/billing/verify',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:payment.razorpay_order_id,paymentId:payment.razorpay_payment_id,signature:payment.razorpay_signature})});
         const result=await verified.json();if(!verified.ok){setNotice(result.error||'Payment was received but verification is still pending.');setBusy(false);return;}
-        window.location.assign('/learn/subscription?payment=verified');
+        router.push('/learn/subscription?payment=verified');
       }});
-      checkout.on('payment.failed',(failure:any)=>{setNotice(failure?.error?.description||'Payment failed. You can try again.');setBusy(false);});
+      checkout.on('payment.failed',(failure: RazorpayFailure)=>{setNotice(failure?.error?.description||'Payment failed. You can try again.');setBusy(false);});
       checkout.open();setBusy(false);
     }catch(error){setNotice(error instanceof Error?error.message:'Checkout could not be started.');setBusy(false);}
   }
@@ -660,10 +681,10 @@ function Membership({signedIn}:{signedIn:boolean}) {
   }
   return <><SectionHeading eyebrow="YOUR LEARNING, YOUR PACE" title="Choose how far you want to go." description="Start free and unlock more revision, reading and examination practice when you're ready." action={status?.hasPremium?<span className={styles.counterPill}>Premium active</span>:null}/>
     {notice?<div className={styles.billingNote}>{notice}</div>:null}
-    {signedIn&&status?.subscriptions?.length?<div className={styles.panel}><div className={styles.eyebrow}>YOUR SUBSCRIPTION</div>{status.subscriptions.map((sub:any)=><div key={sub.id} className={styles.exampleCard}><strong>{sub.subscription_plans?.name||'Nihongo Labs plan'} · {sub.status}</strong><p>{sub.current_period_end?`Current period ends ${new Date(sub.current_period_end).toLocaleDateString()}`:'No fixed end date recorded.'}</p>{sub.cancel_at_period_end?<small>Renewal cancellation is scheduled.</small>:['active','trialing','past_due'].includes(sub.status)&&!String(sub.subscription_plans?.billing_interval).includes('lifetime')?<button className={styles.textButton} disabled={busy} onClick={()=>void cancel(sub.id)}>Cancel automatic renewal</button>:null}</div>)}</div>:null}
-    {loading?<div className={styles.emptyState}><div>読</div><h2>Loading plans…</h2></div>:<div className={styles.planGrid}>{plans.map((plan:any)=>{
+    {signedIn&&status?.subscriptions?.length?<div className={styles.panel}><div className={styles.eyebrow}>YOUR SUBSCRIPTION</div>{status.subscriptions.map((sub)=><div key={sub.id} className={styles.exampleCard}><strong>{sub.subscription_plans?.name||'Nihongo Labs plan'} · {sub.status}</strong><p>{sub.current_period_end?`Current period ends ${new Date(sub.current_period_end).toLocaleDateString()}`:'No fixed end date recorded.'}</p>{sub.cancel_at_period_end?<small>Renewal cancellation is scheduled.</small>:['active','trialing','past_due'].includes(sub.status)&&!String(sub.subscription_plans?.billing_interval).includes('lifetime')?<button className={styles.textButton} disabled={busy} onClick={()=>void cancel(sub.id)}>Cancel automatic renewal</button>:null}</div>)}</div>:null}
+    {loading?<div className={styles.emptyState}><div>読</div><h2>Loading plans…</h2></div>:<div className={styles.planGrid}>{plans.map((plan)=>
       const price=Number(plan.amountMinor??0)/100;const featured=plan.code==='plus_monthly';const free=plan.planKind==='free';
-      return <div className={`${styles.planCard} ${featured?styles.planFeatured:''}`} key={plan.id}>{featured?<div className={styles.popularBadge}>MOST POPULAR</div>:null}<div className={styles.eyebrow}>{free?'START HERE':plan.code==='basic_monthly'?'A LIGHTER STEP':'FOR CONSISTENT LEARNERS'}</div><h2>{plan.name}</h2><div className={styles.planPrice}>₹{price.toLocaleString('en-IN')} <small>{free?'/ forever':`/ ${plan.billingInterval}`}</small></div><p>{plan.description}</p><ul>{(plan.features??[]).map((feature:any)=><li key={feature.key}>✓ {feature.key.replaceAll('_',' ')}</li>)}</ul>{free?<Link href={signedIn?'/learn':'/signup'} className={styles.secondaryButton}>{signedIn?'Your free workspace':'Create free account'}</Link>:<button className={featured?styles.primaryButton:styles.secondaryButton} disabled={busy} onClick={()=>void checkout(plan.code)}>{busy?'Starting checkout…':signedIn?'Choose plan':'Sign up to subscribe'} <span>→</span></button>}{!free?<small className={styles.planFoot}>Secure checkout opens on Razorpay.</small>:null}</div>;
+      return <div className={`${styles.planCard} ${featured?styles.planFeatured:''}`} key={plan.id}>{featured?<div className={styles.popularBadge}>MOST POPULAR</div>:null}<div className={styles.eyebrow}>{free?'START HERE':plan.code==='basic_monthly'?'A LIGHTER STEP':'FOR CONSISTENT LEARNERS'}</div><h2>{plan.name}</h2><div className={styles.planPrice}>₹{price.toLocaleString('en-IN')} <small>{free?'/ forever':`/ ${plan.billingInterval}`}</small></div><p>{plan.description}</p><ul>{(plan.features??[]).map((feature)=><li key={feature.key}>✓ {feature.key.replaceAll('_',' ')}</li>)}</ul>{free?<Link href={signedIn?'/learn':'/signup'} className={styles.secondaryButton}>{signedIn?'Your free workspace':'Create free account'}</Link>:<button className={featured?styles.primaryButton:styles.secondaryButton} disabled={busy} onClick={()=>void checkout(plan.code)}>{busy?'Starting checkout…':signedIn?'Choose plan':'Sign up to subscribe'} <span>→</span></button>}{!free?<small className={styles.planFoot}>Secure checkout opens on Razorpay.</small>:null}</div>;
     })}</div>}
     <div className={styles.billingNote}>Payments are activated only after the Razorpay webhook verifies the provider event and records an entitlement. A plan must have its Razorpay Plan ID configured before recurring checkout can start.</div>
   </>;
