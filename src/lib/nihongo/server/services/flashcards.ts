@@ -5,6 +5,22 @@ import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
 type RatingName = 'again' | 'hard' | 'good' | 'easy';
+type FlashcardStateRow = {
+  flashcard_id: string;
+  scheduler_state: string;
+  due_at: string;
+  repetitions: number;
+  suspended_at: string | null;
+  buried_until: string | null;
+  stability_days: number | null;
+  difficulty: number | null;
+  elapsed_days: number | null;
+  scheduled_days: number | null;
+  learning_step: number | null;
+  lapses: number | null;
+  last_reviewed_at: string | null;
+};
+type SchedulerStateRow = Omit<FlashcardStateRow, 'flashcard_id' | 'suspended_at' | 'buried_until'>;
 const ratingMap = { again: Rating.Again, hard: Rating.Hard, good: Rating.Good, easy: Rating.Easy } as const;
 
 function stateToDb(state: State): 'new' | 'learning' | 'review' | 'relearning' {
@@ -23,7 +39,7 @@ function stateFromDb(state: string | undefined): State {
   }
 }
 
-function toSchedulerCard(row: any, now: Date): Card {
+function toSchedulerCard(row: SchedulerStateRow | null, now: Date): Card {
   if (!row) return createEmptyCard(now);
   return {
     ...createEmptyCard(now),
@@ -68,18 +84,22 @@ export async function getDueFlashcards(userClient: SupabaseClient, userId: strin
   ]);
   if (cardsError || statesError || activityError) throw new HttpError(500, 'Could not load flashcards.', cardsError?.message || statesError?.message || activityError?.message);
 
-  const stateById = new Map((states ?? []).map((row: any) => [row.flashcard_id, row]));
+  const stateRows = (states ?? []) as FlashcardStateRow[];
+  const stateById = new Map<string, FlashcardStateRow>(
+    stateRows.map((row): [string, FlashcardStateRow] => [row.flashcard_id, row]),
+  );
+  const cardRows = (cards ?? []) as Array<{ id: string }>;
   const now = Date.now();
   const currentSettings = settings ?? { daily_new_limit: 20, daily_review_limit: 200, show_romaji: true, show_furigana: true };
   const reviewedToday = Number(activity?.flashcards_reviewed ?? 0);
   const newToday = Number(activity?.flashcards_new ?? 0);
   const reviewQuotaLeft = Math.max(0, Number(currentSettings.daily_review_limit) - Math.max(0, reviewedToday - newToday));
   const newQuotaLeft = Math.max(0, Number(currentSettings.daily_new_limit) - newToday);
-  const due = (cards ?? []).filter((card: any) => {
-    const state: any = stateById.get(card.id);
+  const due = cardRows.filter((card) => {
+    const state = stateById.get(card.id);
     return state && !state.suspended_at && (!state.buried_until || new Date(state.buried_until).getTime() <= now) && new Date(state.due_at).getTime() <= now;
   }).slice(0, reviewQuotaLeft);
-  const fresh = (cards ?? []).filter((card: any) => !stateById.has(card.id)).slice(0, newQuotaLeft);
+  const fresh = cardRows.filter((card) => !stateById.has(card.id)).slice(0, newQuotaLeft);
   return { deck, settings: currentSettings, due: mode === 'new' ? [] : due, newCards: mode === 'review' ? [] : fresh, dueCount: mode === 'new' ? 0 : due.length, newCount: mode === 'review' ? 0 : fresh.length, quota: { reviewRemaining: reviewQuotaLeft, newRemaining: newQuotaLeft } };
 }
 
