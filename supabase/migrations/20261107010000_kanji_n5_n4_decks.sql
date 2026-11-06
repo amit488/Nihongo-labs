@@ -96,6 +96,43 @@ values
 on conflict(jlpt_level,character) do update set meaning=excluded.meaning,on_yomi=excluded.on_yomi,kun_yomi=excluded.kun_yomi,stroke_count=excluded.stroke_count,radical=excluded.radical,mnemonic=excluded.mnemonic,example_words=excluded.example_words,publication_status='published',updated_at=now();
 insert into public.kanji_entries(jlpt_level,character,meaning,on_yomi,kun_yomi,stroke_count,radical,mnemonic,example_words,publication_status)
 values
+  ('N5', "一", "one", ["イチ","イツ"]::jsonb, ["ひと","ひと.つ"]::jsonb, 1, "一", "N5 study deck entry", [{"word":"一つ","reading":"ひとつ","meaning":"one thing"},{"word":"一月","reading":"いちがつ","meaning":"January"}]::jsonb),
+  ('N5', "二", "two", ["ニ"]::jsonb, ["ふた","ふた.つ"]::jsonb, 2, "二", "N5 study deck entry", [{"word":"二つ","reading":"ふたつ","meaning":"two things"},{"word":"二月","reading":"にがつ","meaning":"February"}]::jsonb),
+  ('N5', "三", "three", ["サン"]::jsonb, ["み","み.つ"]::jsonb, 3, "一", "N5 study deck entry", [{"word":"三つ","reading":"みっつ","meaning":"three things"},{"word":"三月","reading":"さんがつ","meaning":"March"}]::jsonb),
+  ('N5', "四", "four", ["シ"]::jsonb, ["よ","よん","よっ.つ"]::jsonb, 5, "囗", "N5 study deck entry", [{"word":"四つ","reading":"よっつ","meaning":"four things"},{"word":"四月","reading":"しがつ","meaning":"April"}]::jsonb),
+  ('N5', "五", "five", ["ゴ"]::jsonb, ["いつ","いつ.つ"]::jsonb, 4, "二", "N5 study deck entry", [{"word":"五つ","reading":"いつつ","meaning":"five things"},{"word":"五月","reading":"ごがつ","meaning":"May"}]::jsonb),
+  ('N5', "六", "six", ["ロク"]::jsonb, ["む","む.つ"]::jsonb, 4, "八", "N5 study deck entry", [{"word":"六つ","reading":"むっつ","meaning":"six things"},{"word":"六月","reading":"ろくがつ","meaning":"June"}]::jsonb),
+  ('N5', "七", "seven", ["シチ"]::jsonb, ["なな","なの"]::jsonb, 2, "一", "N5 study deck entry", [{"word":"七つ","reading":"ななつ","meaning":"seven things"},{"word":"七月","reading":"しちがつ","meaning":"July"}]::jsonb),
+  ('N5', "八", "eight", ["ハチ"]::jsonb, ["や","や.つ","よう"]::jsonb, 2, "八", "N5 study deck entry", [{"word":"八つ","reading":"やっつ","meaning":"eight things"},{"word":"八月","reading":"はちがつ","meaning":"August"}]::jsonb),
+  ('N5', "九", "nine", ["キュウ","ク"]::jsonb, ["ここの","ここの.つ"]::jsonb, 2, "乙", "N5 study deck entry", [{"word":"九つ","reading":"ここのつ","meaning":"nine things"},{"word":"九月","reading":"くがつ","meaning":"September"}]::jsonb),
+  ('N5', "十", "ten", ["ジュウ","ジッ"]::jsonb, ["とお","と"]::jsonb, 2, "十", "N5 study deck entry", [{"word":"十","reading":"じゅう","meaning":"ten"},{"word":"十月","reading":"じゅうがつ","meaning":"October"}]::jsonb),
+  ('N5', "百", "hundred", ["ヒャク"]::jsonb, []::jsonb, 6, "白", "N5 study deck entry", [{"word":"百","reading":"ひゃく","meaning":"hundred"},{"word":"百円","reading":"ひゃくえん","meaning":"100 yen"}]::jsonb),
+  ('N5', "千", "thousand", ["セン"]::jsonb, ["ち"]::jsonb, 3, "十", "N5 study deck entry", [{"word":"千","reading":"せん","meaning":"thousand"},{"word":"千円","reading":"せんえん","meaning":"1,000 yen"}]::jsonb),
+  ('N5', "万", "ten thousand", ["マン","バン"]::jsonb, []::jsonb, 3, "一", "N5 study deck entry", [{"word":"一万円","reading":"いちまんえん","meaning":"10,000 yen"},{"word":"万","reading":"まん","meaning":"ten thousand"}]::jsonb),
+  ('N5', "円", "yen; circle", ["エン"]::jsonb, ["まる.い"]::jsonb, 4, "囗", "N5 study deck entry", [{"word":"百円","reading":"ひゃくえん","meaning":"100 yen"},{"word":"円","reading":"えん","meaning":"yen"}]::jsonb),
+  ('N5', "週", "week", ["シュウ"]::jsonb, []::jsonb, 11, "辶", "N5 study deck entry", [{"word":"毎週","reading":"まいしゅう","meaning":"every week"},{"word":"今週","reading":"こんしゅう","meaning":"this week"}]::jsonb),
+  ('N5', "曜", "weekday", ["ヨウ"]::jsonb, []::jsonb, 18, "日", "N5 study deck entry", [{"word":"曜日","reading":"ようび","meaning":"day of the week"},{"word":"土曜日","reading":"どようび","meaning":"Saturday"}]::jsonb),
+  ('N5', "男", "man; male", ["ダン","ナン"]::jsonb, ["おとこ"]::jsonb, 7, "田", "N5 study deck entry", [{"word":"男の人","reading":"おとこのひと","meaning":"man"},{"word":"男子","reading":"だんし","meaning":"boy"}]::jsonb),
+  ('N5', "女", "woman; female", ["ジョ","ニョ"]::jsonb, ["おんな","め"]::jsonb, 3, "女", "N5 study deck entry", [{"word":"女の人","reading":"おんなのひと","meaning":"woman"},{"word":"女子","reading":"じょし","meaning":"girl"}]::jsonb),
+  ('N5', "子", "child", ["シ","ス"]::jsonb, ["こ"]::jsonb, 3, "子", "N5 study deck entry", [{"word":"子ども","reading":"こども","meaning":"child"},{"word":"女子","reading":"じょし","meaning":"girl"}]::jsonb),
+  ('N5', "父", "father", ["フ"]::jsonb, ["ちち","とう"]::jsonb, 4, "父", "N5 study deck entry", [{"word":"父","reading":"ちち","meaning":"father"},{"word":"お父さん","reading":"おとうさん","meaning":"father"}]::jsonb),
+  ('N5', "母", "mother", ["ボ"]::jsonb, ["はは","かあ"]::jsonb, 5, "母", "N5 study deck entry", [{"word":"母","reading":"はは","meaning":"mother"},{"word":"お母さん","reading":"おかあさん","meaning":"mother"}]::jsonb),
+  ('N5', "耳", "ear", ["ジ"]::jsonb, ["みみ"]::jsonb, 6, "耳", "N5 study deck entry", [{"word":"耳","reading":"みみ","meaning":"ear"},{"word":"耳鼻科","reading":"じびか","meaning":"ENT clinic"}]::jsonb),
+  ('N5', "会", "meet; association", ["カイ","エ"]::jsonb, ["あ.う"]::jsonb, 6, "人", "N5 study deck entry", [{"word":"会社","reading":"かいしゃ","meaning":"company"},{"word":"会う","reading":"あう","meaning":"to meet"}]::jsonb),
+  ('N5', "社", "company; shrine", ["シャ"]::jsonb, ["やしろ"]::jsonb, 7, "示", "N5 study deck entry", [{"word":"会社","reading":"かいしゃ","meaning":"company"},{"word":"神社","reading":"じんじゃ","meaning":"Shinto shrine"}]::jsonb),
+  ('N5', "文", "sentence; writing; culture", ["ブン","モン"]::jsonb, ["ふみ"]::jsonb, 4, "文", "N5 study deck entry", [{"word":"文章","reading":"ぶんしょう","meaning":"sentence"},{"word":"作文","reading":"さくぶん","meaning":"composition"}]::jsonb),
+  ('N5', "読", "read", ["ドク","トク","トウ"]::jsonb, ["よ.む"]::jsonb, 14, "言", "N5 study deck entry", [{"word":"読む","reading":"よむ","meaning":"to read"},{"word":"読書","reading":"どくしょ","meaning":"reading books"}]::jsonb),
+  ('N5', "言", "say; word", ["ゲン","ゴン"]::jsonb, ["い.う","こと"]::jsonb, 7, "言", "N5 study deck entry", [{"word":"言う","reading":"いう","meaning":"to say"},{"word":"言葉","reading":"ことば","meaning":"word"}]::jsonb),
+  ('N5', "多", "many; much", ["タ"]::jsonb, ["おお.い"]::jsonb, 6, "夕", "N5 study deck entry", [{"word":"多い","reading":"おおい","meaning":"many"},{"word":"多数","reading":"たすう","meaning":"large number"}]::jsonb),
+  ('N5', "少", "few; little", ["ショウ"]::jsonb, ["すく.ない","すこ.し"]::jsonb, 4, "小", "N5 study deck entry", [{"word":"少ない","reading":"すくない","meaning":"few"},{"word":"少し","reading":"すこし","meaning":"a little"}]::jsonb),
+  ('N5', "右", "right", ["ウ","ユウ"]::jsonb, ["みぎ"]::jsonb, 5, "口", "N5 study deck entry", [{"word":"右","reading":"みぎ","meaning":"right"},{"word":"右手","reading":"みぎて","meaning":"right hand"}]::jsonb),
+  ('N5', "左", "left", ["サ"]::jsonb, ["ひだり"]::jsonb, 5, "工", "N5 study deck entry", [{"word":"左","reading":"ひだり","meaning":"left"},{"word":"左手","reading":"ひだりて","meaning":"left hand"}]::jsonb),
+  ('N5', "外", "outside; foreign", ["ガイ","ゲ"]::jsonb, ["そと","ほか","はず.す"]::jsonb, 5, "夕", "N5 study deck entry", [{"word":"外国","reading":"がいこく","meaning":"foreign country"},{"word":"外","reading":"そと","meaning":"outside"}]::jsonb),
+  ('N5', "国", "country", ["コク"]::jsonb, ["くに"]::jsonb, 8, "囗", "N5 study deck entry", [{"word":"外国","reading":"がいこく","meaning":"foreign country"},{"word":"中国","reading":"ちゅうごく","meaning":"China"}]::jsonb),
+  ('N5', "駅", "station", ["エキ"]::jsonb, []::jsonb, 14, "馬", "N5 study deck entry", [{"word":"駅","reading":"えき","meaning":"station"},{"word":"駅前","reading":"えきまえ","meaning":"in front of station"}]::jsonb)
+on conflict(jlpt_level,character) do update set meaning=excluded.meaning,on_yomi=excluded.on_yomi,kun_yomi=excluded.kun_yomi,stroke_count=excluded.stroke_count,radical=excluded.radical,mnemonic=excluded.mnemonic,example_words=excluded.example_words,publication_status='published',updated_at=now();
+insert into public.kanji_entries(jlpt_level,character,meaning,on_yomi,kun_yomi,stroke_count,radical,mnemonic,example_words,publication_status)
+values
   ('N4', "悪", "bad; evil", ["アク","オ"]::jsonb, ["わる.い"]::jsonb, 11, "心", "N4 study deck entry", [{"word":"悪い","reading":"わるい","meaning":"bad"}]::jsonb),
   ('N4', "暗", "dark", ["アン"]::jsonb, ["くら.い"]::jsonb, 13, "日", "N4 study deck entry", [{"word":"暗い","reading":"くらい","meaning":"dark"},{"word":"暗記","reading":"あんき","meaning":"memorization"}]::jsonb),
   ('N4', "医", "doctor; medicine", ["イ"]::jsonb, []::jsonb, 7, "匚", "N4 study deck entry", [{"word":"医者","reading":"いしゃ","meaning":"doctor"},{"word":"医学","reading":"いがく","meaning":"medical science"}]::jsonb),
