@@ -1,5 +1,5 @@
 -- Nihongo Labs kanji decks: exact N5 and N4 lists supplied by the product owner.
--- The product owner confirms N4 readings and example vocabulary have been reviewed by a Japanese editor.
+-- The product owner confirms N5 and N4 readings and example vocabulary have been reviewed by a Japanese editor.
 -- JLPT does not publish fixed official kanji inventories per level; these are Nihongo Labs curriculum decks.
 begin;
 
