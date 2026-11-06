@@ -5,8 +5,8 @@ import { getBillingStatus } from '@/lib/nihongo/server/services/billing';
 
 
 export async function GET() {
-  try {
     await connection();
+  try {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
     return NextResponse.json(await getBillingStatus(context.supabase, context.user.id), { headers: { 'Cache-Control': 'private, no-store' } });
