@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedKanji, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard } from '@/lib/nihongo/data';
@@ -245,9 +245,51 @@ function Practice({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: 
   return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
 }
 
-type QuizChoice = { key: string; content: any };
-type QuizQuestion = { id: string; type: string; prompt: any; points: number; options: QuizChoice[] };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+type QuizChoice = { key: string; content: JsonValue };
+type QuizQuestion = { id: string; type: string; prompt: JsonValue; points: number; options: QuizChoice[] };
+type QuizFeedback = {
+  questionId: string;
+  correct: boolean;
+  response: unknown;
+  correctAnswer: unknown;
+  explanation: string;
+  detailedExplanation: JsonValue;
+  pointsAwarded: number;
+  points: number;
+};
+type QuizResult = {
+  attemptId: string;
+  scorePercentage: number;
+  earnedPoints: number;
+  totalPoints: number;
+  passed: boolean;
+  passPercentage: number;
+  durationSeconds: number;
+  feedback: QuizFeedback[];
+  showResultsAfterSubmit: boolean;
+};
 type QuizRecord = { id: string; slug: string; title: string; description: string; timeLimitSeconds: number | null; passPercentage: number; accessLevel: string; questionCount: number };
+
+function asJsonObject(value: JsonValue | undefined): JsonObject | null {
+  return value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as JsonObject
+    : null;
+}
+
+function jsonDisplayText(value: JsonValue | undefined, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return fallback;
+  return JSON.stringify(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
 
 function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 'mock' | 'reading' | 'kana'; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([]);
@@ -257,7 +299,8 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [index, setIndex] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<QuizResult | null>(null);
+  const submitRef = useRef<() => Promise<void>>(async () => undefined);
   const [remaining, setRemaining] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -265,8 +308,12 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   const [ordered, setOrdered] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const current = questions[index];
-  const prompt = current?.prompt && typeof current.prompt === 'object' ? current.prompt : { text: String(current?.prompt ?? '') };
-  const optionLabel = (option: QuizChoice) => typeof option.content === 'string' ? option.content : option.content?.text ?? option.content?.label ?? JSON.stringify(option.content);
+  const prompt = asJsonObject(current?.prompt) ?? { text: String(current?.prompt ?? '') };
+  const optionLabel = (option: QuizChoice) => {
+    if (typeof option.content === 'string') return option.content;
+    const content = asJsonObject(option.content);
+    return jsonDisplayText(content?.text ?? content?.label, JSON.stringify(option.content));
+  };
 
   // Restore typed and ordered responses when learners navigate back to a question.
   useEffect(() => {
@@ -310,22 +357,28 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       const response = await fetch('/api/practice/submit', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not submit your answers.');
-      setResult(body);
+      setResult(body as QuizResult);
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your answers.'); }
     finally { setBusy(false); }
   }
 
   useEffect(() => {
-    if (!attemptId || result || remaining <= 0) return;
-    const timer = window.setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearInterval(timer);
-  }, [attemptId, result, remaining > 0]);
+    submitRef.current = submit;
+  }, [submit]);
 
   useEffect(() => {
-    if (attemptId && remaining === 0 && !result && !busy) void submit();
-    // submit() reads the current response state when the timer expires.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, attemptId, result, busy]);
+    if (!attemptId || result || remaining <= 0) return;
+    const deadline = Date.now() + remaining * 1000;
+    const timer = window.setInterval(() => {
+      const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRemaining(secondsLeft);
+      if (secondsLeft === 0) {
+        window.clearInterval(timer);
+        void submitRef.current();
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [attemptId, result, remaining > 0]);
 
   function choose(optionKey: string) {
     if (!current) return;
@@ -336,14 +389,26 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   }
 
   const formatTime = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
-  const feedbackById = new Map((result?.feedback ?? []).map((item: any) => [item.questionId, item]));
-  const answersText = (item: any) => {
-    const feedback = feedbackById.get(item.id) as any;
+  const feedbackById = new Map<string, QuizFeedback>(
+    (result?.feedback ?? []).map((item): [string, QuizFeedback] => [item.questionId, item]),
+  );
+  const answersText = (item: QuizQuestion) => {
+    const feedback = feedbackById.get(item.id);
     if (!feedback) return 'No answer feedback was returned.';
     const value = feedback.correctAnswer;
-    if (Array.isArray(value)) return value.map((key: string) => { const option = item.options?.find((row: any) => row.key === key); return option ? optionLabel(option) : key; }).join(' → ');
-    if (value && typeof value === 'object') return value.option_key ?? value.value ?? JSON.stringify(value);
-    const option = item.options?.find((row: any) => row.key === value);
+    if (Array.isArray(value)) {
+      return value.map((entry) => {
+        const key = String(entry);
+        const option = item.options.find((row) => row.key === key);
+        return option ? optionLabel(option) : key;
+      }).join(' → ');
+    }
+    const answerObject = asRecord(value);
+    if (answerObject) {
+      const answerValue = answerObject.option_key ?? answerObject.value;
+      return typeof answerValue === 'string' ? answerValue : JSON.stringify(value);
+    }
+    const option = item.options.find((row) => row.key === String(value));
     return option ? optionLabel(option) : String(value);
   };
 
@@ -354,13 +419,17 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
       <h2>{result.passed ? 'Well done — keep going!' : 'Good effort. Review the explanations.'}</h2>
       <p>{result.earnedPoints} of {result.totalPoints} points · {result.durationSeconds}s · pass target {result.passPercentage}%</p>
       <div className={styles.resultReview}>{questions.map((question) => {
-        const feedback: any = feedbackById.get(question.id);
-        const text = typeof question.prompt === 'object' ? question.prompt.text : question.prompt;
-        const explanation = feedback?.detailedExplanation?.explanation || feedback?.explanation || 'Review the related lesson and try again.';
+        const feedback = feedbackById.get(question.id);
+        const promptObject = asJsonObject(question.prompt);
+        const text = jsonDisplayText(promptObject?.text ?? question.prompt);
+        const explanationObject = asJsonObject(feedback?.detailedExplanation);
+        const explanation = jsonDisplayText(explanationObject?.explanation) || feedback?.explanation || 'Review the related lesson and try again.';
+        const example = jsonDisplayText(explanationObject?.example);
+        const translation = jsonDisplayText(explanationObject?.translation);
         return <div key={question.id} className={styles.resultRow}>
           <span className={feedback?.correct ? styles.resultGood : styles.resultBad}>{feedback?.correct ? '✓' : '×'}</span>
           <div><strong>{text}</strong><small>Correct answer: {answersText(question)} · {explanation}</small>
-            {feedback?.detailedExplanation?.example ? <small>Example: {feedback.detailedExplanation.example} {feedback.detailedExplanation.translation || ''}</small> : null}
+            {example ? <small>Example: {example} {translation}</small> : null}
           </div>
         </div>;
       })}</div>
@@ -371,13 +440,13 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   if (activeQuiz && current) {
     return <>
       <SectionHeading eyebrow={kind === 'mock' ? 'TIMED JLPT SIMULATOR' : kind === 'reading' ? 'READING COMPREHENSION' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE ENGINE'} title={activeQuiz.title} description={activeQuiz.description || 'Answer each question, then submit to receive detailed explanations.'} action={<button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
-      <div className={styles.examRunningTop}><div><div className={styles.eyebrow}>QUESTION {index + 1} OF {questions.length}</div><h1>{prompt.instruction || 'Choose the best answer.'}</h1></div><div className={styles.timerBox}><small>TIME LEFT</small><strong>{formatTime}</strong></div></div>
+      <div className={styles.examRunningTop}><div><div className={styles.eyebrow}>QUESTION {index + 1} OF {questions.length}</div><h1>{jsonDisplayText(prompt.instruction, 'Choose the best answer.')}</h1></div><div className={styles.timerBox}><small>TIME LEFT</small><strong>{formatTime}</strong></div></div>
       <ProgressBar value={(index + 1) / questions.length * 100} />
       <div className={styles.examQuestion}>
         <div className={styles.questionType}>{current.type.replaceAll('_', ' ').toUpperCase()}</div>
         <h2>{prompt.text || prompt.question || 'Complete the question.'}</h2>
-        {romaji && prompt.romaji ? <div className={styles.questionRomaji}>{prompt.romaji}</div> : null}
-        {prompt.meaning ? <div className={styles.questionMeaning}>{prompt.meaning}</div> : null}
+        {romaji && prompt.romaji ? <div className={styles.questionRomaji}>{jsonDisplayText(prompt.romaji)}</div> : null}
+        {prompt.meaning ? <div className={styles.questionMeaning}>{jsonDisplayText(prompt.meaning)}</div> : null}
         {current.type === 'fill_blank' || current.type === 'short_answer' ? <div className={styles.fillForm}><input value={typed} onChange={(event) => { setTyped(event.target.value); setResponses((state) => ({ ...state, [current.id]: event.target.value })); }} placeholder="Type your answer" /><span /></div> : null}
         {current.type === 'ordering' ? <>
           <div className={styles.builderAnswer}>{ordered.length ? ordered.map((key) => { const option = current.options.find((row) => row.key === key); return <button key={key} type="button" onClick={() => { setOrdered((value) => value.filter((part) => part !== key)); setResponses((value) => ({ ...value, [current.id]: ordered.filter((part) => part !== key) })); }}>{option ? optionLabel(option) : key} <small>×</small></button>; }) : <span>Build the sentence in the right order…</span>}</div>
