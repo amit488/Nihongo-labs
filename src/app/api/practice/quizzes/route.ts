@@ -2,6 +2,17 @@ import { connection, NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
+type QuizListRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  time_limit_seconds: number | null;
+  pass_percentage: number;
+  access_level: string;
+  quiz_questions: Array<{ count: number }> | null;
+};
+
 export async function GET(request: NextRequest) {
   try {
     await connection();
@@ -16,7 +27,8 @@ export async function GET(request: NextRequest) {
     else query = query.not('slug', 'ilike', '%mock%').not('slug', 'ilike', '%reading%').not('slug', 'ilike', '%kana%');
     const { data, error } = await query;
     if (error) throw new HttpError(500, 'Could not load practice sets.', error.message);
-    return NextResponse.json({ quizzes: (data ?? []).map((quiz: any) => ({
+    const quizRows = (data ?? []) as unknown as QuizListRow[];
+    return NextResponse.json({ quizzes: quizRows.map((quiz) => ({
       id: quiz.id, slug: quiz.slug, title: quiz.title, description: quiz.description,
       timeLimitSeconds: quiz.time_limit_seconds, passPercentage: Number(quiz.pass_percentage),
       accessLevel: quiz.access_level, questionCount: quiz.quiz_questions?.[0]?.count ?? 0,
