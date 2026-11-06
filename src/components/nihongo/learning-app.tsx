@@ -162,8 +162,7 @@ export default function LearningApp({ section = [] }: Props) {
 
   const filteredVocabulary = useMemo(() => vocabData.filter((item) => `${item.word} ${item.kana} ${item.romaji} ${item.meaning}`.toLowerCase().includes(search.toLowerCase())), [vocabData, search]);
   const filteredKanji = useMemo(() => kanjiData.filter((item) => `${item.character} ${item.meaning} ${item.radical}`.toLowerCase().includes(search.toLowerCase())), [kanjiData, search]);
-  const activeDays = snapshot.activeDays;
-  const streak = signedIn ? snapshot.streak : 0;
+    const streak = signedIn ? snapshot.streak : 0;
 
   return (
     <div className={styles.appFrame}>
