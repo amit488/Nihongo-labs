@@ -126,10 +126,10 @@ export async function getPublishedVocabulary() {
   } catch { return vocabulary; }
 }
 
-export async function getPublishedKanji() {
+export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
   try {
-    const { items } = await apiGet<ContentResponse<KanjiContentRow>>('/api/learning/content?kind=kanji&level=N5&limit=250');
-    if (!items.length) return kanji;
+    const { items } = await apiGet<ContentResponse<KanjiContentRow>>(`/api/learning/content?kind=kanji&level=${level}&limit=250`);
+    if (!items.length) return level === 'N5' ? kanji : [];
     return items.map((row) => {
       const first = Array.isArray(row.example_words) ? row.example_words[0] : {};
       return {
@@ -139,9 +139,8 @@ export async function getPublishedKanji() {
         exampleMeaning: first?.meaning || first?.translation || '',
       };
     });
-  } catch { return kanji; }
+  } catch { return level === 'N5' ? kanji : []; }
 }
-
 export async function getPublishedGrammar() {
   try {
     const { items } = await apiGet<ContentResponse<GrammarContentRow>>('/api/learning/content?kind=grammar&level=N5&limit=250');
