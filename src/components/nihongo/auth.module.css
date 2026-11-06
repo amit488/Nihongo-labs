@@ -37,3 +37,21 @@
 .authMobileBrand strong{font-size:18px;color:#17212b}
 .authMobileBrand strong span{color:#b54c43}
 @media(max-width:760px){.authPage{grid-template-columns:1fr}.authVisual{display:none}.authPanel{padding:25px 18px;min-height:100vh;align-content:center}.authMobileBrand{display:block;margin-bottom:35px;text-align:center;color:#17212b}.authCard h2{font-size:27px}}
+
+
+.confirmationPanel{width:100%;max-width:430px;margin:0 auto;padding:30px 26px;background:#fff;border:1px solid #e8e9ec;border-radius:15px;box-shadow:0 20px 55px rgba(25,37,49,.07);animation:confirmationEnter .28s ease-out both}
+.confirmationIcon{width:54px;height:54px;display:grid;place-items:center;border-radius:16px;background:#f7e9e5;color:#b54c43;font-size:23px;margin-bottom:22px}
+.confirmationPanel h2{font-family:Georgia,serif;font-size:32px;font-weight:500;letter-spacing:-.8px;line-height:1.08;margin:12px 0;color:#17212b}
+.confirmationPanel>p{font-size:12px;line-height:1.8;color:#687682;margin:0 0 17px}
+.confirmationEmail{padding:13px 15px;background:#f7f8fa;border:1px solid #e6e9ed;border-radius:8px;color:#263441;font-size:13px;font-weight:750;overflow-wrap:anywhere}
+.confirmationPanel .confirmationHint{font-size:10px;line-height:1.7;color:#87929a;margin:14px 0 20px}
+.confirmationPrimary{width:100%;min-height:46px;border:0;border-radius:8px;background:#b54c43;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;font-weight:800;cursor:pointer;transition:background .18s,transform .18s,box-shadow .18s}
+.confirmationPrimary:hover{background:#913b35;transform:translateY(-1px);box-shadow:0 8px 18px rgba(181,76,67,.18)}
+.confirmationPrimary:disabled{opacity:.55;cursor:wait;transform:none;box-shadow:none}
+.confirmationFeedback{margin-top:13px;padding:11px 12px;border:1px solid #d7e8dd;background:#f0f7f2;color:#376b4a;border-radius:7px;font-size:10px;line-height:1.6}
+.confirmationSecondary{display:block;margin:17px auto 0;padding:7px 10px;border:0;background:transparent;color:#687682;font-size:10px;font-weight:700;cursor:pointer}
+.confirmationSecondary:hover{color:#b54c43}
+.confirmationPanel .authSwitch{margin-top:15px;padding-top:16px;border-top:1px solid #edf0f2}
+@keyframes confirmationEnter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.confirmationPanel{animation:none}}
+@media(max-width:760px){.confirmationPanel{padding:25px 20px}.confirmationPanel h2{font-size:29px}}
