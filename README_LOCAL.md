@@ -133,9 +133,35 @@ After confirming the flashcard migration is applied:
 
 None of these scripts are executed by the apply script.
 
-### 6. Configure login email
+### 6. Configure email confirmation
 
-In the Supabase local configuration, confirm email confirmation and the callback/redirect URL for `http://localhost:3000/auth/callback`. Configure SMTP for non-local deployment. Local email testing can use the mail catcher exposed by your local Supabase stack.
+Email confirmation is enabled for local Supabase in `supabase/config.toml`:
+
+- `[auth.email].enable_confirmations = true`
+- Site URL: `http://localhost:3000`
+- Allowed local callback origins: `http://localhost:3000/**` and `http://127.0.0.1:3000/**`
+
+After changing Supabase Auth configuration, restart the local stack so it takes effect:
+
+```bash
+npx supabase stop
+npx supabase start
+```
+
+The local signup flow sends users to `/auth/callback?next=/learn`. The callback exchanges Supabase's PKCE authorization code for a cookie-backed session. Ask users to open the confirmation email in the same browser where they started signup so the PKCE verifier cookie is available.
+
+For local email testing, open the mail catcher exposed by the local Supabase stack (normally `http://localhost:54324`) and use the message there. Local emails are captured for testing; they are not delivered to real inboxes.
+
+For your hosted Supabase project, verify these settings in the Dashboard:
+
+1. **Authentication → Sign In / Providers → Email → Confirm email:** ON.
+2. **Authentication → URL Configuration → Site URL:** your real deployed Nihongo Labs origin.
+3. **Redirect URLs:** add the exact deployed callback URL, `https://YOUR_DOMAIN/auth/callback`, plus `http://localhost:3000/**` for local development if you use the same hosted project locally.
+4. Set `NEXT_PUBLIC_SITE_URL` in your hosting provider's production environment to the same deployed origin (for example, `https://your-domain.example`, without a trailing path), then redeploy.
+
+The Supabase built-in email sender is for limited testing: hosted projects are restricted to sending to organization team-member addresses and have a low project-wide rate limit. Configure **custom SMTP** in Authentication → SMTP Settings before public launch so confirmation and resend emails can reach ordinary users reliably. Use a verified sender domain and keep SMTP credentials out of Git and all `NEXT_PUBLIC_*` variables.
+
+No new database table or migration is required. The existing `on_auth_user_created` trigger inserts `profiles` and `user_preferences` when the Auth user row is created. That can happen before the address is confirmed; the user still cannot establish a password session until Supabase confirms the email.
 
 ### 7. Configure Razorpay test mode
 
