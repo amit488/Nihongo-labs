@@ -9,6 +9,14 @@ import {
   syncSubscriptionEvent,
 } from '@/lib/nihongo/server/services/billing';
 
+type JsonObject = Record<string, unknown>;
+
+function asObject(value: unknown): JsonObject | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as JsonObject
+    : null;
+}
+
 const MAX_WEBHOOK_BYTES = 1_000_000;
 const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 
@@ -24,18 +32,25 @@ export async function POST(request: NextRequest) {
       throw new HttpError(400, 'Invalid Razorpay webhook signature.');
     }
 
-    let payload: any;
-    try { payload = JSON.parse(rawBody); }
-    catch { throw new HttpError(400, 'Webhook body must be valid JSON.'); }
+    let payload: JsonObject;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      const parsedObject = asObject(parsed);
+      if (!parsedObject) throw new Error('Expected a JSON object.');
+      payload = parsedObject;
+    } catch {
+      throw new HttpError(400, 'Webhook body must be a JSON object.');
+    }
 
-    const event = String(payload?.event || 'unknown').slice(0, 160);
+    const event = (typeof payload.event === 'string' ? payload.event : 'unknown').slice(0, 160);
     const eventId = (request.headers.get('x-razorpay-event-id') || createHash('sha256').update(rawBody).digest('hex')).slice(0, 255);
     const admin = createAdminSupabase();
 
-    let { data: prior, error: priorError } = await admin.from('payment_webhook_events')
+    const { data: initialPrior, error: priorError } = await admin.from('payment_webhook_events')
       .select('id,status,retry_count,received_at')
       .eq('provider', 'razorpay').eq('provider_event_id', eventId).maybeSingle();
     if (priorError) throw new HttpError(500, 'Could not inspect webhook idempotency record.', priorError.message);
+    let prior = initialPrior;
     if (prior?.status === 'processed') return NextResponse.json({ received: true, duplicate: true });
 
     if (prior?.status === 'processing' && Date.now() - new Date(prior.received_at).getTime() < PROCESSING_LEASE_MS) {
@@ -70,34 +85,43 @@ export async function POST(request: NextRequest) {
     if (markProcessing.error) throw new HttpError(500, 'Could not mark webhook as processing.', markProcessing.error.message);
 
     try {
-      const paymentEntity = payload?.payload?.payment?.entity;
-      const subscriptionEntity = payload?.payload?.subscription?.entity;
+      const eventPayload = asObject(payload.payload);
+      const paymentEntity = asObject(asObject(eventPayload?.payment)?.entity);
+      const subscriptionEntity = asObject(asObject(eventPayload?.subscription)?.entity);
+      const refund = asObject(asObject(eventPayload?.refund)?.entity);
+      const paymentOrderId = typeof paymentEntity?.order_id === 'string' ? paymentEntity.order_id : null;
+      const paymentId = typeof paymentEntity?.id === 'string' ? paymentEntity.id : null;
 
-      if (event === 'payment.captured' && paymentEntity?.order_id) {
+      if (event === 'payment.captured' && paymentOrderId && paymentEntity) {
         const { data: order, error } = await admin.from('payment_orders').select('id')
-          .eq('provider', 'razorpay').eq('provider_order_id', paymentEntity.order_id).maybeSingle();
+          .eq('provider', 'razorpay').eq('provider_order_id', paymentOrderId).maybeSingle();
         if (error) throw new HttpError(500, 'Could not find local payment order.', error.message);
         if (order) await activateLifetimeOrder(admin, order.id, paymentEntity);
       } else if (event.startsWith('subscription.') && subscriptionEntity) {
-        await syncSubscriptionEvent(admin, event, subscriptionEntity, paymentEntity);
-      } else if (event === 'payment.failed' && paymentEntity?.id) {
+        await syncSubscriptionEvent(admin, event, subscriptionEntity, paymentEntity ?? undefined);
+      } else if (event === 'payment.failed' && paymentEntity && paymentId) {
         await syncPaymentFailure(admin, paymentEntity);
-      } else if ((event === 'refund.processed' || event === 'refund.failed') && payload?.payload?.refund?.entity) {
-        const refund = payload.payload.refund.entity;
+      } else if ((event === 'refund.processed' || event === 'refund.failed') && refund) {
+        const refundPaymentId = typeof refund.payment_id === 'string' ? refund.payment_id : null;
+        const refundId = typeof refund.id === 'string' ? refund.id : null;
+        const refundNotes = asObject(refund.notes);
+        const refundAcquirerData = asObject(refund.acquirer_data);
+        if (!refundPaymentId) throw new HttpError(400, 'Refund webhook is missing its payment ID.');
         const { data: payment, error } = await admin.from('payments').select('id')
-          .eq('provider', 'razorpay').eq('provider_payment_id', refund.payment_id).maybeSingle();
+          .eq('provider', 'razorpay').eq('provider_payment_id', refundPaymentId).maybeSingle();
         if (error) throw new HttpError(500, 'Could not find local payment for refund.', error.message);
         if (payment && event === 'refund.processed') {
           const { error: refundError } = await admin.rpc('record_payment_refund', {
             _payment_id: payment.id,
-            _provider_refund_id: refund.id ?? null,
+            _provider_refund_id: refundId,
             _amount_minor: Number(refund.amount ?? 0),
-            _reason: refund.notes?.reason || refund.acquirer_data?.arn || null,
+            _reason: (typeof refundNotes?.reason === 'string' ? refundNotes.reason : null)
+              || (typeof refundAcquirerData?.arn === 'string' ? refundAcquirerData.arn : null),
           });
           if (refundError) throw new HttpError(500, 'Could not atomically record payment refund. Run sql/011_backend_rpc.sql first.', refundError.message);
-        } else if (payment && refund.id) {
+        } else if (payment && refundId) {
           const { error: failedRefundError } = await admin.from('payment_refunds').update({ status: 'failed' })
-            .eq('payment_id', payment.id).eq('provider_refund_id', refund.id).neq('status', 'processed');
+            .eq('payment_id', payment.id).eq('provider_refund_id', refundId).neq('status', 'processed');
           if (failedRefundError) throw new HttpError(500, 'Could not record failed refund event.', failedRefundError.message);
         }
       }
