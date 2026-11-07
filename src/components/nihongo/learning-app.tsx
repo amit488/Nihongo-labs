@@ -227,8 +227,7 @@ export default function LearningApp({ section = [] }: Props) {
       // a temporary network outage or browser restart.
       const requestedSeconds = Math.min(pendingSeconds, 3600);
 
-      let operation: Promise<void>;
-      operation = (async () => {
+      const operation = (async () => {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 8000);
         try {
@@ -280,7 +279,7 @@ export default function LearningApp({ section = [] }: Props) {
           retryAfter = Date.now() + 30_000;
         } finally {
           window.clearTimeout(timeout);
-          if (currentSend === operation) currentSend = null;
+          currentSend = null;
         }
       })();
 
@@ -302,7 +301,7 @@ export default function LearningApp({ section = [] }: Props) {
           // The short cap prevents a suspended laptop/browser from turning
           // sleep time into study time while tolerating ordinary UI delays.
           writePendingMilliseconds(
-            readPendingMilliseconds() + Math.min(elapsed, 15_000),
+            readPendingMilliseconds() + Math.min(elapsed, 5_000),
           );
         }
       };
