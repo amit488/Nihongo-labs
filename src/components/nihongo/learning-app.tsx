@@ -86,6 +86,7 @@ function SectionHeading({ eyebrow, title, description, action }: { eyebrow: stri
 export default function LearningApp({ section = [] }: Props) {
   const router = useRouter();
   const active = section[0] || 'overview';
+  const isStudySection = ['grammar', 'vocabulary', 'kanji', 'kana', 'practice', 'flashcards', 'reading', 'exams'].includes(active);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -160,7 +161,7 @@ export default function LearningApp({ section = [] }: Props) {
   }, [refreshLearnerSnapshot]);
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn || !isStudySection) return;
 
     type BrowserLockManager = {
       request(
@@ -411,7 +412,7 @@ export default function LearningApp({ section = [] }: Props) {
       window.removeEventListener('pagehide', handlePageHide);
       stopActiveLoop?.();
     };
-  }, [signedIn, refreshLearnerSnapshot]);
+  }, [signedIn, isStudySection, refreshLearnerSnapshot]);
 
   const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', progress: 'Your progress', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
