@@ -9,9 +9,10 @@ It deliberately refuses non-loopback URLs. It does not target the hosted site or
 Each virtual user:
 1. Requests the Next.js /login page once.
 2. Performs one password-grant login directly against local Supabase Auth.
-3. Records page and Auth latency, success rate, and HTTP 429 throttling.
+3. Calls the Auth user endpoint with the returned access token, mirroring the client's post-login getUser() verification.
+4. Records page, password-login and user-verification latency, success rate, and HTTP 429 throttling.
 
-The Auth request uses Supabase's password-token endpoint. This isolates Auth capacity and the page's server/render path; it does **not** exercise the React Server Action, its cookie serialization, or the authenticated dashboard after sign-in. Those need a separate browser-level end-to-end test.
+The Auth requests use Supabase's password-token endpoint and signed-in user endpoint. This isolates Auth capacity and the page's server/render path; it does **not** exercise the React Server Action, its cookie serialization, the dashboard API, or its database query fan-out. Those need a separate browser-level and authenticated-dashboard test.
 
 The default run ramps through 50, 200, 500 and 1,000 concurrent virtual users, holds the peak briefly, then ramps down. Each VU receives its own confirmed test account.
 
@@ -31,14 +32,14 @@ Use the local API URL, publishable key, and service-role/secret key from that ou
 
 ## Prepare the isolated local Auth rate limit
 
-The checked-in supabase/config.toml sets [auth.rate_limit].token_refresh = 150. Supabase documents that the /auth/v1/token endpoint covers password grants as well as refresh-token grants, with a default quota of 150 requests per 5 minutes per source IP (and a burst allowance). A single local k6 runner would therefore receive 429 responses before it meaningfully measures a 1,000-user ramp.
+The checked-in supabase/config.toml sets [auth.rate_limit].token_refresh = 150 and sign_in_sign_ups = 30. Supabase documents that /auth/v1/token includes password grants and defaults to 150 requests per 5 minutes per source IP; /auth/v1/user is in the separate 30-per-5-minute sign-in/sign-up bucket. A single local k6 runner would therefore receive 429 responses before it meaningfully measures a 1,000-user ramp.
 
-For this test only, temporarily change token_refresh from 150 to 4000 in your **local** supabase/config.toml, then restart the local stack:
+For this test only, temporarily change both token_refresh and sign_in_sign_ups to 4000 in your **local** supabase/config.toml, then restart the local stack:
 
     supabase stop
     supabase start
 
-Leave sign_in_sign_ups = 30 unchanged; this test is using password-token grants, not signup. Do not push this temporary token-refresh rate-limit change to hosted Supabase. Restore token_refresh to 150 after testing and restart the local stack again. The higher local value is only to allow the staged test's roughly 11 login attempts per second at peak; it is not a production rate-limit recommendation.
+Do not push these temporary rate-limit changes to hosted Supabase. Restore token_refresh to 150 and sign_in_sign_ups to 30 after testing and restart the local stack again. The higher local values only allow this staged test's roughly 11 login attempts per second at peak plus the follow-up user-verification requests; they are not production rate-limit recommendations.
 
 ## Run the test
 
@@ -86,8 +87,9 @@ Finally restore the normal local Auth limit and restart Supabase.
 
 Pay attention to:
 - auth_login_success: successful password-login rate.
-- auth_login_duration: p50, p95 and p99 latency.
-- auth_login_429: rate-limit responses.
+- auth_login_duration: p50, p95 and p99 password-login latency.
+- auth_user_lookup_success and auth_user_lookup_duration: successful user verification and latency.
+- auth_login_429: password-token rate-limit responses.
 - login_page_success and the login_page request timings: Next.js login page availability.
 
 A run that fails the 99% success threshold with 429s is testing the Auth rate limit, not raw Auth capacity. A run with slow or failed login-page requests points toward the local Next.js host. Run staged increases (50 -> 200 -> 500 -> 1,000) and record the point where latency or errors rise sharply.
