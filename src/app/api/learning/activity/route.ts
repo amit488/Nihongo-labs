@@ -10,6 +10,7 @@ import { z } from 'zod';
 const activitySchema = z.object({
   seconds: z.number().int().min(1).max(3600),
   requestId: z.string().uuid(),
+  requestCreatedAt: z.string().datetime({ offset: true }),
 }).strict();
 
 export async function POST(request: NextRequest) {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
 
-    const { seconds, requestId } = await readJson(request, activitySchema);
+    const { seconds, requestId, requestCreatedAt } = await readJson(request, activitySchema);
     const admin = createAdminSupabase();
     const timezone = await getUserTimeZone(admin, context.user.id);
     const activityDate = localDateKey(new Date(), timezone);
@@ -27,7 +28,16 @@ export async function POST(request: NextRequest) {
       _activity_date: activityDate,
       _observed_seconds: seconds,
       _request_id: requestId,
+      _request_created_at: requestCreatedAt,
     });
+
+    if (error?.message.includes('HEARTBEAT_REQUEST_EXPIRED')) {
+      throw new HttpError(
+        409,
+        'A pending study-time batch is older than the eight-day retry window.',
+        { code: 'HEARTBEAT_REQUEST_EXPIRED' },
+      );
+    }
 
     if (error) {
       throw new HttpError(
