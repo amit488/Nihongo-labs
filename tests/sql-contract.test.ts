@@ -92,3 +92,18 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /setLiveStudySeconds\(Math\.floor\(sessionMilliseconds \/ 1000\)\)/);
   assert.match(component, /Study · \{Math\.floor\(liveStudySeconds \/ 60\)\}/);
 });
+
+
+test('heartbeat idempotency records expire after eight days without deleting daily learner aggregates', () => {
+  const migrationPath = resolve(process.cwd(), 'supabase', 'migrations', '20261108030000_heartbeat_request_retention.sql');
+  assert.equal(existsSync(migrationPath), true, 'heartbeat retention migration is missing');
+  const migration = readFileSync(migrationPath, 'utf8');
+
+  assert.match(migration, /_request_created_at timestamptz/i);
+  assert.match(migration, /_request_created_at < clock_timestamp\(\) - interval '8 days'/i);
+  assert.match(migration, /HEARTBEAT_REQUEST_EXPIRED/);
+  assert.match(migration, /select user_id, credited_seconds[\s\S]*?where request_id = _request_id[\s\S]*?return v_prior_credited_seconds/i);
+  assert.match(migration, /delete from public\.user_activity_heartbeat_requests[\s\S]*?created_at < clock_timestamp\(\) - interval '8 days'/i);
+  assert.match(migration, /cron\.schedule\([\s\S]*?'15 3 \* \* \*'/i);
+  assert.doesNotMatch(migration, /delete from public\.user_daily_activity/i);
+});
