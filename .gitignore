@@ -96,3 +96,6 @@ test-results/
 *.swo
 *.bak
 
+
+# Local load-test credentials
+/scripts/load-testing/load-users.local.json
