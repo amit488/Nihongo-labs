@@ -1,3 +1,4 @@
+/* global __ENV, __VU, open */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
@@ -77,7 +78,7 @@ export default function () {
   const pageOk = check(pageResponse, {
     'login page responds HTTP 200': (response) => response.status === 200,
   });
-  loginPageSuccess.add(pageOk);
+  loginPageSuccess.add(pageOk ? 1 : 0);
 
   const startedAt = Date.now();
   const response = http.post(
@@ -108,7 +109,7 @@ export default function () {
     'password login returns an access token': () =>
       typeof payload.access_token === 'string' && payload.access_token.length > 20,
   });
-  loginSuccess.add(authenticated);
+  loginSuccess.add(authenticated ? 1 : 0);
 
   // Keep each VU occupied so it makes exactly one login attempt in this run.
   sleep(240);
