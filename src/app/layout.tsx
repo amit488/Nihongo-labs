@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import CopyProtection from '@/components/copy-protection';
 
 export const metadata: Metadata = {
   title: { default: 'Nihongo Labs — Learn Japanese with clarity', template: '%s | Nihongo Labs' },
@@ -15,5 +16,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body><CopyProtection />{children}</body></html>;
 }

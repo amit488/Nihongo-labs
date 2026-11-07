@@ -61,3 +61,50 @@ test('study-time migration installs a protected heartbeat and atomic activity in
   assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date\) from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date\) to service_role/i);
 });
+
+
+test('accurate study-time heartbeat accepts partial batches and caps them to server elapsed time', () => {
+  const migrationPath = resolve(process.cwd(), 'supabase', 'migrations', '20261108020000_accurate_study_time_tracking.sql');
+  assert.equal(existsSync(migrationPath), true, 'accurate study-time migration is missing');
+  const migration = readFileSync(migrationPath, 'utf8');
+
+  assert.match(migration, /create table if not exists public\.user_activity_heartbeat_requests/i);
+  assert.match(migration, /record_user_heartbeat\([\s\S]*?_observed_seconds integer[\s\S]*?_request_id uuid[\s\S]*?returns integer/i);
+  assert.match(migration, /for update;/i);
+  assert.match(migration, /least\(_observed_seconds, v_elapsed_seconds\)/i);
+  assert.match(migration, /least\(_observed_seconds, 30\)/i);
+  assert.match(migration, /jsonb_build_object\('study_seconds', v_credited_seconds\)/i);
+  assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date, integer, uuid\) from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date, integer, uuid\) to service_role/i);
+  assert.match(migration, /select user_id, credited_seconds[\s\S]*?where request_id = _request_id/i);
+});
+
+test('study-time client persists partial seconds and coordinates active tabs', () => {
+  const componentPath = resolve(process.cwd(), 'src', 'components', 'nihongo', 'learning-app.tsx');
+  const component = readFileSync(componentPath, 'utf8');
+  assert.match(component, /localStorage\.setItem\(storageKey/);
+  assert.match(component, /navigator as unknown as \{ locks\?: BrowserLockManager \}/);
+  assert.match(component, /visibilitychange/);
+  assert.match(component, /pagehide/);
+  assert.match(component, /sendPendingTime\(true\)/);
+  assert.match(component, /crypto\.randomUUID\(\)/);
+  assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
+  assert.match(component, /setLiveStudySeconds\(Math\.floor\(sessionMilliseconds \/ 1000\)\)/);
+  assert.match(component, /Study · \{Math\.floor\(liveStudySeconds \/ 60\)\}/);
+});
+
+
+test('heartbeat idempotency records expire after eight days without deleting daily learner aggregates', () => {
+  const migrationPath = resolve(process.cwd(), 'supabase', 'migrations', '20261108030000_heartbeat_request_retention.sql');
+  assert.equal(existsSync(migrationPath), true, 'heartbeat retention migration is missing');
+  const migration = readFileSync(migrationPath, 'utf8');
+
+  assert.match(migration, /_request_created_at timestamptz/i);
+  assert.match(migration, /_request_created_at < clock_timestamp\(\) - interval '8 days'/i);
+  assert.match(migration, /HEARTBEAT_REQUEST_EXPIRED/);
+  assert.match(migration, /select user_id, credited_seconds[\s\S]*?where request_id = _request_id[\s\S]*?return v_prior_credited_seconds/i);
+  assert.match(migration, /delete from public\.user_activity_heartbeat_requests[\s\S]*?created_at < clock_timestamp\(\) - interval '8 days'/i);
+  assert.match(migration, /cron\.schedule\([\s\S]*?'15 \* \* \* \*'/i);
+  assert.match(migration, /delete from cron\.job_run_details[\s\S]*?interval '8 days'/i);
+  assert.doesNotMatch(migration, /delete from public\.user_daily_activity/i);
+});
