@@ -174,7 +174,7 @@ export default function LearningApp({ section = [] }: Props) {
     let disposed = false;
     let userId: string | null = null;
     let storageKey: string | null = null;
-    let fallbackPendingMilliseconds = 0;
+    let fallbackPendingState: { milliseconds: number; requestId: string | null } = { milliseconds: 0, requestId: null };
     let lockRequestPending = false;
     let currentSend: Promise<void> | null = null;
     let retryAfter = 0;
@@ -184,30 +184,77 @@ export default function LearningApp({ section = [] }: Props) {
     const isEligible = () =>
       document.visibilityState === 'visible' && document.hasFocus();
 
-    // Keep uncommitted time in localStorage so route changes, reloads, and
-    // browser shutdowns do not silently discard the last partial minute.
-    const readPendingMilliseconds = () => {
-      if (!storageKey) return fallbackPendingMilliseconds;
+    // Persist the pending duration and its idempotency key together in one
+    // localStorage write. This avoids a crash window between subtracting
+    // credited seconds and clearing the request key.
+    const readPendingState = () => {
+      if (!storageKey) return fallbackPendingState;
       try {
-        const stored = Number(window.localStorage.getItem(storageKey) ?? 0);
-        return Number.isFinite(stored) && stored > 0 ? stored : 0;
+        const raw = window.localStorage.getItem(storageKey);
+        if (!raw) return fallbackPendingState;
+        const parsed = JSON.parse(raw) as unknown;
+        if (typeof parsed === 'number') {
+          // Migrate values saved by the first version of this branch.
+          return {
+            milliseconds: Number.isFinite(parsed) && parsed > 0 ? parsed : 0,
+            requestId: null,
+          };
+        }
+        if (typeof parsed === 'object' && parsed !== null) {
+          const value = parsed as { milliseconds?: unknown; requestId?: unknown };
+          return {
+            milliseconds:
+              typeof value.milliseconds === 'number' &&
+              Number.isFinite(value.milliseconds) &&
+              value.milliseconds > 0
+                ? Math.floor(value.milliseconds)
+                : 0,
+            requestId:
+              typeof value.requestId === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.requestId)
+                ? value.requestId
+                : null,
+          };
+        }
+        return { milliseconds: 0, requestId: null };
       } catch {
-        return fallbackPendingMilliseconds;
+        return fallbackPendingState;
       }
     };
 
-    const writePendingMilliseconds = (value: number) => {
-      const safeValue = Math.max(0, Math.floor(value));
-      fallbackPendingMilliseconds = safeValue;
+    const writePendingState = (milliseconds: number, requestId: string | null) => {
+      const next = {
+        milliseconds: Math.max(0, Math.floor(milliseconds)),
+        requestId,
+      };
+      fallbackPendingState = next;
       if (!storageKey) return;
       try {
-        if (safeValue === 0) window.localStorage.removeItem(storageKey);
-        else window.localStorage.setItem(storageKey, String(safeValue));
+        if (next.milliseconds === 0 && next.requestId === null) {
+          window.localStorage.removeItem(storageKey);
+        } else {
+          window.localStorage.setItem(storageKey, JSON.stringify(next));
+        }
       } catch {
         // Continue in memory when storage is unavailable; server-side
-        // accounting still rate-limits credits across tabs/devices.
+        // accounting still limits credits to measured server elapsed time.
       }
     };
+
+    const readPendingMilliseconds = () => readPendingState().milliseconds;
+
+    const getOrCreateRequestId = () => {
+      const state = readPendingState();
+      if (state.requestId) return state.requestId;
+      const requestId = crypto.randomUUID();
+      writePendingState(state.milliseconds, requestId);
+      return requestId;
+    };
+
+    let lastInteractionAt = performance.now();
+    const inactivityLimitMilliseconds = 5 * 60 * 1000;
+    const isStudyEligible = () =>
+      isEligible() && performance.now() - lastInteractionAt <= inactivityLimitMilliseconds;
 
     const sendPendingTime = async (includePartialBatch: boolean) => {
       // A visibility/page-exit flush waits for any already-running heartbeat
@@ -226,6 +273,7 @@ export default function LearningApp({ section = [] }: Props) {
       // A larger batch lets a previously queued, measured session recover after
       // a temporary network outage or browser restart.
       const requestedSeconds = Math.min(pendingSeconds, 3600);
+      const requestId = getOrCreateRequestId();
 
       const operation = (async () => {
         const controller = new AbortController();
@@ -235,7 +283,7 @@ export default function LearningApp({ section = [] }: Props) {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seconds: requestedSeconds }),
+            body: JSON.stringify({ seconds: requestedSeconds, requestId }),
             keepalive: true,
             cache: 'no-store',
             signal: controller.signal,
@@ -257,8 +305,9 @@ export default function LearningApp({ section = [] }: Props) {
           if (creditedSeconds > 0) {
             // Subtract only what the database confirms it credited. Any
             // remainder stays queued for a later, server-approved heartbeat.
-            writePendingMilliseconds(
+            writePendingState(
               readPendingMilliseconds() - creditedSeconds * 1000,
+              null,
             );
             retryAfter = 0;
             if (!disposed) {
@@ -300,8 +349,10 @@ export default function LearningApp({ section = [] }: Props) {
         if (Number.isFinite(elapsed) && elapsed > 0) {
           // The short cap prevents a suspended laptop/browser from turning
           // sleep time into study time while tolerating ordinary UI delays.
-          writePendingMilliseconds(
-            readPendingMilliseconds() + Math.min(elapsed, 5_000),
+          const pending = readPendingState();
+          writePendingState(
+            pending.milliseconds + Math.min(elapsed, 5_000),
+            pending.requestId,
           );
         }
       };
@@ -318,7 +369,7 @@ export default function LearningApp({ section = [] }: Props) {
 
       stopActiveLoop = stop;
       timer = window.setInterval(() => {
-        if (!isEligible()) {
+        if (!isStudyEligible()) {
           stop();
           return;
         }
@@ -333,7 +384,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     const acquireStudyLock = () => {
-      if (disposed || !userId || !storageKey || !isEligible() || lockRequestPending || stopActiveLoop) {
+      if (disposed || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
         return;
       }
 
@@ -350,7 +401,7 @@ export default function LearningApp({ section = [] }: Props) {
         'nihongo-labs-study-time:' + userId,
         { ifAvailable: true },
         async (lock) => {
-          if (!lock || disposed || !isEligible()) return;
+          if (!lock || disposed || !isStudyEligible()) return;
           await new Promise<void>((resolve) => startActiveLoop(resolve));
         },
       ).catch((error: unknown) => {
@@ -366,6 +417,7 @@ export default function LearningApp({ section = [] }: Props) {
 
     const handleEligibilityChange = () => {
       if (isEligible()) {
+        lastInteractionAt = performance.now();
         void refreshLearnerSnapshot();
         acquireStudyLock();
       } else {
@@ -373,9 +425,18 @@ export default function LearningApp({ section = [] }: Props) {
       }
     };
 
+    const handleLearnerInteraction = () => {
+      lastInteractionAt = performance.now();
+      acquireStudyLock();
+    };
+
     const handlePageHide = () => stopActiveLoop?.();
 
     document.addEventListener('visibilitychange', handleEligibilityChange);
+    document.addEventListener('pointerdown', handleLearnerInteraction, { passive: true });
+    document.addEventListener('keydown', handleLearnerInteraction);
+    document.addEventListener('scroll', handleLearnerInteraction, { passive: true });
+    document.addEventListener('touchstart', handleLearnerInteraction, { passive: true });
     window.addEventListener('focus', handleEligibilityChange);
     window.addEventListener('blur', handleEligibilityChange);
     window.addEventListener('pagehide', handlePageHide);
@@ -406,6 +467,10 @@ export default function LearningApp({ section = [] }: Props) {
       disposed = true;
       if (retryTimer !== null) window.clearInterval(retryTimer);
       document.removeEventListener('visibilitychange', handleEligibilityChange);
+      document.removeEventListener('pointerdown', handleLearnerInteraction);
+      document.removeEventListener('keydown', handleLearnerInteraction);
+      document.removeEventListener('scroll', handleLearnerInteraction);
+      document.removeEventListener('touchstart', handleLearnerInteraction);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
