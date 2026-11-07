@@ -24,3 +24,16 @@ test('copy restrictions are mounted globally and preserve editable fields', () =
   assert.match(copyProtection, /event\.preventDefault\(\)/);
   assert.match(copyProtection, /target\.closest\(editableSelector\)/);
 });
+
+test('heartbeat retries retain an immutable eight-day batch and preserve newer queued time on expiry', () => {
+  const activityApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/activity/route.ts'), 'utf8');
+  assert.match(dashboard, /requestCreatedAt/);
+  assert.match(dashboard, /requestSeconds/);
+  assert.match(dashboard, /body: JSON\.stringify\(\{ seconds: requestedSeconds, requestId, requestCreatedAt \}\)/);
+  assert.match(dashboard, /HEARTBEAT_REQUEST_EXPIRED/);
+  assert.match(dashboard, /expiredBatchMilliseconds/);
+  assert.match(dashboard, /milliseconds: current\.milliseconds - expiredBatchMilliseconds/);
+  assert.match(activityApi, /requestCreatedAt: z\.string\(\)\.datetime/);
+  assert.match(activityApi, /_request_created_at: requestCreatedAt/);
+  assert.match(activityApi, /HEARTBEAT_REQUEST_EXPIRED/);
+});
