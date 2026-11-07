@@ -209,18 +209,18 @@ export default function LearningApp({ section = [] }: Props) {
       }
     };
 
-    const sendPendingTime = async (includePartialMinute: boolean) => {
+    const sendPendingTime = async (includePartialBatch: boolean) => {
       // A visibility/page-exit flush waits for any already-running heartbeat
       // before the tab releases its cross-tab lock.
       if (currentSend) {
         await currentSend;
-        return sendPendingTime(includePartialMinute);
+        return sendPendingTime(includePartialBatch);
       }
 
       if (!userId || !storageKey || Date.now() < retryAfter) return;
 
       const pendingSeconds = Math.floor(readPendingMilliseconds() / 1000);
-      if (pendingSeconds < 1 || (!includePartialMinute && pendingSeconds < 60)) return;
+      if (pendingSeconds < 1 || (!includePartialBatch && pendingSeconds < 30)) return;
 
       // The server validates this amount against its own heartbeat timestamp.
       // A larger batch lets a previously queued, measured session recover after
@@ -323,7 +323,7 @@ export default function LearningApp({ section = [] }: Props) {
           return;
         }
         sample();
-        if (Math.floor(readPendingMilliseconds() / 1000) >= 60) {
+        if (Math.floor(readPendingMilliseconds() / 1000) >= 30) {
           void sendPendingTime(false);
         }
       }, 1000);
