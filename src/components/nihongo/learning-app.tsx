@@ -175,7 +175,7 @@ export default function LearningApp({ section = [] }: Props) {
     let storageKey: string | null = null;
     let fallbackPendingMilliseconds = 0;
     let lockRequestPending = false;
-    let requestInFlight = false;
+    let currentSend: Promise<void> | null = null;
     let retryAfter = 0;
     let retryTimer: number | null = null;
     let stopActiveLoop: (() => void) | null = null;
@@ -209,66 +209,78 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     const sendPendingTime = async (includePartialMinute: boolean) => {
-      if (!userId || !storageKey || requestInFlight || Date.now() < retryAfter) return;
+      // A visibility/page-exit flush waits for any already-running heartbeat
+      // before the tab releases its cross-tab lock.
+      if (currentSend) {
+        await currentSend;
+        return sendPendingTime(includePartialMinute);
+      }
+
+      if (!userId || !storageKey || Date.now() < retryAfter) return;
 
       const pendingSeconds = Math.floor(readPendingMilliseconds() / 1000);
       if (pendingSeconds < 1 || (!includePartialMinute && pendingSeconds < 60)) return;
 
       // The server validates this amount against its own heartbeat timestamp.
-      // A larger batch lets a previously queued, genuinely measured session
-      // recover after a temporary network outage.
+      // A larger batch lets a previously queued, measured session recover after
+      // a temporary network outage or browser restart.
       const requestedSeconds = Math.min(pendingSeconds, 3600);
-      requestInFlight = true;
 
-      try {
-        const response = await fetch('/api/learning/activity', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seconds: requestedSeconds }),
-          keepalive: true,
-          cache: 'no-store',
-        });
-        const body = await response.json().catch(() => ({})) as {
-          error?: string;
-          creditedSeconds?: number;
-        };
+      let operation: Promise<void>;
+      operation = (async () => {
+        try {
+          const response = await fetch('/api/learning/activity', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seconds: requestedSeconds }),
+            keepalive: true,
+            cache: 'no-store',
+          });
+          const body = await response.json().catch(() => ({})) as {
+            error?: string;
+            creditedSeconds?: number;
+          };
 
-        if (!response.ok) {
-          throw new Error(body.error || 'Study time could not be recorded.');
-        }
-
-        const creditedSeconds = Math.max(
-          0,
-          Math.min(requestedSeconds, Math.floor(Number(body.creditedSeconds ?? 0))),
-        );
-
-        if (creditedSeconds > 0) {
-          // Subtract only what the database confirms it credited. Any
-          // remainder stays queued for a later, server-approved heartbeat.
-          writePendingMilliseconds(
-            readPendingMilliseconds() - creditedSeconds * 1000,
-          );
-          retryAfter = 0;
-          if (!disposed) {
-            setActivityTrackingNotice('');
-            void refreshLearnerSnapshot();
+          if (!response.ok) {
+            throw new Error(body.error || 'Study time could not be recorded.');
           }
-        } else {
-          // Another tab/device may have written more recently. Keep the queue
-          // intact and retry instead of losing the learner's measured time.
-          retryAfter = Date.now() + 5000;
-        }
-      } catch (error) {
-        if (!disposed) {
-          setActivityTrackingNotice(
-            error instanceof Error ? error.message : 'Study time could not be recorded.',
+
+          const creditedSeconds = Math.max(
+            0,
+            Math.min(requestedSeconds, Math.floor(Number(body.creditedSeconds ?? 0))),
           );
+
+          if (creditedSeconds > 0) {
+            // Subtract only what the database confirms it credited. Any
+            // remainder stays queued for a later, server-approved heartbeat.
+            writePendingMilliseconds(
+              readPendingMilliseconds() - creditedSeconds * 1000,
+            );
+            retryAfter = 0;
+            if (!disposed) {
+              setActivityTrackingNotice('');
+              void refreshLearnerSnapshot();
+            }
+          } else {
+            // Another tab/device may have written more recently. Keep the queue
+            // intact and retry instead of losing the learner's measured time.
+            retryAfter = Date.now() + 5000;
+          }
+        } catch (error) {
+          if (!disposed) {
+            setActivityTrackingNotice(
+              error instanceof Error ? error.message : 'Study time could not be recorded.',
+            );
+          }
+          retryAfter = Date.now() + 30_000;
+        } finally {
+          if (currentSend === operation) currentSend = null;
         }
-        retryAfter = Date.now() + 30_000;
-      } finally {
-        requestInFlight = false;
-      }
+      })();
+
+      currentSend = operation;
+      await operation;
     };
 
     const startActiveLoop = (releaseLock: () => void) => {
