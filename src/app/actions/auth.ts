@@ -11,6 +11,7 @@ export type AuthActionResult = {
   message: string;
   authenticated?: boolean;
   requiresEmailConfirmation?: boolean;
+  alreadyRegistered?: boolean;
 };
 
 function getEmailRedirectUrl() {
@@ -33,7 +34,28 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
     },
   });
 
-  if (error) return { success: false, message: error.message };
+  if (error) {
+    const alreadyRegistered = error.code === 'user_already_exists' || /already registered|already exists/i.test(error.message);
+    if (alreadyRegistered) {
+      return {
+        success: false,
+        alreadyRegistered: true,
+        message: 'An account with this email address already exists. Sign in instead, or use your account recovery option if you have forgotten your password.',
+      };
+    }
+    return { success: false, message: error.message };
+  }
+
+  // Supabase intentionally returns an obfuscated user with no identities for
+  // some duplicate-email signups, so the app must not claim an email was sent.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return {
+      success: false,
+      alreadyRegistered: true,
+      message: 'An account with this email address already exists. Sign in instead, or use your account recovery option if you have forgotten your password.',
+    };
+  }
+
   if (!data.session) {
     return {
       success: true,
