@@ -163,7 +163,6 @@ export default function LearningApp({ section = [] }: Props) {
 
   useEffect(() => {
     if (!signedIn || !isStudySection) return;
-    setLiveStudySeconds(0);
     let sessionMilliseconds = 0;
 
     type BrowserLockManager = {
