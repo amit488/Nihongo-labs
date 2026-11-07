@@ -62,7 +62,7 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
   const now = new Date();
   const [profile, preferences, lessonList, grammar, vocabulary, kanji, progress, activity, attempts, vocabState, flashcardState, flashcardSettings] = await Promise.all([
     userClient.from('profiles').select('display_name,timezone').eq('id', userId).maybeSingle(),
-    userClient.from('user_preferences').select('daily_study_goal_minutes,show_romaji,show_furigana').eq('user_id', userId).maybeSingle(),
+    userClient.from('user_preferences').select('daily_study_goal_minutes,preferred_jlpt_level,show_romaji,show_furigana').eq('user_id', userId).maybeSingle(),
     userClient.from('lessons').select('id,course_units!inner(slug)').eq('publication_status', 'published'),
     userClient.from('grammar_points').select('id', { count: 'exact', head: true }).eq('jlpt_level', 'N5').eq('publication_status', 'published'),
     userClient.from('vocabulary_entries').select('id', { count: 'exact', head: true }).eq('jlpt_level', 'N5').eq('publication_status', 'published'),
@@ -149,7 +149,7 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
 
   return {
     profile: { displayName: profile.data?.display_name || 'Learner', timezone },
-    preferences: preferences.data ?? { daily_study_goal_minutes: 15, show_romaji: true, show_furigana: true },
+    preferences: preferences.data ?? { daily_study_goal_minutes: 15, preferred_jlpt_level: 'N5', show_romaji: true, show_furigana: true },
     progress: {
       overallPercentage,
       lessonsCompleted: completed,

@@ -105,7 +105,9 @@ export default function LearningApp({ section = [] }: Props) {
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
     try {
-      setSnapshot(await loadLearnerSnapshot());
+      const nextSnapshot = await loadLearnerSnapshot();
+      setSnapshot(nextSnapshot);
+      if (nextSnapshot.source === 'database') setName(nextSnapshot.displayName || 'Learner');
     } catch {
       // Keep the last known snapshot if the dashboard refresh is temporarily unavailable.
     }
@@ -141,10 +143,21 @@ export default function LearningApp({ section = [] }: Props) {
     };
     void load();
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
-      if (alive) { setSignedIn(Boolean(session?.user)); if (session?.user?.email) setName(session.user.email.split('@')[0]); }
+      if (!alive) return;
+      setSignedIn(Boolean(session?.user));
+      if (session?.user) {
+        // Supabase may emit TOKEN_REFRESHED when a background tab becomes active.
+        // Reload the profile rather than replacing the saved display name with email.
+        window.setTimeout(() => {
+          if (alive) void refreshLearnerSnapshot();
+        }, 0);
+      } else {
+        setName('Learner');
+        setActivityTrackingNotice('');
+      }
     });
     return () => { alive = false; listener.subscription.unsubscribe(); };
-  }, []);
+  }, [refreshLearnerSnapshot]);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -280,7 +293,7 @@ function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue 
   const maximum = Math.max(1, ...activity.map((row) => Number(row.study_seconds ?? 0)));
   const dayLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
   return <>
-    <div className={styles.welcomeRow}><div><div className={styles.eyebrow}>YOUR STUDY SPACE</div><h1>おかえりなさい, {name}. <span>ようこそ!</span></h1><p>A little practice every day adds up. Ready to keep your momentum?</p></div><div className={styles.jlptCountdown} aria-label="JLPT N5 examination countdown"><span className={styles.jlptCountdownKicker}>NEXT JLPT · N5</span><strong>{daysRemaining === null ? '—' : daysRemaining === 0 ? 'Today' : daysRemaining > 0 ? daysRemaining : '—'}</strong><span className={styles.jlptCountdownCopy}>{daysRemaining === 0 ? 'Exam day' : daysRemaining !== null && daysRemaining > 0 ? 'days remaining' : 'Date passed'}</span><small className={styles.jlptCountdownDate}>6 December 2026</small></div></div>
+    <div className={styles.welcomeRow}><div><div className={styles.eyebrow}>YOUR STUDY SPACE</div><h1>おかえりなさい, {name}. <span>ようこそ!</span></h1><p>A little practice every day adds up. Ready to keep your momentum?</p></div><div className={styles.jlptCountdown} aria-label={`JLPT ${snapshot.preferredJlptLevel} examination countdown`}><span className={styles.jlptCountdownKicker}>NEXT JLPT · {snapshot.preferredJlptLevel}</span><strong>{daysRemaining === null ? '—' : daysRemaining === 0 ? 'Today' : daysRemaining > 0 ? daysRemaining : '—'}</strong><span className={styles.jlptCountdownCopy}>{daysRemaining === 0 ? 'Exam day' : daysRemaining !== null && daysRemaining > 0 ? 'days remaining' : 'Date passed'}</span><small className={styles.jlptCountdownDate}>6 December 2026</small></div></div>
     <section className={styles.heroCard}><div className={styles.heroCopy}><div className={styles.heroTag}><span /> YOUR NEXT STEP</div><h2>Small steps.<br/><em>Fluent moments.</em></h2><p>Pick up where you left off and make today count. Your next lesson is ready when you are.</p><button type="button" className={styles.primaryButton} onClick={onContinue}>Continue learning <span>→</span></button><div className={styles.heroMeta}><span>◷ Daily practice</span><span>•</span><span>JLPT N5 · Beginner</span></div></div><div className={styles.heroArt}><div className={styles.sunDisc} /><div className={styles.heroKanji}>学</div><div className={styles.heroArtNote}>MANABU <span>·</span> TO LEARN</div></div></section>
     <div className={styles.sectionTop}><div><div className={styles.eyebrow}>YOUR LEARNING PULSE</div><h2>Progress at a glance</h2></div><Link href="/learn/progress" className={styles.textLink}>View full report <span>→</span></Link></div>
     <section className={styles.statsGrid}>

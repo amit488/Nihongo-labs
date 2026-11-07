@@ -39,7 +39,7 @@
 
 
 /* JLPT countdown sits opposite the welcome message, beneath the top navigation. */
-.jlptCountdown{min-width:190px;padding:11px 15px;display:grid;grid-template-columns:auto 1fr;align-items:baseline;column-gap:8px;row-gap:3px;border:1px solid #e6e9ed;border-radius:11px;background:#fff;box-shadow:var(--shadow)}
+.jlptCountdown{min-width:190px;padding:11px 15px;display:grid;grid-template-columns:auto 1fr;align-items:baseline;column-gap:16px;row-gap:3px;border:1px solid #e6e9ed;border-radius:11px;background:#fff;box-shadow:var(--shadow)}
 .jlptCountdownKicker{grid-column:1/-1;font-size:11px;letter-spacing:1.15px;font-weight:850;color:#b54c43}
 .jlptCountdown strong{font-family:Georgia,serif;font-size:29px;line-height:1;color:#232c37}
 .jlptCountdownCopy{font-size:14px;color:#73808c}
