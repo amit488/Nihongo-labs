@@ -17,6 +17,16 @@ Nihongo Labs uses Supabase Auth's built-in email confirmation. A signup creates 
 
 Local Supabase captures email in Mailpit; it does not deliver messages to the public internet.
 
+## Troubleshooting a duplicate-email signup
+
+Supabase Auth stores accounts in its own `auth.users` table, separately from application profile tables in `public`. An account can therefore exist in Auth even when you cannot find it in a public profile table.
+
+If you tested signup while email confirmation was disabled, Supabase may have created and auto-confirmed the account without sending an email. Turning confirmation on later does not undo that earlier account. For a local test account, inspect **Authentication → Users** in local Supabase Studio and delete only the test user you intend to recreate, then retry with confirmation enabled. Do not delete production users or run a database reset for this.
+
+With confirmation enabled, Supabase may return an intentionally obfuscated user response for an email that is already registered. No second account is created and no new confirmation message is sent; the app now identifies that response and directs the person to sign in rather than claiming an email was sent.
+
+Before testing, also check that `.env.local` points to the local Auth API (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`). Mailpit at `http://127.0.0.1:54324` only shows messages sent by that local stack. If the app points to a hosted Supabase URL, local `config.toml` and Mailpit do not apply.
+
 ## Hosted / production Supabase
 
 The local `config.toml` and HTML template configure the local CLI stack only. For the hosted Supabase project:
