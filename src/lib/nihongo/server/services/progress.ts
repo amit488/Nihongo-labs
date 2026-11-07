@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '../http';
 import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
+import { calculateKanjiMastery } from '../kanji-progress';
 
 type LessonWithUnit = {
   id: string;
@@ -65,7 +66,7 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
     userClient.from('lessons').select('id,course_units!inner(slug)').eq('publication_status', 'published'),
     userClient.from('grammar_points').select('id', { count: 'exact', head: true }).eq('jlpt_level', 'N5').eq('publication_status', 'published'),
     userClient.from('vocabulary_entries').select('id', { count: 'exact', head: true }).eq('jlpt_level', 'N5').eq('publication_status', 'published'),
-    userClient.from('kanji_entries').select('id', { count: 'exact', head: true }).eq('jlpt_level', 'N5').eq('publication_status', 'published'),
+    userClient.from('kanji_entries').select('id').eq('jlpt_level', 'N5').eq('publication_status', 'published').limit(5000),
     userClient.from('lesson_progress').select('lesson_id,status,updated_at').eq('user_id', userId),
     userClient.from('user_daily_activity').select('activity_date,study_seconds,lessons_completed,quizzes_completed,vocabulary_reviewed,flashcards_reviewed,flashcards_again,flashcards_known').eq('user_id', userId).order('activity_date', { ascending: false }).limit(400),
     userClient.from('quiz_attempts').select('id,quiz_id,score_percentage,submitted_at,status,quizzes(title,slug)').eq('user_id', userId).eq('status', 'graded').order('submitted_at', { ascending: false }).limit(10),
@@ -76,6 +77,16 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
 
   const firstError = [profile, preferences, lessonList, grammar, vocabulary, kanji, progress, activity, attempts, vocabState, flashcardState, flashcardSettings].find((item) => item.error)?.error;
   if (firstError) throw new HttpError(500, 'Could not load learning dashboard.', firstError.message);
+
+  const kanjiIds = (kanji.data ?? []).map((row) => row.id);
+  let kanjiReviewRows: Array<{ kanji_id: string; status: string }> = [];
+  if (kanjiIds.length) {
+    const { data: reviewRows, error: reviewError } = await userClient.from('kanji_review_state')
+      .select('kanji_id,status').eq('user_id', userId).eq('status', 'known').in('kanji_id', kanjiIds);
+    if (reviewError) throw new HttpError(500, 'Could not load kanji mastery progress.', reviewError.message);
+    kanjiReviewRows = (reviewRows ?? []) as Array<{ kanji_id: string; status: string }>;
+  }
+  const kanjiMastery = calculateKanjiMastery(kanjiIds, kanjiReviewRows);
 
   const lessons = (lessonList.data ?? []) as unknown as LessonWithUnit[];
   const lessonProgress = progress.data ?? [];
@@ -101,12 +112,7 @@ export async function getDashboard(userClient: SupabaseClient, userId: string) {
   const totalVocabulary = vocabulary.count ?? 0;
   const vocabularyPercent = totalVocabulary ? Math.min(100, Math.round((masteredVocabulary / totalVocabulary) * 100)) : 0;
   const flashRows = (flashcardState.data ?? []) as unknown as FlashcardProgressRow[];
-  const masteredKanji = flashRows.filter((row) => {
-    const flashcard = Array.isArray(row.flashcards) ? row.flashcards[0] : row.flashcards;
-    return flashcard?.source_type === 'kanji' && Number(row.repetitions) >= 3;
-  }).length;
-  const totalKanji = kanji.count ?? 0;
-  const kanjiPercent = totalKanji ? Math.min(100, Math.round((masteredKanji / totalKanji) * 100)) : 0;
+  const { mastered: masteredKanji, total: totalKanji, percentage: kanjiPercent } = kanjiMastery;
   const masteredFlashcards = flashRows.filter((row) => Number(row.repetitions) >= 3).length;
 
   const recentActivity = activity.data ?? [];
