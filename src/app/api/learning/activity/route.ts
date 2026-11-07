@@ -5,10 +5,11 @@ import { getUserTimeZone } from '@/lib/nihongo/server/activity';
 import { localDateKey } from '@/lib/nihongo/server/date';
 import { z } from 'zod';
 
-// The client can submit only the time it measured locally. PostgreSQL independently
-// caps the credit against elapsed server time and serializes requests per account.
+// The browser supplies its measured pending duration and a stable request ID.
+// PostgreSQL caps credits against server time and makes retries idempotent.
 const activitySchema = z.object({
   seconds: z.number().int().min(1).max(3600),
+  requestId: z.string().uuid(),
 }).strict();
 
 export async function POST(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
 
-    const { seconds } = await readJson(request, activitySchema);
+    const { seconds, requestId } = await readJson(request, activitySchema);
     const admin = createAdminSupabase();
     const timezone = await getUserTimeZone(admin, context.user.id);
     const activityDate = localDateKey(new Date(), timezone);
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
       _user_id: context.user.id,
       _activity_date: activityDate,
       _observed_seconds: seconds,
+      _request_id: requestId,
     });
 
     if (error) {
