@@ -104,6 +104,7 @@ test('heartbeat idempotency records expire after eight days without deleting dai
   assert.match(migration, /HEARTBEAT_REQUEST_EXPIRED/);
   assert.match(migration, /select user_id, credited_seconds[\s\S]*?where request_id = _request_id[\s\S]*?return v_prior_credited_seconds/i);
   assert.match(migration, /delete from public\.user_activity_heartbeat_requests[\s\S]*?created_at < clock_timestamp\(\) - interval '8 days'/i);
-  assert.match(migration, /cron\.schedule\([\s\S]*?'15 3 \* \* \*'/i);
+  assert.match(migration, /cron\.schedule\([\s\S]*?'15 \* \* \* \*'/i);
+  assert.match(migration, /delete from cron\.job_run_details[\s\S]*?interval '8 days'/i);
   assert.doesNotMatch(migration, /delete from public\.user_daily_activity/i);
 });
