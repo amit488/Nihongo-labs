@@ -162,60 +162,238 @@ export default function LearningApp({ section = [] }: Props) {
   useEffect(() => {
     if (!signedIn) return;
 
-    let active = true;
-    let requestInFlight = false;
-    let activeMilliseconds = 0;
-    let lastSampleAt = performance.now();
-    let retryAfter = 0;
+    type BrowserLockManager = {
+      request(
+        name: string,
+        options: { ifAvailable: boolean },
+        callback: (lock: unknown | null) => Promise<void>,
+      ): Promise<void>;
+    };
 
-    const sendHeartbeat = async () => {
-      if (requestInFlight || !active) return;
+    let disposed = false;
+    let userId: string | null = null;
+    let storageKey: string | null = null;
+    let fallbackPendingMilliseconds = 0;
+    let lockRequestPending = false;
+    let requestInFlight = false;
+    let retryAfter = 0;
+    let retryTimer: number | null = null;
+    let stopActiveLoop: (() => void) | null = null;
+
+    const isEligible = () =>
+      document.visibilityState === 'visible' && document.hasFocus();
+
+    // Keep uncommitted time in localStorage so route changes, reloads, and
+    // browser shutdowns do not silently discard the last partial minute.
+    const readPendingMilliseconds = () => {
+      if (!storageKey) return fallbackPendingMilliseconds;
+      try {
+        const stored = Number(window.localStorage.getItem(storageKey) ?? 0);
+        return Number.isFinite(stored) && stored > 0 ? stored : 0;
+      } catch {
+        return fallbackPendingMilliseconds;
+      }
+    };
+
+    const writePendingMilliseconds = (value: number) => {
+      const safeValue = Math.max(0, Math.floor(value));
+      fallbackPendingMilliseconds = safeValue;
+      if (!storageKey) return;
+      try {
+        if (safeValue === 0) window.localStorage.removeItem(storageKey);
+        else window.localStorage.setItem(storageKey, String(safeValue));
+      } catch {
+        // Continue in memory when storage is unavailable; server-side
+        // accounting still rate-limits credits across tabs/devices.
+      }
+    };
+
+    const sendPendingTime = async (includePartialMinute: boolean) => {
+      if (!userId || !storageKey || requestInFlight || Date.now() < retryAfter) return;
+
+      const pendingSeconds = Math.floor(readPendingMilliseconds() / 1000);
+      if (pendingSeconds < 1 || (!includePartialMinute && pendingSeconds < 60)) return;
+
+      // The server validates this amount against its own heartbeat timestamp.
+      // A larger batch lets a previously queued, genuinely measured session
+      // recover after a temporary network outage.
+      const requestedSeconds = Math.min(pendingSeconds, 3600);
       requestInFlight = true;
+
       try {
         const response = await fetch('/api/learning/activity', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seconds: 60 }), keepalive: true,
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seconds: requestedSeconds }),
+          keepalive: true,
+          cache: 'no-store',
         });
-        const body = await response.json().catch(() => ({})) as { error?: string; saved?: boolean };
-        if (!response.ok) throw new Error(body.error || 'Study time could not be recorded.');
-        if (!active) return;
-        setActivityTrackingNotice('');
-        if (body.saved) {
-          activeMilliseconds = Math.max(0, activeMilliseconds - 60_000);
+        const body = await response.json().catch(() => ({})) as {
+          error?: string;
+          creditedSeconds?: number;
+        };
+
+        if (!response.ok) {
+          throw new Error(body.error || 'Study time could not be recorded.');
+        }
+
+        const creditedSeconds = Math.max(
+          0,
+          Math.min(requestedSeconds, Math.floor(Number(body.creditedSeconds ?? 0))),
+        );
+
+        if (creditedSeconds > 0) {
+          // Subtract only what the database confirms it credited. Any
+          // remainder stays queued for a later, server-approved heartbeat.
+          writePendingMilliseconds(
+            readPendingMilliseconds() - creditedSeconds * 1000,
+          );
           retryAfter = 0;
-          await refreshLearnerSnapshot();
+          if (!disposed) {
+            setActivityTrackingNotice('');
+            void refreshLearnerSnapshot();
+          }
         } else {
-          retryAfter = Date.now() + 10_000;
+          // Another tab/device may have written more recently. Keep the queue
+          // intact and retry instead of losing the learner's measured time.
+          retryAfter = Date.now() + 5000;
         }
       } catch (error) {
-        if (active) {
-          setActivityTrackingNotice(error instanceof Error ? error.message : 'Study time could not be recorded.');
-          retryAfter = Date.now() + 30_000;
+        if (!disposed) {
+          setActivityTrackingNotice(
+            error instanceof Error ? error.message : 'Study time could not be recorded.',
+          );
         }
+        retryAfter = Date.now() + 30_000;
       } finally {
         requestInFlight = false;
       }
     };
 
-    const resetSampleClock = () => { lastSampleAt = performance.now(); };
-    const timer = window.setInterval(() => {
-      const now = performance.now();
-      const elapsed = Math.min(now - lastSampleAt, 10_000);
-      lastSampleAt = now;
-      if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
-      activeMilliseconds += elapsed;
-      if (activeMilliseconds >= 60_000 && Date.now() >= retryAfter) void sendHeartbeat();
-    }, 5_000);
+    const startActiveLoop = (releaseLock: () => void) => {
+      let stopped = false;
+      let lastSampleAt = performance.now();
+      let timer: number;
 
-    document.addEventListener('visibilitychange', resetSampleClock);
-    window.addEventListener('focus', resetSampleClock);
-    window.addEventListener('blur', resetSampleClock);
+      const sample = () => {
+        const now = performance.now();
+        const elapsed = now - lastSampleAt;
+        lastSampleAt = now;
+
+        if (Number.isFinite(elapsed) && elapsed > 0) {
+          // The short cap prevents a suspended laptop/browser from turning
+          // sleep time into study time while tolerating ordinary UI delays.
+          writePendingMilliseconds(
+            readPendingMilliseconds() + Math.min(elapsed, 15_000),
+          );
+        }
+      };
+
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        window.clearInterval(timer);
+        sample();
+        stopActiveLoop = null;
+        // Keep the cross-tab lock until the final partial batch has been sent.
+        void sendPendingTime(true).finally(releaseLock);
+      };
+
+      stopActiveLoop = stop;
+      timer = window.setInterval(() => {
+        if (!isEligible()) {
+          stop();
+          return;
+        }
+        sample();
+        if (Math.floor(readPendingMilliseconds() / 1000) >= 60) {
+          void sendPendingTime(false);
+        }
+      }, 1000);
+
+      // Attempt to save a partial batch left by a previous route/session.
+      void sendPendingTime(true);
+    };
+
+    const acquireStudyLock = () => {
+      if (disposed || !userId || !storageKey || !isEligible() || lockRequestPending || stopActiveLoop) {
+        return;
+      }
+
+      const lockManager = (navigator as unknown as { locks?: BrowserLockManager }).locks;
+      if (!lockManager) {
+        // Modern browsers support Web Locks. This fallback still uses the
+        // server-side account lock to prevent duplicate database credits.
+        startActiveLoop(() => undefined);
+        return;
+      }
+
+      lockRequestPending = true;
+      void lockManager.request(
+        'nihongo-labs-study-time:' + userId,
+        { ifAvailable: true },
+        async (lock) => {
+          if (!lock || disposed || !isEligible()) return;
+          await new Promise<void>((resolve) => startActiveLoop(resolve));
+        },
+      ).catch((error: unknown) => {
+        if (!disposed) {
+          setActivityTrackingNotice(
+            error instanceof Error ? error.message : 'Study-time tracking could not start.',
+          );
+        }
+      }).finally(() => {
+        lockRequestPending = false;
+      });
+    };
+
+    const handleEligibilityChange = () => {
+      if (isEligible()) {
+        void refreshLearnerSnapshot();
+        acquireStudyLock();
+      } else {
+        stopActiveLoop?.();
+      }
+    };
+
+    const handlePageHide = () => stopActiveLoop?.();
+
+    document.addEventListener('visibilitychange', handleEligibilityChange);
+    window.addEventListener('focus', handleEligibilityChange);
+    window.addEventListener('blur', handleEligibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    const initialize = async () => {
+      const client = getSupabaseBrowserClient();
+      if (!client) return;
+
+      const { data: { user }, error } = await client.auth.getUser();
+      if (disposed || error || !user) return;
+
+      userId = user.id;
+      storageKey = 'nihongo-labs:study-time:v1:' + user.id;
+      acquireStudyLock();
+      // If another tab currently owns the lock, retry after it releases it.
+      retryTimer = window.setInterval(acquireStudyLock, 2000);
+    };
+
+    void initialize().catch((error: unknown) => {
+      if (!disposed) {
+        setActivityTrackingNotice(
+          error instanceof Error ? error.message : 'Study-time tracking could not start.',
+        );
+      }
+    });
+
     return () => {
-      active = false;
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', resetSampleClock);
-      window.removeEventListener('focus', resetSampleClock);
-      window.removeEventListener('blur', resetSampleClock);
+      disposed = true;
+      if (retryTimer !== null) window.clearInterval(retryTimer);
+      document.removeEventListener('visibilitychange', handleEligibilityChange);
+      window.removeEventListener('focus', handleEligibilityChange);
+      window.removeEventListener('blur', handleEligibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      stopActiveLoop?.();
     };
   }, [signedIn, refreshLearnerSnapshot]);
 
