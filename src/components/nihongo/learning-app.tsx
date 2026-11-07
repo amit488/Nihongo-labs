@@ -147,10 +147,7 @@ export default function LearningApp({ section = [] }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!signedIn) {
-      setActivityTrackingNotice('');
-      return;
-    }
+    if (!signedIn) return;
 
     let active = true;
     let requestInFlight = false;
@@ -215,6 +212,7 @@ export default function LearningApp({ section = [] }: Props) {
   async function signOut() {
     await signOutAction();
     setSignedIn(false);
+    setActivityTrackingNotice('');
     router.push('/login');
   }
 
@@ -243,7 +241,7 @@ export default function LearningApp({ section = [] }: Props) {
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} activityTrackingNotice={activityTrackingNotice} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
           {active === 'practice' && <Practice signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'vocabulary' && <Vocabulary items={filteredVocabulary} romaji={romaji} setRomaji={setRomajiPreference} />}
@@ -265,9 +263,12 @@ function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue 
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   useEffect(() => {
     const updateCountdown = () => setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
-    updateCountdown();
+    const initialUpdate = window.setTimeout(updateCountdown, 0);
     const timer = window.setInterval(updateCountdown, 60_000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialUpdate);
+      window.clearInterval(timer);
+    };
   }, []);
   const ready = Number(snapshot.overallPercentage ?? 0);
   const words = Number(snapshot.vocabularyCount ?? 0);
