@@ -287,7 +287,11 @@ export default function LearningApp({ section = [] }: Props) {
 
     const getOrCreateRequest = (): PendingStudyState => {
       const state = readPendingState();
-      if (state.requestId && state.requestCreatedAt && state.requestSeconds) return state;
+      if (state.requestId && state.requestCreatedAt && state.requestSeconds) {
+        // Persist any one-time migration of older localStorage formats.
+        writePendingState(state);
+        return state;
+      }
       const pendingSeconds = Math.floor(state.milliseconds / 1000);
       if (pendingSeconds < 1) return state;
       const next: PendingStudyState = {
