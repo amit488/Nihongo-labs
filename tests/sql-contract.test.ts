@@ -89,4 +89,6 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /sendPendingTime\(true\)/);
   assert.match(component, /crypto\.randomUUID\(\)/);
   assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
+  assert.match(component, /setLiveStudySeconds\(Math\.floor\(sessionMilliseconds \/ 1000\)\)/);
+  assert.match(component, /Study · \{Math\.floor\(liveStudySeconds \/ 60\)\}/);
 });
