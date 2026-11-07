@@ -1,20 +1,19 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-      - "fix/**"
-      - "feat/**"
-      - "chore/**"
-      - "ci/**"
   pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Use one concurrency group per PR so a newer commit cancels an older run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
