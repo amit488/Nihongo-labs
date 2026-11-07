@@ -34,6 +34,8 @@ const loginSuccess = new Rate('auth_login_success');
 const loginDuration = new Trend('auth_login_duration', true);
 const loginThrottled = new Counter('auth_login_429');
 const loginPageSuccess = new Rate('login_page_success');
+const userLookupSuccess = new Rate('auth_user_lookup_success');
+const userLookupDuration = new Trend('auth_user_lookup_duration', true);
 
 function rampTarget(fraction) {
   return Math.max(1, Math.round(targetVUs * fraction));
@@ -59,6 +61,8 @@ export const options = {
   thresholds: {
     auth_login_success: ['rate>0.99'],
     login_page_success: ['rate>0.99'],
+    auth_user_lookup_success: ['rate>0.99'],
+    auth_user_lookup_duration: ['p(95)<3000', 'p(99)<8000'],
     auth_login_duration: ['p(95)<3000', 'p(99)<8000'],
     http_req_failed: ['rate<0.01'],
   },
@@ -110,6 +114,32 @@ export default function () {
       typeof payload.access_token === 'string' && payload.access_token.length > 20,
   });
   loginSuccess.add(authenticated ? 1 : 0);
+
+  let userLookupOk = false;
+  if (authenticated && typeof payload.access_token === 'string') {
+    const lookupStartedAt = Date.now();
+    const userResponse = http.get(supabaseUrl + '/auth/v1/user', {
+      headers: {
+        apikey: publishableKey,
+        Authorization: 'Bearer ' + payload.access_token,
+      },
+      tags: { step: 'auth_user_lookup' },
+      timeout: '30s',
+    });
+    userLookupDuration.add(Date.now() - lookupStartedAt);
+
+    let verifiedUser = {};
+    try {
+      verifiedUser = userResponse.json();
+    } catch {
+      // Record the lookup as a failure if Auth did not return JSON.
+    }
+    userLookupOk = check(userResponse, {
+      'auth user lookup returns HTTP 200': (result) => result.status === 200,
+      'auth user lookup matches the test account': () => verifiedUser.id === user.id,
+    });
+  }
+  userLookupSuccess.add(userLookupOk ? 1 : 0);
 
   // Keep each VU occupied so it makes exactly one login attempt in this run.
   sleep(240);
