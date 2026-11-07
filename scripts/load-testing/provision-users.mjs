@@ -25,10 +25,15 @@ const outputPath = resolve(
 const apiBase = supabaseUrl.toString().replace(/\/+$/, '');
 const runId = randomBytes(5).toString('hex');
 const users = [];
+let manifestWrite = Promise.resolve();
 
 async function saveManifest() {
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, JSON.stringify(users, null, 2) + '\n', { mode: 0o600 });
+  const snapshot = JSON.stringify(users, null, 2) + '\n';
+  manifestWrite = manifestWrite.then(async () => {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, snapshot, { mode: 0o600 });
+  });
+  await manifestWrite;
 }
 
 async function createUser(index) {
