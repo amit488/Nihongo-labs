@@ -176,7 +176,19 @@ export default function LearningApp({ section = [] }: Props) {
     let disposed = false;
     let userId: string | null = null;
     let storageKey: string | null = null;
-    let fallbackPendingState: { milliseconds: number; requestId: string | null } = { milliseconds: 0, requestId: null };
+    type PendingStudyState = {
+      milliseconds: number;
+      requestId: string | null;
+      requestCreatedAt: string | null;
+      requestSeconds: number | null;
+    };
+    const emptyPendingState: PendingStudyState = {
+      milliseconds: 0,
+      requestId: null,
+      requestCreatedAt: null,
+      requestSeconds: null,
+    };
+    let fallbackPendingState: PendingStudyState = emptyPendingState;
     let lockRequestPending = false;
     let currentSend: Promise<void> | null = null;
     let retryAfter = 0;
@@ -186,48 +198,76 @@ export default function LearningApp({ section = [] }: Props) {
     const isEligible = () =>
       document.visibilityState === 'visible' && document.hasFocus();
 
-    // Persist the pending duration and its idempotency key together in one
-    // localStorage write. This avoids a crash window between subtracting
-    // credited seconds and clearing the request key.
-    const readPendingState = () => {
+    // Persist the queued duration and one immutable request batch together.
+    // A batch keeps the same ID, creation time and seconds across every retry.
+    // Time measured after that snapshot remains queued as a newer tail.
+    const readPendingState = (): PendingStudyState => {
       if (!storageKey) return fallbackPendingState;
       try {
         const raw = window.localStorage.getItem(storageKey);
         if (!raw) return fallbackPendingState;
         const parsed = JSON.parse(raw) as unknown;
         if (typeof parsed === 'number') {
-          // Migrate values saved by the first version of this branch.
+          // Migrate values saved by the oldest timer format.
           return {
-            milliseconds: Number.isFinite(parsed) && parsed > 0 ? parsed : 0,
-            requestId: null,
+            ...emptyPendingState,
+            milliseconds: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
           };
         }
         if (typeof parsed === 'object' && parsed !== null) {
-          const value = parsed as { milliseconds?: unknown; requestId?: unknown };
+          const value = parsed as {
+            milliseconds?: unknown;
+            requestId?: unknown;
+            requestCreatedAt?: unknown;
+            requestSeconds?: unknown;
+          };
+          const milliseconds =
+            typeof value.milliseconds === 'number' &&
+            Number.isFinite(value.milliseconds) &&
+            value.milliseconds > 0
+              ? Math.floor(value.milliseconds)
+              : 0;
+          const requestId =
+            typeof value.requestId === 'string' &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.requestId)
+              ? value.requestId
+              : null;
+          const parsedCreatedAt =
+            typeof value.requestCreatedAt === 'string' &&
+            Number.isFinite(Date.parse(value.requestCreatedAt))
+              ? value.requestCreatedAt
+              : null;
+          const requestSeconds =
+            typeof value.requestSeconds === 'number' &&
+            Number.isInteger(value.requestSeconds) &&
+            value.requestSeconds >= 1 &&
+            value.requestSeconds <= 3600
+              ? value.requestSeconds
+              : null;
+
           return {
-            milliseconds:
-              typeof value.milliseconds === 'number' &&
-              Number.isFinite(value.milliseconds) &&
-              value.milliseconds > 0
-                ? Math.floor(value.milliseconds)
-                : 0,
-            requestId:
-              typeof value.requestId === 'string' &&
-              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.requestId)
-                ? value.requestId
-                : null,
+            milliseconds,
+            requestId,
+            // Older saved states did not contain these two fields. Preserve
+            // their ID and establish a one-time retry-window start for migration.
+            requestCreatedAt: requestId ? parsedCreatedAt ?? new Date().toISOString() : null,
+            requestSeconds: requestId
+              ? requestSeconds ?? Math.min(Math.floor(milliseconds / 1000), 3600) || null
+              : null,
           };
         }
-        return { milliseconds: 0, requestId: null };
+        return emptyPendingState;
       } catch {
         return fallbackPendingState;
       }
     };
 
-    const writePendingState = (milliseconds: number, requestId: string | null) => {
-      const next = {
-        milliseconds: Math.max(0, Math.floor(milliseconds)),
-        requestId,
+    const writePendingState = (state: PendingStudyState) => {
+      const next: PendingStudyState = {
+        milliseconds: Math.max(0, Math.floor(state.milliseconds)),
+        requestId: state.requestId,
+        requestCreatedAt: state.requestId ? state.requestCreatedAt : null,
+        requestSeconds: state.requestId ? state.requestSeconds : null,
       };
       fallbackPendingState = next;
       if (!storageKey) return;
@@ -238,19 +278,26 @@ export default function LearningApp({ section = [] }: Props) {
           window.localStorage.setItem(storageKey, JSON.stringify(next));
         }
       } catch {
-        // Continue in memory when storage is unavailable; server-side
-        // accounting still limits credits to measured server elapsed time.
+        // Continue in memory when storage is unavailable; the server still
+        // caps every credit using its own elapsed-time watermark.
       }
     };
 
     const readPendingMilliseconds = () => readPendingState().milliseconds;
 
-    const getOrCreateRequestId = () => {
+    const getOrCreateRequest = (): PendingStudyState => {
       const state = readPendingState();
-      if (state.requestId) return state.requestId;
-      const requestId = crypto.randomUUID();
-      writePendingState(state.milliseconds, requestId);
-      return requestId;
+      if (state.requestId && state.requestCreatedAt && state.requestSeconds) return state;
+      const pendingSeconds = Math.floor(state.milliseconds / 1000);
+      if (pendingSeconds < 1) return state;
+      const next: PendingStudyState = {
+        milliseconds: state.milliseconds,
+        requestId: crypto.randomUUID(),
+        requestCreatedAt: new Date().toISOString(),
+        requestSeconds: Math.min(pendingSeconds, 3600),
+      };
+      writePendingState(next);
+      return next;
     };
 
     let lastInteractionAt = performance.now();
@@ -268,14 +315,17 @@ export default function LearningApp({ section = [] }: Props) {
 
       if (!userId || !storageKey || Date.now() < retryAfter) return;
 
-      const pendingSeconds = Math.floor(readPendingMilliseconds() / 1000);
+      const pendingState = readPendingState();
+      const pendingSeconds = Math.floor(pendingState.milliseconds / 1000);
       if (pendingSeconds < 1 || (!includePartialBatch && pendingSeconds < 30)) return;
 
-      // The server validates this amount against its own heartbeat timestamp.
-      // A larger batch lets a previously queued, measured session recover after
-      // a temporary network outage or browser restart.
-      const requestedSeconds = Math.min(pendingSeconds, 3600);
-      const requestId = getOrCreateRequestId();
+      // Freeze one batch before sending it. Newly measured time is appended to
+      // the queue but never changes the payload associated with this request ID.
+      const requestState = getOrCreateRequest();
+      if (!requestState.requestId || !requestState.requestCreatedAt || !requestState.requestSeconds) return;
+      const requestedSeconds = requestState.requestSeconds;
+      const requestId = requestState.requestId;
+      const requestCreatedAt = requestState.requestCreatedAt;
 
       const operation = (async () => {
         const controller = new AbortController();
@@ -285,15 +335,41 @@ export default function LearningApp({ section = [] }: Props) {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seconds: requestedSeconds, requestId }),
+            body: JSON.stringify({ seconds: requestedSeconds, requestId, requestCreatedAt }),
             keepalive: true,
             cache: 'no-store',
             signal: controller.signal,
           });
           const body = await response.json().catch(() => ({})) as {
             error?: string;
+            details?: { code?: string };
             creditedSeconds?: number;
           };
+
+          if (!response.ok && body.details?.code === 'HEARTBEAT_REQUEST_EXPIRED') {
+            // The server cannot safely distinguish a very late retry from a
+            // duplicate after its ledger row has expired. Drop only this frozen
+            // batch; all time measured after it remains queued.
+            const current = readPendingState();
+            const expiredBatchMilliseconds = Math.min(
+              current.milliseconds,
+              requestedSeconds * 1000,
+            );
+            writePendingState({
+              ...current,
+              milliseconds: current.milliseconds - expiredBatchMilliseconds,
+              requestId: null,
+              requestCreatedAt: null,
+              requestSeconds: null,
+            });
+            retryAfter = 0;
+            if (!disposed) {
+              setActivityTrackingNotice(
+                'One unconfirmed study-time batch older than eight days was discarded to prevent double-counting. Newer pending time remains queued.',
+              );
+            }
+            return;
+          }
 
           if (!response.ok) {
             throw new Error(body.error || 'Study time could not be recorded.');
@@ -306,19 +382,23 @@ export default function LearningApp({ section = [] }: Props) {
 
           if (creditedSeconds > 0) {
             // Subtract only what the database confirms it credited. Any
-            // remainder stays queued for a later, server-approved heartbeat.
-            writePendingState(
-              readPendingMilliseconds() - creditedSeconds * 1000,
-              null,
-            );
+            // remainder stays queued for a later, newly identified batch.
+            const current = readPendingState();
+            writePendingState({
+              ...current,
+              milliseconds: current.milliseconds - creditedSeconds * 1000,
+              requestId: null,
+              requestCreatedAt: null,
+              requestSeconds: null,
+            });
             retryAfter = 0;
             if (!disposed) {
               setActivityTrackingNotice('');
               void refreshLearnerSnapshot();
             }
           } else {
-            // Another tab/device may have written more recently. Keep the queue
-            // intact and retry instead of losing the learner's measured time.
+            // Another tab/device may have written more recently. Keep this
+            // exact batch and ID so a retry cannot credit it twice.
             retryAfter = Date.now() + 5000;
           }
         } catch (error) {
@@ -355,10 +435,10 @@ export default function LearningApp({ section = [] }: Props) {
           sessionMilliseconds += sampledMilliseconds;
           if (!disposed) setLiveStudySeconds(Math.floor(sessionMilliseconds / 1000));
           const pending = readPendingState();
-          writePendingState(
-            pending.milliseconds + sampledMilliseconds,
-            pending.requestId,
-          );
+          writePendingState({
+            ...pending,
+            milliseconds: pending.milliseconds + sampledMilliseconds,
+          });
         }
       };
 
