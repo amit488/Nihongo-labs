@@ -68,12 +68,15 @@ test('accurate study-time heartbeat accepts partial batches and caps them to ser
   assert.equal(existsSync(migrationPath), true, 'accurate study-time migration is missing');
   const migration = readFileSync(migrationPath, 'utf8');
 
-  assert.match(migration, /record_user_heartbeat\([\s\S]*?_observed_seconds integer[\s\S]*?returns integer/i);
+  assert.match(migration, /create table if not exists public\.user_activity_heartbeat_requests/i);
+  assert.match(migration, /record_user_heartbeat\([\s\S]*?_observed_seconds integer[\s\S]*?_request_id uuid[\s\S]*?returns integer/i);
   assert.match(migration, /for update;/i);
   assert.match(migration, /least\(_observed_seconds, v_elapsed_seconds\)/i);
+  assert.match(migration, /least\(_observed_seconds, 30\)/i);
   assert.match(migration, /jsonb_build_object\('study_seconds', v_credited_seconds\)/i);
-  assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date, integer\) from public, anon, authenticated/i);
-  assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date, integer\) to service_role/i);
+  assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date, integer, uuid\) from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date, integer, uuid\) to service_role/i);
+  assert.match(migration, /select user_id, credited_seconds[\s\S]*?where request_id = _request_id/i);
 });
 
 test('study-time client persists partial seconds and coordinates active tabs', () => {
@@ -84,4 +87,6 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /visibilitychange/);
   assert.match(component, /pagehide/);
   assert.match(component, /sendPendingTime\(true\)/);
+  assert.match(component, /requestId: crypto\.randomUUID\(\)/);
+  assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
 });
