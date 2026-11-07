@@ -91,7 +91,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
-    displayName: 'Learner', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
+    displayName: 'Learner', preferredJlptLevel: 'N5', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
     activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
