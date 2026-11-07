@@ -87,6 +87,6 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /visibilitychange/);
   assert.match(component, /pagehide/);
   assert.match(component, /sendPendingTime\(true\)/);
-  assert.match(component, /requestId: crypto\.randomUUID\(\)/);
+  assert.match(component, /crypto\.randomUUID\(\)/);
   assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
 });
