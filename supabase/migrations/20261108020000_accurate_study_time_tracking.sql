@@ -26,12 +26,12 @@ begin
     raise exception 'observed study seconds must be between 1 and 3600';
   end if;
 
-  -- On the first-ever heartbeat, allow no more than one minute. Existing rows
-  -- preserve their watermark from the previous heartbeat implementation.
+  -- If this is the first-ever heartbeat, the queued amount is still bounded
+  -- by the client schema and this function's one-hour maximum.
   insert into public.user_activity_heartbeat(user_id, last_accepted_at)
   values (
     _user_id,
-    clock_timestamp() - make_interval(secs => least(_observed_seconds, 60))
+    clock_timestamp() - make_interval(secs => _observed_seconds)
   )
   on conflict (user_id) do nothing;
 
