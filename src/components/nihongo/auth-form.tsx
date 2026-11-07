@@ -15,6 +15,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
   const [verificationPending, setVerificationPending] = useState(false);
+  const [accountAlreadyExists, setAccountAlreadyExists] = useState(false);
   const signup = mode === 'signup';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -27,6 +28,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const result = signup ? await signUpAction(formData) : await signInAction(formData);
       setMessage(result.message);
       setVerificationPending(result.success && result.requiresEmailConfirmation === true);
+      setAccountAlreadyExists(result.alreadyRegistered === true);
       if (result.success && result.authenticated) router.push('/learn');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
@@ -93,7 +95,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               <label>Password<input name="password" type="password" autoComplete={signup ? 'new-password' : 'current-password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={signup ? 'At least 8 characters' : 'Enter your password'} minLength={8} required/></label>
               <button type="submit" disabled={busy}>{busy ? (signup ? 'Creating account...' : 'Signing in...') : (signup ? 'Create your free account' : 'Sign in')} <span>→</span></button>
             </form>
-            {message && <div className={styles.authMessage} role="alert">{message}</div>}
+            {message && <div className={styles.authMessage} role="alert">{message}{accountAlreadyExists && <> <Link href="/login">Go to sign in →</Link></>}</div>}
             <div className={styles.authSwitch}>{signup ? 'Already have an account?' : 'New to Nihongo Labs?'} <Link href={signup ? '/login' : '/signup'}>{signup ? 'Sign in' : 'Create an account'}</Link></div>
             <div className={styles.authLegal}>By continuing, you agree to our <a href="#terms">Terms</a> and <a href="#privacy">Privacy Policy</a>.</div>
           </>
