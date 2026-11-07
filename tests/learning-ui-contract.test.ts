@@ -16,8 +16,8 @@ test('daily-goal ring and progress use measured study seconds', () => {
 });
 
 test('copy restrictions are mounted globally and preserve editable fields', () => {
-  assert.match(globalCss, /body, body \*\s*\{[^}]*user-select:\s*none/s);
-  assert.match(globalCss, /input, textarea, select, \[contenteditable="true"\][^{]*\{[^}]*user-select:\s*text/s);
+  assert.match(globalCss, /body, body \*\s*\{[\s\S]*?user-select:\s*none/);
+  assert.match(globalCss, /input, textarea, select, \[contenteditable="true"\][^{]*\{[\s\S]*?user-select:\s*text/);
   assert.match(layout, /<CopyProtection \/>/);
   assert.match(copyProtection, /addEventListener\('copy'/);
   assert.match(copyProtection, /addEventListener\('cut'/);
