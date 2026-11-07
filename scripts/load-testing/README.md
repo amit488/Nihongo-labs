@@ -31,14 +31,14 @@ Use the local API URL, publishable key, and service-role/secret key from that ou
 
 ## Prepare the isolated local Auth rate limit
 
-The checked-in supabase/config.toml currently sets [auth.rate_limit].sign_in_sign_ups = 30. Supabase applies this quota per source IP, so a single local k6 runner would hit 429 responses before it meaningfully tests 1,000 simultaneous password logins.
+The checked-in supabase/config.toml sets [auth.rate_limit].token_refresh = 150. Supabase documents that the /auth/v1/token endpoint covers password grants as well as refresh-token grants, with a default quota of 150 requests per 5 minutes per source IP (and a burst allowance). A single local k6 runner would therefore receive 429 responses before it meaningfully measures a 1,000-user ramp.
 
-For this test only, temporarily change that value in your **local** supabase/config.toml to 1200, then restart the local stack:
+For this test only, temporarily change token_refresh from 150 to 4000 in your **local** supabase/config.toml, then restart the local stack:
 
     supabase stop
     supabase start
 
-Do not push this temporary rate-limit change to hosted Supabase. Restore the value to 30 after testing and restart the local stack again.
+Leave sign_in_sign_ups = 30 unchanged; this test is using password-token grants, not signup. Do not push this temporary token-refresh rate-limit change to hosted Supabase. Restore token_refresh to 150 after testing and restart the local stack again. The higher local value is only to allow the staged test's roughly 11 login attempts per second at peak; it is not a production rate-limit recommendation.
 
 ## Run the test
 
