@@ -47,7 +47,7 @@ begin
   insert into public.user_activity_heartbeat(user_id, last_accepted_at)
   values (
     _user_id,
-    clock_timestamp() - make_interval(secs => least(_observed_seconds, 60))
+    clock_timestamp() - make_interval(secs => least(_observed_seconds, 30))
   )
   on conflict (user_id) do nothing;
 
