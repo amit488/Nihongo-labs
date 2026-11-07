@@ -53,3 +53,5 @@
 .resendButton:disabled{opacity:.55;cursor:wait}
 .backToSignup{display:block;margin:16px auto 0;border:0;background:transparent;color:#687682;font-size:13px;font-weight:700;cursor:pointer}
 .backToSignup:hover{color:#b54c43}
+
+.authMessage a{color:#913b35;font-weight:800;text-decoration:underline;white-space:nowrap}
