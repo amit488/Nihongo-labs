@@ -90,6 +90,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
+  const [liveStudySeconds, setLiveStudySeconds] = useState(0);
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
     displayName: 'Learner', preferredJlptLevel: 'N5', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
@@ -162,6 +163,8 @@ export default function LearningApp({ section = [] }: Props) {
 
   useEffect(() => {
     if (!signedIn || !isStudySection) return;
+    setLiveStudySeconds(0);
+    let sessionMilliseconds = 0;
 
     type BrowserLockManager = {
       request(
@@ -349,9 +352,12 @@ export default function LearningApp({ section = [] }: Props) {
         if (Number.isFinite(elapsed) && elapsed > 0) {
           // The short cap prevents a suspended laptop/browser from turning
           // sleep time into study time while tolerating ordinary UI delays.
+          const sampledMilliseconds = Math.min(elapsed, 5_000);
+          sessionMilliseconds += sampledMilliseconds;
+          if (!disposed) setLiveStudySeconds(Math.floor(sessionMilliseconds / 1000));
           const pending = readPendingState();
           writePendingState(
-            pending.milliseconds + Math.min(elapsed, 5_000),
+            pending.milliseconds + sampledMilliseconds,
             pending.requestId,
           );
         }
@@ -509,7 +515,7 @@ export default function LearningApp({ section = [] }: Props) {
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><label className={styles.searchBox}><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label><button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><label className={styles.searchBox}><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{signedIn && isStudySection ? <span className={styles.counterPill} aria-label={`Active study time ${Math.floor(liveStudySeconds / 60)} minutes and ${liveStudySeconds % 60} seconds`} title="Active time in this study session">Study · {Math.floor(liveStudySeconds / 60)}:{String(liveStudySeconds % 60).padStart(2, '0')}</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
