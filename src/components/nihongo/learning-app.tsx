@@ -252,7 +252,7 @@ export default function LearningApp({ section = [] }: Props) {
             // their ID and establish a one-time retry-window start for migration.
             requestCreatedAt: requestId ? parsedCreatedAt ?? new Date().toISOString() : null,
             requestSeconds: requestId
-              ? requestSeconds ?? Math.min(Math.floor(milliseconds / 1000), 3600) || null
+              ? (requestSeconds ?? Math.min(Math.floor(milliseconds / 1000), 3600)) || null
               : null,
           };
         }
