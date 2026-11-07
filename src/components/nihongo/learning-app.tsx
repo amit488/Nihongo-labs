@@ -89,7 +89,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [signedIn, setSignedIn] = useState(false);
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
-    displayName: 'Learner', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0,
+    displayName: 'Learner', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
     activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
@@ -101,6 +101,13 @@ export default function LearningApp({ section = [] }: Props) {
   const [kanjiData, setKanjiData] = useState<KanjiItem[]>(demoKanji);
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
+  const refreshLearnerSnapshot = useCallback(async () => {
+    try {
+      setSnapshot(await loadLearnerSnapshot());
+    } catch {
+      // Keep the last known snapshot if the dashboard refresh is temporarily unavailable.
+    }
+  }, []);
   const setRomajiPreference = (value: boolean) => {
     setRomaji(value);
     if (signedIn) void fetch('/api/learning/settings', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showRomaji: value }) }).catch(() => undefined);
@@ -187,7 +194,7 @@ export default function LearningApp({ section = [] }: Props) {
           {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
           {active === 'practice' && <Practice signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'vocabulary' && <Vocabulary items={filteredVocabulary} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'kanji' && <Kanji items={filteredKanji} />}
+          {active === 'kanji' && <Kanji items={filteredKanji} onProgressSaved={refreshLearnerSnapshot} />}
           {active === 'kana' && <Kana mode={kanaMode} setMode={setKanaMode} quiz={kanaQuiz} setQuiz={setKanaQuiz} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'flashcards' && <Flashcards items={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'reading' && <Reading romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
@@ -525,7 +532,7 @@ function Vocabulary({ items, romaji, setRomaji }: { items: VocabularyItem[]; rom
   return <><SectionHeading eyebrow="N5 WORD BANK" title="Words you’ll use every day." description="Build a useful vocabulary with pronunciation, context and examples." action={<button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/><div className={styles.toolbar}><span>{items.length} words shown · spaced revision available when signed in</span><div className={styles.filterPills}><button className={styles.filterActive}>All words</button></div></div>{notice?<div className={styles.billingNote}>{notice}</div>:null}<div className={styles.vocabGrid}>{items.map((item)=> <article key={item.id} className={`${styles.vocabCard} ${expanded===item.id?styles.vocabExpanded:''}`}><button type="button" className={styles.vocabCardTop} onClick={()=>setExpanded(expanded===item.id?null:item.id)}><span className={styles.wordType}>{item.partOfSpeech}</span><span className={styles.bookmark}>{expanded===item.id?'⌃':'⌄'}</span></button><button type="button" className={styles.vocabCardBody} onClick={()=>setExpanded(expanded===item.id?null:item.id)}><div className={styles.vocabWord}>{item.word}</div><div className={styles.vocabKana}>{item.kana}</div>{romaji&&<div className={styles.vocabRomaji}>{item.romaji}</div>}<div className={styles.vocabMeaning}>{item.meaning}</div></button>{expanded===item.id&&<div className={styles.vocabExample}><strong>{item.example}</strong>{romaji&&<small>{item.exampleRomaji}</small>}<span>{item.exampleMeaning}</span><div className={styles.ratingRow}><span>How well do you remember it?</span><div><button type="button" className={styles.rateAgain} disabled={busy} onClick={()=>void review(item.id,1)}>Again</button><button type="button" className={styles.rateGood} disabled={busy} onClick={()=>void review(item.id,4)}>Good</button><button type="button" className={styles.rateEasy} disabled={busy} onClick={()=>void review(item.id,5)}>Easy</button></div></div></div>}<div className={styles.vocabFooter}><button type="button" onClick={()=>setExpanded(expanded===item.id?null:item.id)}>{expanded===item.id?'Close example':'View example'}</button><span>↗</span></div></article>)}</div></>;
 }
 
-function Kanji({ items }: { items: KanjiItem[] }) {
+function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<'N5' | 'N4'>('N5');
   const [deckItems, setDeckItems] = useState<KanjiItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
@@ -581,12 +588,13 @@ function Kanji({ items }: { items: KanjiItem[] }) {
   async function markFamiliarity(value: 'known' | 'learning') {
     if (!selectedItem || !signedIn || reviewLoading) return;
     setReviewLoading(true);
-    setStatus((current) => ({ ...current, [selectedItem.id]: value }));
-    setNotice(value === 'known' ? 'Marked as known.' : 'Added to your learning review.');
+    setNotice(value === 'known' ? 'Saving known status…' : 'Saving learning status…');
     try {
       const response = await fetch('/api/kanji/review', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kanjiId:selectedItem.id, status:value }) });
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || (response.status === 401 ? 'Sign in to save your kanji progress.' : 'Progress could not be saved.')); }
+      setStatus((current) => ({ ...current, [selectedItem.id]: value }));
       setNotice(value === 'known' ? 'Your progress has been saved.' : 'Added to your review list.');
+      await onProgressSaved();
     } catch { setNotice('Your selection is shown for this session, but could not be saved.'); }
     finally { setReviewLoading(false); }
   }
@@ -725,9 +733,9 @@ function Exams({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boo
 function Progress({snapshot,streak}:{snapshot:LearnerSnapshot;streak:number}) {
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
-  return <><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{snapshot.overallPercentage || 0}<span>%</span></div><p>Progress is calculated from completed lessons, reviewed vocabulary, mastered kanji and reading practice.</p></div><div className={styles.progressRingLarge}><strong>{snapshot.overallPercentage || 0}%</strong><span>complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green"/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange"/><Mastery label="Kanji" value={mastery.kanji} tone="blue"/><Mastery label="Reading" value={mastery.reading} tone="purple"/><Mastery label="Kana" value={mastery.kana} tone="green"/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange"/></div><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{['M','T','W','T','F','S','S'].map((d,i)=><div className={styles.dayEmpty} key={`${d}${i}`}><span>{d}</span><b>·</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
+  return <><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{snapshot.overallPercentage || 0}<span>%</span></div><p>Progress is calculated from completed lessons, reviewed vocabulary, mastered kanji and reading practice.</p></div><div className={styles.progressRingLarge}><strong>{snapshot.overallPercentage || 0}%</strong><span>complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green"/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange"/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple"/><Mastery label="Kana" value={mastery.kana} tone="green"/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange"/></div><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{['M','T','W','T','F','S','S'].map((d,i)=><div className={styles.dayEmpty} key={`${d}${i}`}><span>{d}</span><b>·</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
-function Mastery({label,value,tone}:{label:string;value:number;tone:Tone}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended'}</small></div>}
+function Mastery({label,value,tone,detail}:{label:string;value:number;tone:Tone;detail?:string}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{detail ?? (value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended')}</small></div>}
 
 async function fetchMembershipData(signedIn: boolean): Promise<{
   plans: MembershipPlan[];

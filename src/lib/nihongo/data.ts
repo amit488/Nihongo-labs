@@ -6,6 +6,7 @@ export type LearnerSnapshot = {
   grammarCount: number;
   vocabularyCount: number;
   kanjiCount: number;
+  kanjiMastered: number;
   activeDays: string[];
   lessonsCompleted: number;
   recentScores: number[];
@@ -25,7 +26,7 @@ export type LearnerSnapshot = {
 type DashboardResponse = {
   profile?: { displayName?: string | null };
   progress?: {
-    grammarTotal?: number | null; vocabularyTotal?: number | null; kanjiTotal?: number | null;
+    grammarTotal?: number | null; vocabularyTotal?: number | null; kanjiTotal?: number | null; kanjiMastered?: number | null;
     lessonsCompleted?: number | null; overallPercentage?: number | null;
     mastery?: LearnerSnapshot['mastery'];
   };
@@ -77,7 +78,7 @@ async function apiGet<T>(path: string): Promise<T> {
 }
 
 const previewSnapshot = (): LearnerSnapshot => ({
-  displayName: 'Learner', grammarCount: grammar.length, vocabularyCount: vocabulary.length, kanjiCount: kanji.length,
+  displayName: 'Learner', grammarCount: grammar.length, vocabularyCount: vocabulary.length, kanjiCount: kanji.length, kanjiMastered: 0,
   activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
   mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
   streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
@@ -97,6 +98,7 @@ export async function loadLearnerSnapshot(): Promise<LearnerSnapshot> {
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
     vocabularyCount: Number(dashboard.progress?.vocabularyTotal ?? 0),
     kanjiCount: Number(dashboard.progress?.kanjiTotal ?? 0),
+    kanjiMastered: Number(dashboard.progress?.kanjiMastered ?? 0),
     activeDays: (dashboard.recentActivity ?? []).map((row) => String(row.activity_date)),
     lessonsCompleted: Number(dashboard.progress?.lessonsCompleted ?? 0),
     recentScores: (dashboard.recentAttempts ?? []).map((row) => Number(row.score_percentage ?? 0)).reverse(),
