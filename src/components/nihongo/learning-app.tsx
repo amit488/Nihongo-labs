@@ -550,9 +550,14 @@ function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue 
   const ready = Number(snapshot.overallPercentage ?? 0);
   const words = Number(snapshot.vocabularyCount ?? 0);
   const kanjiCount = Number(snapshot.kanjiCount ?? 0);
-  const minutes = Math.floor(Number(snapshot.dailyGoal?.studiedSeconds ?? 0) / 60);
-  const goal = Number(snapshot.dailyGoal?.minutes ?? 15);
-  const goalPercent = goal ? Math.min(100, Math.round((minutes / goal) * 100)) : 0;
+  const rawStudiedSeconds = Number(snapshot.dailyGoal?.studiedSeconds ?? 0);
+  const studiedSeconds = Number.isFinite(rawStudiedSeconds) ? Math.max(0, rawStudiedSeconds) : 0;
+  const minutes = Math.floor(studiedSeconds / 60);
+  const goal = Math.max(0, Number(snapshot.dailyGoal?.minutes ?? 15) || 0);
+  const goalCompleted = goal > 0 && studiedSeconds >= goal * 60;
+  const goalPercent = goal > 0
+    ? goalCompleted ? 100 : Math.min(99, Math.round((studiedSeconds / (goal * 60)) * 100))
+    : 0;
   const activity = Array.isArray(snapshot.recentActivity) ? snapshot.recentActivity.slice(0, 7).reverse() : [];
   const maximum = Math.max(1, ...activity.map((row) => Number(row.study_seconds ?? 0)));
   const dayLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
@@ -567,7 +572,12 @@ function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue 
       <StatCard icon="✳" label="Current streak" value={`${streak} days`} note="Days with learning activity" progress={Math.min(100, streak / 30 * 100)} tone="purple" />
     </section>
     <section className={styles.dashboardGrid}><div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div><div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div><div className={styles.chartBars}>{(activity.length ? activity : Array.from({length:7},(_,i)=>({activity_date:'',study_seconds:0,key:i}))).map((row,i)=><div className={styles.chartColumn} key={row.activity_date || i}><div className={styles.chartTrack}><span className={styles.chartBar} style={{height:`${Math.max(2,Math.min(100,Number(row.study_seconds ?? 0)/Math.max(3600,maximum)*100))}%`}} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>)}</div></div><div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0)/60)} min</strong></span></div></div>
-      <div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div><div className={styles.goalContent}><div className={styles.goalRing}><div><strong>{minutes}</strong><span>/ {goal} min</span></div></div><div className={styles.goalText}><strong>{goalPercent >= 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong><p>{goalPercent >= 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0,goal-minutes)} more minutes to reach today's learning goal.`}</p><ProgressBar value={goalPercent} /><div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0,goal-minutes)} min left</span></div></div></div></div></section>
+      <div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div><div className={styles.goalContent}><div
+        className={styles.goalRing}
+        role="img"
+        aria-label={`${goalPercent}% of the daily study goal completed`}
+        style={{ background: `conic-gradient(#c7695e 0 ${goalPercent}%, #e6e9ed ${goalPercent}% 100%)` }}
+      ><div><strong>{minutes}</strong><span>/ {goal} min</span></div></div><div className={styles.goalText}><strong>{goalPercent >= 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong><p>{goalPercent >= 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0,goal-minutes)} more minutes to reach today's learning goal.`}</p><ProgressBar value={goalPercent} /><div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0,goal-minutes)} min left</span></div></div></div></div></section>
     {activityTrackingNotice ? <div className={styles.activityTrackingNotice} role="status">Study-time tracking: {activityTrackingNotice}</div> : null}
     <div className={styles.sectionTop}><div><div className={styles.eyebrow}>A GOOD PLACE TO START</div><h2>Today&apos;s focus</h2></div><span className={styles.mutedMeta}>Choose a short activity</span></div>
     <section className={styles.focusGrid}><FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/><FocusCard number="02" title="Everyday essentials" description="Revise useful words about daily routines." meta="Vocabulary · 6 min" tag="REVIEW" href="/learn/vocabulary" tone="orange"/><FocusCard number="03" title="A short N5 story" description="Read a beginner passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/></section>
