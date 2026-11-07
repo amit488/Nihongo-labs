@@ -1020,6 +1020,14 @@ begin
   delete from public.user_activity_heartbeat_requests
    where created_at < clock_timestamp() - interval '8 days';
   get diagnostics v_deleted = row_count;
+
+  delete from cron.job_run_details
+   where jobid in (
+     select jobid from cron.job
+      where jobname = 'nihongo-labs-heartbeat-request-retention'
+   )
+     and end_time < clock_timestamp() - interval '8 days';
+
   return v_deleted;
 end;
 $;
@@ -1034,7 +1042,7 @@ grant all privileges on all tables in schema cron to postgres;
 
 select cron.schedule(
   'nihongo-labs-heartbeat-request-retention',
-  '15 3 * * *',
+  '15 * * * *',
   $select public.cleanup_expired_user_activity_heartbeat_requests();$
 );
 
