@@ -48,3 +48,16 @@ test('refund ledger supports local idempotency before provider submission', () =
   assert.match(sql, /payment_refunds_idempotency_uidx/i);
   assert.match(sql, /record_payment_refund/i);
 });
+
+test('study-time migration installs a protected heartbeat and atomic activity increments', () => {
+  const migrationPath = resolve(process.cwd(), 'supabase', 'migrations', '20261108010000_study_time_tracking.sql');
+  assert.equal(existsSync(migrationPath), true, 'study-time migration is missing');
+  const migration = readFileSync(migrationPath, 'utf8');
+
+  assert.match(migration, /create table if not exists public\.user_activity_heartbeat/i);
+  assert.match(migration, /for update;/i);
+  assert.match(migration, /interval '58 seconds'/i);
+  assert.match(migration, /jsonb_build_object\('study_seconds', 60\)/i);
+  assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date\) from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date\) to service_role/i);
+});
