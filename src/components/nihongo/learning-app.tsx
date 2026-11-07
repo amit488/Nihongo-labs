@@ -228,6 +228,8 @@ export default function LearningApp({ section = [] }: Props) {
 
       let operation: Promise<void>;
       operation = (async () => {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 8000);
         try {
           const response = await fetch('/api/learning/activity', {
             method: 'POST',
@@ -236,6 +238,7 @@ export default function LearningApp({ section = [] }: Props) {
             body: JSON.stringify({ seconds: requestedSeconds }),
             keepalive: true,
             cache: 'no-store',
+            signal: controller.signal,
           });
           const body = await response.json().catch(() => ({})) as {
             error?: string;
@@ -275,6 +278,7 @@ export default function LearningApp({ section = [] }: Props) {
           }
           retryAfter = Date.now() + 30_000;
         } finally {
+          window.clearTimeout(timeout);
           if (currentSend === operation) currentSend = null;
         }
       })();
@@ -286,7 +290,7 @@ export default function LearningApp({ section = [] }: Props) {
     const startActiveLoop = (releaseLock: () => void) => {
       let stopped = false;
       let lastSampleAt = performance.now();
-      let timer: number;
+      let timer = 0;
 
       const sample = () => {
         const now = performance.now();
