@@ -35,7 +35,7 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
   });
 
   if (error) {
-    const alreadyRegistered = error.code === 'user_already_exists' || /already registered|already exists/i.test(error.message);
+    const alreadyRegistered = ['user_already_exists', 'email_exists'].includes(error.code ?? '') || /already registered|already exists/i.test(error.message);
     if (alreadyRegistered) {
       return {
         success: false,
