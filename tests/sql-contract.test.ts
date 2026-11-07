@@ -61,3 +61,27 @@ test('study-time migration installs a protected heartbeat and atomic activity in
   assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date\) from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date\) to service_role/i);
 });
+
+
+test('accurate study-time heartbeat accepts partial batches and caps them to server elapsed time', () => {
+  const migrationPath = resolve(process.cwd(), 'supabase', 'migrations', '20261108020000_accurate_study_time_tracking.sql');
+  assert.equal(existsSync(migrationPath), true, 'accurate study-time migration is missing');
+  const migration = readFileSync(migrationPath, 'utf8');
+
+  assert.match(migration, /record_user_heartbeat\([\s\S]*?_observed_seconds integer[\s\S]*?returns integer/i);
+  assert.match(migration, /for update;/i);
+  assert.match(migration, /least\(_observed_seconds, v_elapsed_seconds\)/i);
+  assert.match(migration, /jsonb_build_object\('study_seconds', v_credited_seconds\)/i);
+  assert.match(migration, /revoke all on function public\.record_user_heartbeat\(uuid, date, integer\) from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.record_user_heartbeat\(uuid, date, integer\) to service_role/i);
+});
+
+test('study-time client persists partial seconds and coordinates active tabs', () => {
+  const componentPath = resolve(process.cwd(), 'src', 'components', 'nihongo', 'learning-app.tsx');
+  const component = readFileSync(componentPath, 'utf8');
+  assert.match(component, /localStorage\.setItem\(storageKey/);
+  assert.match(component, /navigator as unknown as \{ locks\?: BrowserLockManager \}/);
+  assert.match(component, /visibilitychange/);
+  assert.match(component, /pagehide/);
+  assert.match(component, /sendPendingTime\(true\)/);
+});
