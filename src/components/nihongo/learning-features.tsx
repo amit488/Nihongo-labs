@@ -343,7 +343,6 @@ function Vocabulary({
   const [learnedLoading, setLearnedLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [nextOffset, setNextOffset] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const sentinelRef = useRef<HTMLDivElement>(null);
   const pageBusyRef = useRef(false);
@@ -379,7 +378,6 @@ function Vocabulary({
     hasMoreRef.current = false;
     setLoadingMore(false);
     pageBusyRef.current = false;
-    setNextOffset(0);
     nextOffsetRef.current = 0;
 
     async function loadInitialPage() {
@@ -416,7 +414,6 @@ function Vocabulary({
 
       if (!active || queryKeyRef.current !== queryKey) return;
       setDeckItems(visible);
-      setNextOffset(offset);
       nextOffsetRef.current = offset;
       setHasMore(more);
       hasMoreRef.current = more;
