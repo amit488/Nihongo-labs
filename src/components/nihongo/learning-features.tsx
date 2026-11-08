@@ -1238,6 +1238,27 @@ function Reading({ romaji, setRomaji, signedIn }: { romaji: boolean; setRomaji: 
   </>;
 }
 
+
+function Exams({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
+  return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
+}
+
+async function fetchMembershipData(signedIn: boolean): Promise<{
+  plans: MembershipPlan[];
+  status: MembershipStatus | null;
+}> {
+  const planResponse = await fetch('/api/billing/plans', { cache: 'no-store' });
+  const planBody = await planResponse.json() as { plans?: MembershipPlan[]; error?: string };
+  if (!planResponse.ok) throw new Error(planBody.error || 'Could not load plans.');
+
+  let status: MembershipStatus | null = null;
+  if (signedIn) {
+    const statusResponse = await fetch('/api/billing/status', { credentials: 'same-origin', cache: 'no-store' });
+    if (statusResponse.ok) status = await statusResponse.json() as MembershipStatus;
+  }
+  return { plans: planBody.plans ?? [], status };
+}
+
 function Membership({signedIn}:{signedIn:boolean}) {
   const router = useRouter();
   const [plans,setPlans]=useState<MembershipPlan[]>([]);
