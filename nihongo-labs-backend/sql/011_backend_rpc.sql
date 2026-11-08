@@ -865,7 +865,7 @@ grant all privileges on all tables in schema cron to postgres;
 select cron.schedule(
   'nihongo-labs-heartbeat-request-retention',
   '15 * * * *',
-  $select public.cleanup_expired_user_activity_heartbeat_requests();$
+  $job$select public.cleanup_expired_user_activity_heartbeat_requests();$job$
 );
 
 commit;
