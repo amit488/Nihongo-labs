@@ -663,8 +663,11 @@ function Vocabulary({
     }
   }
 
-  async function markLearned(item: VocabularyItem) {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id)) {
+  async function markLearned(vocabularyId: string) {
+    // Resolve the current card by its stable database ID, never by its grid position.
+    const item = deckItems.find((row) => row.id === vocabularyId);
+    if (!item) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(vocabularyId)) {
       setNotice('This is preview content. Connect and publish vocabulary in Supabase before saving learning progress.');
       return;
     }
@@ -812,7 +815,8 @@ function Vocabulary({
                 {expandedIds.has(item.id) ? 'Close example' : 'View example'}
               </button>
               <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
-                onClick={() => void markLearned(item)}>
+                aria-label={`Mark ${item.word} as learned`} data-vocabulary-id={item.id}
+                onClick={(event) => { event.stopPropagation(); void markLearned(item.id); }}>
                 {savingId === item.id ? 'Saving…' : 'Mark learned ✓'}
               </button>
             </div>
