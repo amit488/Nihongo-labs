@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
-import { getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
+import { getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 import { EmptyState, ProgressBar, SectionHeading } from './learning-shared';
