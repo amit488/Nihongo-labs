@@ -71,3 +71,24 @@
 .vocabSentinel{height:2px;width:100%}
 .vocabLoadStatus{display:flex;justify-content:center;align-items:center;min-height:42px;padding:13px 0;color:var(--muted);font-size:14px}
 @media(max-width:760px){.vocabLearnedRow{grid-template-columns:1fr auto;gap:6px 12px}.vocabLearnedRow p{grid-column:1;grid-row:2}.vocabLearnedRow .secondaryButton{grid-column:2;grid-row:1 / span 2}.vocabTopControls{justify-content:flex-end}.vocabActions .ghostButton,.vocabLearnButton{font-size:13px;padding:7px 8px}}
+
+
+/* Vocabulary card polish: clearer category chip, breathing room for ratings,
+   and a learned action that uses the same warm Nihongo Labs accent. */
+.vocabCardTop{
+  min-height:32px;
+  padding:6px 10px;
+  border:1px solid #f0d7d2;
+  border-radius:8px;
+  background:#faf0ee;
+}
+.vocabCardTop .wordType{color:#b6534b;font-weight:750}
+.vocabCardTop .bookmark{color:#b96e65}
+.ratingRow>div{gap:12px}
+.ratingRow{padding-bottom:10px}
+.vocabLearnButton{
+  border:1px solid #e8b8ad;
+  background:#faf0ee;
+  color:#a94f47;
+}
+.vocabLearnButton:hover:not(:disabled){background:#f5e2de;border-color:#de978c}
