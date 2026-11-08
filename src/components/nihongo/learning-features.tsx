@@ -374,22 +374,27 @@ function Vocabulary({
   useEffect(() => {
     let active = true;
     queryKeyRef.current = queryKey;
-    setLoading(true);
-    setNotice('');
-    setExpandedIds(new Set());
-    setDeckItems([]);
-    setLearnedIds(new Set<string>());
-    learnedIdsRef.current = new Set<string>();
-    setLearnedItems([]);
-    setLearnedListLoaded(false);
-    setLearnedLoading(false);
-    setHasMore(false);
     hasMoreRef.current = false;
-    setLoadingMore(false);
     pageBusyRef.current = false;
     nextOffsetRef.current = 0;
 
     async function loadInitialPage() {
+      // Defer query-change resets to the async task so effects don't synchronously
+      // cascade React state updates during their commit phase.
+      await Promise.resolve();
+      if (!active || queryKeyRef.current !== queryKey) return;
+      setLoading(true);
+      setNotice('');
+      setExpandedIds(new Set());
+      setDeckItems([]);
+      setLearnedIds(new Set<string>());
+      learnedIdsRef.current = new Set<string>();
+      setLearnedItems([]);
+      setLearnedListLoaded(false);
+      setLearnedLoading(false);
+      setHasMore(false);
+      setLoadingMore(false);
+
       const [page, progressResponse] = await Promise.all([
         getPublishedVocabulary(level, 0, VOCABULARY_PAGE_SIZE, debouncedSearch),
         signedIn
@@ -504,8 +509,11 @@ function Vocabulary({
   useEffect(() => {
     if (view !== 'learned') return;
     let active = true;
-    setLearnedLoading(true);
     async function loadLearnedWords() {
+      // Let the effect finish before switching the panel into its loading state.
+      await Promise.resolve();
+      if (!active) return;
+      setLearnedLoading(true);
       if (!signedIn) {
         setLearnedItems([]);
         setLearnedListLoaded(true);
