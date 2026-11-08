@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const rawOffset = Number(params.get('offset') || 0);
     const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
     const rawSearch = params.get('q')?.trim() ?? '';
-    const search = rawSearch.replace(/[(),%_]/g, ' ').replace(/\\s+/g, ' ').slice(0, 80).trim();
+    const search = rawSearch.replace(/[(),%_]/g, ' ').replace(/\s+/g, ' ').slice(0, 80).trim();
 
     if (!['N5', 'N4'].includes(level)) throw new HttpError(400, 'Unsupported JLPT level.');
     if (!['ids', 'learned'].includes(view)) throw new HttpError(400, 'Unsupported vocabulary progress view.');
