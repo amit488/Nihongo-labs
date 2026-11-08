@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedKanji, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot, type ReadingPassage } from '@/lib/nihongo/data';
+import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot, type ReadingPassage } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
@@ -90,7 +91,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
-  const [liveStudySeconds, setLiveStudySeconds] = useState(0);
+  const studyTimerRef = useRef<HTMLSpanElement>(null);
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
     displayName: 'Learner', preferredJlptLevel: 'N5', grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
@@ -102,7 +103,6 @@ export default function LearningApp({ section = [] }: Props) {
   });
   const [grammarData, setGrammarData] = useState<GrammarItem[]>(demoGrammar);
   const [vocabData, setVocabData] = useState<VocabularyItem[]>(demoVocabulary);
-  const [kanjiData, setKanjiData] = useState<KanjiItem[]>(demoKanji);
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
@@ -127,9 +127,15 @@ export default function LearningApp({ section = [] }: Props) {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     const load = async () => {
-      const [{ data: { user } }, dataSnapshot, grammarRows, vocabRows, kanjiRows, flashcardRows] = await Promise.all([
-        client.auth.getUser(), loadLearnerSnapshot(), getPublishedGrammar(), getPublishedVocabulary(), getPublishedKanji(), getPublishedFlashcards(),
+      const authPromise = client.auth.getUser();
+      const [authResult, dataSnapshot, grammarRows, vocabRows, flashcardRows] = await Promise.all([
+        authPromise,
+        authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
+        getPublishedGrammar(),
+        getPublishedVocabulary(),
+        getPublishedFlashcards(),
       ]);
+      const user = authResult.data.user;
       if (!alive) return;
       setConnected(true);
       if (user) {
@@ -140,7 +146,6 @@ export default function LearningApp({ section = [] }: Props) {
       setSnapshot(dataSnapshot);
       if (grammarRows.length) setGrammarData(grammarRows);
       if (vocabRows.length) setVocabData(vocabRows);
-      if (kanjiRows.length) setKanjiData(kanjiRows);
       if (flashcardRows.length) setFlashcardData(flashcardRows);
     };
     void load();
@@ -348,6 +353,7 @@ export default function LearningApp({ section = [] }: Props) {
             error?: string;
             details?: { code?: string };
             creditedSeconds?: number;
+            activityDate?: string;
           };
 
           if (!response.ok && body.details?.code === 'HEARTBEAT_REQUEST_EXPIRED') {
@@ -398,7 +404,9 @@ export default function LearningApp({ section = [] }: Props) {
             retryAfter = 0;
             if (!disposed) {
               setActivityTrackingNotice('');
-              void refreshLearnerSnapshot();
+              if (typeof body.activityDate === 'string') {
+                setSnapshot((current) => applyStudyTimeCredit(current, body.activityDate!, creditedSeconds));
+              }
             }
           } else {
             // Another tab/device may have written more recently. Keep this
@@ -437,7 +445,13 @@ export default function LearningApp({ section = [] }: Props) {
           // sleep time into study time while tolerating ordinary UI delays.
           const sampledMilliseconds = Math.min(elapsed, 5_000);
           sessionMilliseconds += sampledMilliseconds;
-          if (!disposed) setLiveStudySeconds(Math.floor(sessionMilliseconds / 1000));
+          if (!disposed && studyTimerRef.current) {
+            const elapsedSeconds = Math.floor(sessionMilliseconds / 1000);
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            studyTimerRef.current.textContent = `Study · ${minutes}:${String(seconds).padStart(2, '0')}`;
+            studyTimerRef.current.setAttribute('aria-label', `Active study time ${minutes} minutes and ${seconds} seconds`);
+          }
           const pending = readPendingState();
           writePendingState({
             ...pending,
@@ -580,7 +594,6 @@ export default function LearningApp({ section = [] }: Props) {
 
 
   const filteredVocabulary = useMemo(() => vocabData.filter((item) => `${item.word} ${item.kana} ${item.romaji} ${item.meaning}`.toLowerCase().includes(search.toLowerCase())), [vocabData, search]);
-  const filteredKanji = useMemo(() => kanjiData.filter((item) => `${item.character} ${item.meaning} ${item.radical}`.toLowerCase().includes(search.toLowerCase())), [kanjiData, search]);
     const streak = signedIn ? snapshot.streak : 0;
 
   return (
@@ -598,7 +611,7 @@ export default function LearningApp({ section = [] }: Props) {
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><label className={styles.searchBox}><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{signedIn && isStudySection ? <span className={styles.counterPill} aria-label={`Active study time ${Math.floor(liveStudySeconds / 60)} minutes and ${liveStudySeconds % 60} seconds`} title="Active time in this study session">Study · {Math.floor(liveStudySeconds / 60)}:{String(liveStudySeconds % 60).padStart(2, '0')}</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><label className={styles.searchBox}><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
@@ -606,7 +619,7 @@ export default function LearningApp({ section = [] }: Props) {
           {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
           {active === 'practice' && <Practice signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'vocabulary' && <Vocabulary items={filteredVocabulary} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'kanji' && <Kanji items={filteredKanji} onProgressSaved={refreshLearnerSnapshot} />}
+          {active === 'kanji' && <Kanji items={demoKanji} onProgressSaved={refreshLearnerSnapshot} />}
           {active === 'kana' && <Kana mode={kanaMode} setMode={setKanaMode} quiz={kanaQuiz} setQuiz={setKanaQuiz} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'flashcards' && <Flashcards items={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
           {active === 'reading' && <Reading romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}

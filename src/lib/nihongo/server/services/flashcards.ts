@@ -84,19 +84,29 @@ export async function getDueFlashcards(userClient: SupabaseClient, userId: strin
   if (deckError || !deck) throw new HttpError(404, 'Flashcard deck not found or unavailable.');
   const timezone = await getUserTimeZone(userClient, userId);
   const todayKey = localDateKey(new Date(), timezone);
-  const [{ data: settings }, { data: cards, error: cardsError }, { data: states, error: statesError }, { data: activity, error: activityError }] = await Promise.all([
+  const [{ data: settings }, { data: cards, error: cardsError }, { data: activity, error: activityError }] = await Promise.all([
     userClient.from('user_flashcard_settings').select('daily_new_limit,daily_review_limit,desired_retention,show_romaji,show_furigana').eq('user_id', userId).maybeSingle(),
     userClient.from('flashcards').select('id,front_text,back_text,front_reading,back_reading,front_romaji,back_romaji,hint,example_sentence,example_translation,source_type,vocabulary_id,kanji_id,grammar_id,sort_order').eq('deck_id', deckId).eq('is_active', true).order('sort_order').limit(1000),
-    userClient.from('flashcard_review_state').select('flashcard_id,scheduler_state,due_at,repetitions,suspended_at,buried_until').eq('user_id', userId).limit(2000),
     userClient.from('user_daily_activity').select('flashcards_reviewed,flashcards_new').eq('user_id', userId).eq('activity_date', todayKey).maybeSingle(),
   ]);
-  if (cardsError || statesError || activityError) throw new HttpError(500, 'Could not load flashcards.', cardsError?.message || statesError?.message || activityError?.message);
+  if (cardsError || activityError) throw new HttpError(500, 'Could not load flashcards.', cardsError?.message || activityError?.message);
 
-  const stateRows = (states ?? []) as FlashcardStateRow[];
+  const cardRows = (cards ?? []) as unknown as FlashcardQueueRow[];
+  const cardIds = cardRows.map((card) => card.id);
+  let stateRows: FlashcardStateRow[] = [];
+  if (cardIds.length) {
+    const { data: states, error: statesError } = await userClient.from('flashcard_review_state')
+      .select('flashcard_id,scheduler_state,due_at,repetitions,suspended_at,buried_until,flashcards!inner(deck_id,is_active)')
+      .eq('user_id', userId)
+      .eq('flashcards.deck_id', deckId)
+      .eq('flashcards.is_active', true)
+      .limit(cardIds.length);
+    if (statesError) throw new HttpError(500, 'Could not load flashcard review states.', statesError.message);
+    stateRows = (states ?? []) as unknown as FlashcardStateRow[];
+  }
   const stateById = new Map<string, FlashcardStateRow>(
     stateRows.map((row): [string, FlashcardStateRow] => [row.flashcard_id, row]),
   );
-  const cardRows = (cards ?? []) as unknown as FlashcardQueueRow[];
   const now = Date.now();
   const currentSettings = settings ?? { daily_new_limit: 20, daily_review_limit: 200, show_romaji: true, show_furigana: true };
   const reviewedToday = Number(activity?.flashcards_reviewed ?? 0);

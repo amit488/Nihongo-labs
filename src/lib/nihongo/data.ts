@@ -85,17 +85,17 @@ const previewSnapshot = (): LearnerSnapshot => ({
   streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
 });
 
-export async function loadLearnerSnapshot(): Promise<LearnerSnapshot> {
+export async function loadLearnerSnapshot(user?: { email?: string | null } | null): Promise<LearnerSnapshot> {
   const client = getSupabaseBrowserClient();
   if (!client) return previewSnapshot();
-  const { data: { user } } = await client.auth.getUser();
-  if (!user) return previewSnapshot();
+  const resolvedUser = user === undefined ? (await client.auth.getUser()).data.user : user;
+  if (!resolvedUser) return previewSnapshot();
   const [dashboard, billing] = await Promise.all([
     apiGet<DashboardResponse>('/api/learning/dashboard'),
     apiGet<BillingStatusResponse>('/api/billing/status').catch(() => ({ hasPremium: false })),
   ]);
   return {
-    displayName: dashboard.profile?.displayName || user.email?.split('@')[0] || 'Learner',
+    displayName: dashboard.profile?.displayName || resolvedUser.email?.split('@')[0] || 'Learner',
     preferredJlptLevel: dashboard.preferences?.preferred_jlpt_level ?? 'N5',
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
     vocabularyCount: Number(dashboard.progress?.vocabularyTotal ?? 0),

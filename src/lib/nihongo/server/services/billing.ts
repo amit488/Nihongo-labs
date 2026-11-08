@@ -264,14 +264,14 @@ export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId:
     metadata: { invoice_id: providerPayment.invoice_id ?? null },
   }, { onConflict: 'provider,provider_payment_id' }).select('id').single();
   if (paymentError || !payment) throw new HttpError(500, 'Could not record captured payment.', paymentError?.message);
-  if (!wasPaid) await admin.from('payment_orders').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', order.id);
   const startsAt = unixToIso(providerPayment.created_at) ?? new Date().toISOString();
+  const { error: orderUpdateError } = await admin.from('payment_orders')
+    .update({ status: 'paid', paid_at: startsAt }).eq('id', order.id);
+  if (orderUpdateError) throw new HttpError(500, 'Payment was captured but the local order status could not be updated.', orderUpdateError.message);
   const grantedFeatures = await syncPlanEntitlements(admin, {
     userId: order.user_id, planId: order.plan_id, subscriptionId,
     paymentId: payment.id, startsAt, endsAt: null, lifetime: true,
   });
-  const { error: orderUpdateError } = await admin.from('payment_orders').update({ status: 'paid', paid_at: startsAt }).eq('id', order.id);
-  if (orderUpdateError) throw new HttpError(500, 'Payment was captured but the local order status could not be updated.', orderUpdateError.message);
   await issueInvoiceForPayment(admin, { userId: order.user_id, subscriptionId, paymentId: payment.id, amountMinor: Number(providerPayment.amount ?? 0), currency: providerPayment.currency ?? order.currency, planName: plan.name, providerInvoiceId: providerPayment.invoice_id ?? null });
   return { alreadyProcessed: Boolean(wasPaid), subscriptionId, paymentId: payment.id, grantedFeatures };
 }

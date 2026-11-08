@@ -97,9 +97,10 @@ export async function submitQuizAttempt(
     throw new HttpError(409, 'The quiz time limit expired. This attempt has been closed.');
   }
   const questionIds = questions.map((question) => question.id);
+  const questionIdSet = new Set(questionIds);
   const submittedById = new Map(input.responses.map((item) => [item.questionId, item.response]));
   for (const id of submittedById.keys()) {
-    if (!questionIds.includes(id)) throw new HttpError(400, 'Response contains a question that does not belong to this quiz.');
+    if (!questionIdSet.has(id)) throw new HttpError(400, 'Response contains a question that does not belong to this quiz.');
   }
 
   const { data: keys, error: keyError } = await admin.rpc('get_quiz_answer_keys', { _question_ids: questionIds });
@@ -163,10 +164,11 @@ export async function submitQuizAttempt(
     throw new HttpError(500, 'Could not save and finalize the quiz attempt. Run sql/011_backend_rpc.sql first.', finalizeError.message);
   }
 
+  const gradedByQuestionId = new Map(graded.map((row) => [row.question_id, row]));
   const feedback = quiz.show_results_after_submit ? questions.map((question) => {
     const answer = keyByQuestion.get(question.id);
     if (!answer) throw new HttpError(500, `A grading key is missing for question ${question.id}.`);
-    const response = graded.find((row) => row.question_id === question.id);
+    const response = gradedByQuestionId.get(question.id);
     return {
       questionId: question.id,
       correct: Boolean(response?.is_correct),
