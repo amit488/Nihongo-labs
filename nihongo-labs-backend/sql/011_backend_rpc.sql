@@ -495,7 +495,7 @@ begin
   end if;
   if not exists (
     select 1 from public.vocabulary_entries v
-    where v.id = _vocabulary_id and v.jlpt_level = 'N5'
+    where v.id = _vocabulary_id and v.jlpt_level in ('N5', 'N4')
       and v.publication_status = 'published'
   ) then
     raise exception 'Vocabulary item not found or unavailable' using errcode = 'P0002';
