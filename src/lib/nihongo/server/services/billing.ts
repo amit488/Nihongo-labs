@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { HttpError } from '../http';
 import { razorpayRequest, unixToIso, type RazorpayResponse } from './razorpay';
 
+type PlanFeatureRow = { feature_key: string; feature_value: unknown };
 type Plan = {
   id: string; code: string; name: string; description: string | null; plan_kind: string;
   amount_minor: number; currency: string; billing_interval: 'month' | 'year' | 'lifetime';
