@@ -204,7 +204,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 'mock' | 'reading' | 'kana'; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
+function QuizRunner({
+  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true,
+}: {
+  kind: 'practice' | 'mock' | 'reading' | 'kana';
+  signedIn: boolean;
+  romaji: boolean;
+  setRomaji: (value: boolean) => void;
+  level?: JlptLevel;
+  onLevelChange?: (level: JlptLevel) => void;
+  showLevelSwitch?: boolean;
+}) {
+  const [internalLevel, setInternalLevel] = useState<JlptLevel>('N5');
+  const level = controlledLevel ?? internalLevel;
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<QuizRecord | null>(null);
   const [attemptId, setAttemptId] = useState('');
@@ -233,13 +245,27 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/practice/quizzes?kind=${kind}`, { credentials: 'same-origin', cache: 'no-store' })
+    fetch(`/api/practice/quizzes?kind=${kind}&level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load practice sets.'); return body; })
       .then((body) => { if (alive) setQuizzes(body.quizzes ?? []); })
       .catch((err) => { if (alive) setError(err.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [kind]);
+  }, [kind, level]);
+
+  function changeLevel(next: JlptLevel) {
+    if (next === level) return;
+    if (onLevelChange) onLevelChange(next);
+    else setInternalLevel(next);
+    setQuizzes([]);
+    setActiveQuiz(null);
+    setAttemptId('');
+    setQuestions([]);
+    setResponses({});
+    setResult(null);
+    setError('');
+    setLoading(true);
+  }
 
   async function begin(quiz: QuizRecord) {
     setError('');
@@ -375,7 +401,10 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   }
 
   return <>
-    <SectionHeading eyebrow={kind === 'mock' ? 'EXAM SIMULATOR' : 'DAILY PRACTICE · N5'} title={kind === 'mock' ? 'Make exam day feel familiar.' : 'A little practice goes a long way.'} description={kind === 'mock' ? 'Start a timed mock examination. Your attempt is graded and stored securely.' : 'Choose a focused practice set. Your progress and answers are saved to your account.'} action={<button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
+    <SectionHeading eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : `DAILY PRACTICE · JLPT ${level}`} title={kind === 'mock' ? 'Make exam day feel familiar.' : 'A little practice goes a long way.'} description={kind === 'mock' ? 'Start a timed mock examination. Your attempt is graded and stored securely.' : 'Choose a focused practice set. Your progress and answers are saved to your account.'} action={<div className={styles.headingActions}>
+      {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
+      <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
+    </div>} />
     {!signedIn ? <div className={styles.emptyState}><div>学</div><h2>Sign in to start learning</h2><p>Your practice attempts, exam results and streaks are saved to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : null}
     {loading ? <div className={styles.panel}>Loading practice sets…</div> : null}
     {!loading && quizzes.length === 0 ? <EmptyState title="Practice sets are not seeded yet" description="Run sql/010_n5_content_and_plans_seed.sql in local Supabase Studio to add the N5 starter practice bank." /> : null}
