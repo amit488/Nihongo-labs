@@ -11,7 +11,7 @@ import { EmptyState, ProgressBar, SectionHeading } from './learning-shared';
 type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription';
 export type LearningFeatureProps = {
   active: FeatureSection; grammarItems: GrammarItem[]; vocabularyItems: VocabularyItem[]; kanjiItems: KanjiItem[];
-  flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void;
+  flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
   kanaMode: 'hiragana' | 'katakana'; setKanaMode: (value: 'hiragana' | 'katakana') => void;
   kanaQuiz: boolean; setKanaQuiz: (value: boolean) => void; onProgressSaved: () => Promise<void>;
 };
@@ -306,22 +306,399 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
 }
 
 
-function Vocabulary({ items, romaji, setRomaji }: { items: VocabularyItem[]; romaji: boolean; setRomaji: (value: boolean) => void }) {
-  const [expanded, setExpanded] = useState<string|null>(null);
+type VocabularyLevel = 'N5' | 'N4';
+type VocabularyView = 'new' | 'learned';
+type LearnedVocabularyItem = {
+  vocabularyId: string;
+  learnedAt: string;
+  word: string;
+  kana: string;
+  romaji: string;
+  meaning: string;
+};
+
+const VOCABULARY_PAGE_SIZE = 80;
+
+function Vocabulary({
+  items: fallbackItems, romaji, setRomaji, signedIn, search, onProgressSaved,
+}: {
+  items: VocabularyItem[];
+  romaji: boolean;
+  setRomaji: (value: boolean) => void;
+  signedIn: boolean;
+  search: string;
+  onProgressSaved: () => Promise<void>;
+}) {
+  const [level, setLevel] = useState<VocabularyLevel>('N5');
+  const [view, setView] = useState<VocabularyView>('new');
+  const [deckItems, setDeckItems] = useState<VocabularyItem[]>([]);
+  const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
+  const [learnedItems, setLearnedItems] = useState<LearnedVocabularyItem[]>([]);
+  const [learnedListLoaded, setLearnedListLoaded] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
-  async function review(id: string, quality: number) {
-    if (busy) return;
-    setBusy(true); setNotice('');
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [savingId, setSavingId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [learnedLoading, setLearnedLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const pageBusyRef = useRef(false);
+  const nextOffsetRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const learnedIdsRef = useRef<Set<string>>(new Set());
+  const queryKeyRef = useRef('');
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    learnedIdsRef.current = learnedIds;
+  }, [learnedIds]);
+
+  const queryKey = `${level}|${debouncedSearch}`;
+
+  useEffect(() => {
+    let active = true;
+    queryKeyRef.current = queryKey;
+    setLoading(true);
+    setNotice('');
+    setExpanded(null);
+    setDeckItems([]);
+    setLearnedIds(new Set());
+    learnedIdsRef.current = new Set();
+    setLearnedItems([]);
+    setLearnedListLoaded(false);
+    setLearnedLoading(false);
+    setHasMore(false);
+    hasMoreRef.current = false;
+    setNextOffset(0);
+    nextOffsetRef.current = 0;
+
+    async function loadInitialPage() {
+      const [page, progressResponse] = await Promise.all([
+        getPublishedVocabulary(level, 0, VOCABULARY_PAGE_SIZE, debouncedSearch),
+        signedIn
+          ? fetch(`/api/learning/vocabulary-progress?level=${level}&view=ids`, { credentials: 'same-origin', cache: 'no-store' }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const progressBody = progressResponse?.ok
+        ? await progressResponse.json() as { vocabularyIds?: string[] }
+        : undefined;
+      const ids = new Set(progressBody?.vocabularyIds ?? []);
+      if (!active || queryKeyRef.current !== queryKey) return;
+
+      learnedIdsRef.current = ids;
+      setLearnedIds(ids);
+      let visible = page.items.filter((item) => !ids.has(item.id));
+      let offset = page.nextOffset;
+      let more = page.hasMore;
+
+      // Fill the first view to roughly 80 unseen words without requesting a large catalogue.
+      while (visible.length < VOCABULARY_PAGE_SIZE && more && offset > 0) {
+        const needed = VOCABULARY_PAGE_SIZE - visible.length;
+        const nextPage = await getPublishedVocabulary(level, offset, Math.min(needed, VOCABULARY_PAGE_SIZE), debouncedSearch);
+        if (!active || queryKeyRef.current !== queryKey) return;
+        const seen = new Set(visible.map((item) => item.id));
+        visible = [...visible, ...nextPage.items.filter((item) => !ids.has(item.id) && !seen.has(item.id))];
+        offset = nextPage.nextOffset;
+        more = nextPage.hasMore;
+        if (nextPage.items.length === 0) break;
+      }
+
+      if (!active || queryKeyRef.current !== queryKey) return;
+      setDeckItems(visible);
+      setNextOffset(offset);
+      nextOffsetRef.current = offset;
+      setHasMore(more);
+      hasMoreRef.current = more;
+    }
+
+    void loadInitialPage()
+      .catch((error) => {
+        if (active) {
+          setDeckItems(level === 'N5' && !debouncedSearch ? fallbackItems.slice(0, VOCABULARY_PAGE_SIZE) : []);
+          setNotice(error instanceof Error ? error.message : 'Could not load vocabulary.');
+        }
+      })
+      .finally(() => { if (active) setLoading(false); });
+
+    return () => { active = false; };
+  }, [level, debouncedSearch, signedIn, fallbackItems, queryKey]);
+
+  const loadMore = useCallback(async (requestedLimit = VOCABULARY_PAGE_SIZE) => {
+    if (pageBusyRef.current || !hasMoreRef.current) return;
+    pageBusyRef.current = true;
+    setLoadingMore(true);
+    const requestKey = queryKeyRef.current;
     try {
-      const response = await fetch('/api/learning/vocabulary-review', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vocabularyId: id, quality }) });
+      const page = await getPublishedVocabulary(level, nextOffsetRef.current, requestedLimit, debouncedSearch);
+      if (requestKey !== queryKeyRef.current) return;
+      setDeckItems((current) => {
+        const existing = new Set(current.map((item) => item.id));
+        return [...current, ...page.items.filter((item) => !learnedIdsRef.current.has(item.id) && !existing.has(item.id))];
+      });
+      nextOffsetRef.current = page.nextOffset;
+      setNextOffset(page.nextOffset);
+      hasMoreRef.current = page.hasMore;
+      setHasMore(page.hasMore);
+    } catch (error) {
+      if (requestKey === queryKeyRef.current) setNotice(error instanceof Error ? error.message : 'Could not load more vocabulary.');
+    } finally {
+      pageBusyRef.current = false;
+      if (requestKey === queryKeyRef.current) setLoadingMore(false);
+    }
+  }, [level, debouncedSearch]);
+
+  useEffect(() => {
+    if (view !== 'new' || loading || !hasMore) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+    }, { rootMargin: '420px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [view, loading, hasMore, loadMore]);
+
+  useEffect(() => {
+    if (view !== 'learned') return;
+    let active = true;
+    setLearnedLoading(true);
+    async function loadLearnedWords() {
+      if (!signedIn) {
+        setLearnedItems([]);
+        setLearnedListLoaded(true);
+        return;
+      }
+      const params = new URLSearchParams({ level, view: 'learned', limit: '500', q: debouncedSearch });
+      const response = await fetch(`/api/learning/vocabulary-progress?${params.toString()}`, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const body = await response.json() as { items?: LearnedVocabularyItem[]; error?: string };
+      if (!response.ok) throw new Error(body.error || 'Could not load learned words.');
+      if (active) {
+        setLearnedItems(body.items ?? []);
+        setLearnedListLoaded(true);
+      }
+    }
+    void loadLearnedWords()
+      .catch((error) => { if (active) setNotice(error instanceof Error ? error.message : 'Could not load learned words.'); })
+      .finally(() => { if (active) setLearnedLoading(false); });
+    return () => { active = false; };
+  }, [view, level, debouncedSearch, signedIn]);
+
+  async function review(id: string, quality: number) {
+    if (reviewBusy) return;
+    setReviewBusy(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/learning/vocabulary-review', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vocabularyId: id, quality }),
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not save vocabulary review.');
       setNotice(`Revision saved · next review ${new Date(body.state.due_at).toLocaleDateString()}.`);
-    } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not save review.'); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not save review.');
+    } finally {
+      setReviewBusy(false);
+    }
   }
-  return <><SectionHeading eyebrow="N5 WORD BANK" title="Words you’ll use every day." description="Build a useful vocabulary with pronunciation, context and examples." action={<button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/><div className={styles.toolbar}><span>{items.length} words shown · spaced revision available when signed in</span><div className={styles.filterPills}><button className={styles.filterActive}>All words</button></div></div>{notice?<div className={styles.billingNote}>{notice}</div>:null}<div className={styles.vocabGrid}>{items.map((item)=> <article key={item.id} className={`${styles.vocabCard} ${expanded===item.id?styles.vocabExpanded:''}`}><button type="button" className={styles.vocabCardTop} onClick={()=>setExpanded(expanded===item.id?null:item.id)}><span className={styles.wordType}>{item.partOfSpeech}</span><span className={styles.bookmark}>{expanded===item.id?'⌃':'⌄'}</span></button><button type="button" className={styles.vocabCardBody} onClick={()=>setExpanded(expanded===item.id?null:item.id)}><div className={styles.vocabWord}>{item.word}</div><div className={styles.vocabKana}>{item.kana}</div>{romaji&&<div className={styles.vocabRomaji}>{item.romaji}</div>}<div className={styles.vocabMeaning}>{item.meaning}</div></button>{expanded===item.id&&<div className={styles.vocabExample}><strong>{item.example}</strong>{romaji&&<small>{item.exampleRomaji}</small>}<span>{item.exampleMeaning}</span><div className={styles.ratingRow}><span>How well do you remember it?</span><div><button type="button" className={styles.rateAgain} disabled={busy} onClick={()=>void review(item.id,1)}>Again</button><button type="button" className={styles.rateGood} disabled={busy} onClick={()=>void review(item.id,4)}>Good</button><button type="button" className={styles.rateEasy} disabled={busy} onClick={()=>void review(item.id,5)}>Easy</button></div></div></div>}<div className={styles.vocabFooter}><button type="button" onClick={()=>setExpanded(expanded===item.id?null:item.id)}>{expanded===item.id?'Close example':'View example'}</button><span>↗</span></div></article>)}</div></>;
+
+  async function markLearned(item: VocabularyItem) {
+    if (!signedIn) {
+      setNotice('Sign in to save learned words and keep them hidden from your new-word list.');
+      return;
+    }
+    if (savingId) return;
+    setSavingId(item.id);
+    setNotice('');
+    try {
+      const response = await fetch('/api/learning/vocabulary-progress', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vocabularyId: item.id }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Could not mark this word as learned.');
+      const learned: LearnedVocabularyItem = {
+        vocabularyId: item.id, learnedAt: new Date().toISOString(),
+        word: item.word, kana: item.kana, romaji: item.romaji, meaning: item.meaning,
+      };
+      setLearnedIds((current) => {
+        const next = new Set(current);
+        next.add(item.id);
+        learnedIdsRef.current = next;
+        return next;
+      });
+      setDeckItems((current) => current.filter((row) => row.id !== item.id));
+      if (learnedListLoaded) setLearnedItems((current) => [learned, ...current.filter((row) => row.vocabularyId !== item.id)]);
+      setNotice(`“${item.word}” moved to your learned vocabulary.`);
+      void onProgressSaved();
+      if (deckItems.length - 1 < VOCABULARY_PAGE_SIZE && hasMoreRef.current) void loadMore(1);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not mark this word as learned.');
+    } finally {
+      setSavingId('');
+    }
+  }
+
+  async function unmarkLearned(item: LearnedVocabularyItem) {
+    if (savingId) return;
+    setSavingId(item.vocabularyId);
+    setNotice('');
+    try {
+      const response = await fetch('/api/learning/vocabulary-progress', {
+        method: 'DELETE', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vocabularyId: item.vocabularyId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Could not move this word back to new vocabulary.');
+      setLearnedIds((current) => {
+        const next = new Set(current);
+        next.delete(item.vocabularyId);
+        learnedIdsRef.current = next;
+        return next;
+      });
+      setLearnedItems((current) => current.filter((row) => row.vocabularyId !== item.vocabularyId));
+      const restored: VocabularyItem = {
+        id: item.vocabularyId, word: item.word, kana: item.kana, romaji: item.romaji,
+        meaning: item.meaning, partOfSpeech: 'Word', example: '', exampleRomaji: '', exampleMeaning: '',
+      };
+      const searchText = `${restored.word} ${restored.kana} ${restored.romaji} ${restored.meaning}`.toLowerCase();
+      if (!debouncedSearch || searchText.includes(debouncedSearch.toLowerCase())) {
+        setDeckItems((current) => current.some((row) => row.id === restored.id)
+          ? current
+          : [...current, restored].sort((a, b) => a.word.localeCompare(b.word)));
+      }
+      setNotice(`“${item.word}” returned to your new-word list.`);
+      void onProgressSaved();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not update learned vocabulary.');
+    } finally {
+      setSavingId('');
+    }
+  }
+
+  return <>
+    <SectionHeading
+      eyebrow={`JLPT ${level} VOCABULARY`}
+      title="Words you’ll use every day."
+      description="Learn in small batches, mark words you know, and keep moving forward."
+      action={
+        <div className={styles.vocabTopControls}>
+          <div className={styles.vocabSwitch} aria-label="JLPT vocabulary level">
+            {(['N5', 'N4'] as const).map((option) => (
+              <button key={option} type="button" className={level === option ? styles.vocabSwitchActive : ''}
+                aria-pressed={level === option} onClick={() => setLevel(option)}>{option}</button>
+            ))}
+          </div>
+          <button type="button" className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>
+            {romaji ? 'Hide' : 'Show'} romaji
+          </button>
+        </div>
+      }
+    />
+    <div className={styles.toolbar}>
+      <span>{view === 'new' ? `${deckItems.length} new words loaded` : `${learnedIds.size} learned words`} · {signedIn ? 'Your progress is saved' : 'Sign in to save progress'}</span>
+      <div className={styles.filterPills}>
+        <button type="button" className={view === 'new' ? styles.filterActive : ''} onClick={() => setView('new')}>New words</button>
+        <button type="button" className={view === 'learned' ? styles.filterActive : ''} onClick={() => setView('learned')}>Learned ({learnedIds.size})</button>
+      </div>
+    </div>
+    {notice ? <div className={styles.billingNote} role="status">{notice}</div> : null}
+
+    {view === 'new' ? <>
+      {loading ? <div className={styles.panel} role="status">Loading your first 80 words…</div> : null}
+      {!loading && deckItems.length === 0 ? (
+        <div className={styles.panel}>
+          <strong>{debouncedSearch ? 'No matching new words' : learnedIds.size ? 'You’ve learned all available words at this level' : 'No vocabulary published yet'}</strong>
+          <p className={styles.mutedMeta}>{debouncedSearch ? 'Try another search term.' : 'Switch to the Learned tab to review words you have mastered.'}</p>
+        </div>
+      ) : null}
+      <div className={styles.vocabGrid}>
+        {deckItems.map((item) => (
+          <article key={item.id} className={`${styles.vocabCard} ${expanded === item.id ? styles.vocabExpanded : ''}`}>
+            <button type="button" className={styles.vocabCardTop} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
+              <span className={styles.wordType}>{item.partOfSpeech}</span>
+              <span className={styles.bookmark}>{expanded === item.id ? '⌃' : '⌄'}</span>
+            </button>
+            <button type="button" className={styles.vocabCardBody} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
+              <div className={styles.vocabWord}>{item.word}</div>
+              <div className={styles.vocabKana}>{item.kana}</div>
+              {romaji ? <div className={styles.vocabRomaji}>{item.romaji}</div> : null}
+              <div className={styles.vocabMeaning}>{item.meaning}</div>
+            </button>
+            {expanded === item.id ? (
+              <div className={styles.vocabExample}>
+                {item.example ? <strong>{item.example}</strong> : null}
+                {romaji && item.exampleRomaji ? <small>{item.exampleRomaji}</small> : null}
+                {item.exampleMeaning ? <span>{item.exampleMeaning}</span> : null}
+                <div className={styles.ratingRow}>
+                  <span>How well do you remember it?</span>
+                  <div>
+                    <button type="button" className={styles.rateAgain} disabled={reviewBusy} onClick={() => void review(item.id, 1)}>Again</button>
+                    <button type="button" className={styles.rateGood} disabled={reviewBusy} onClick={() => void review(item.id, 4)}>Good</button>
+                    <button type="button" className={styles.rateEasy} disabled={reviewBusy} onClick={() => void review(item.id, 5)}>Easy</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className={styles.vocabActions}>
+              <button type="button" className={styles.ghostButton} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
+                {expanded === item.id ? 'Close example' : 'View example'}
+              </button>
+              <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
+                onClick={() => void markLearned(item)}>
+                {savingId === item.id ? 'Saving…' : '✓ Learned'}
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div ref={sentinelRef} className={styles.vocabSentinel} aria-hidden="true" />
+      {loadingMore ? <div className={styles.vocabLoadStatus} role="status">Loading the next words…</div> : null}
+      {!loading && hasMore && !loadingMore ? (
+        <div className={styles.vocabLoadStatus}>
+          <button type="button" className={styles.secondaryButton} onClick={() => void loadMore()}>Load 80 more words</button>
+        </div>
+      ) : null}
+      {!loading && !hasMore && deckItems.length > 0 ? <div className={styles.vocabLoadStatus}>You’re up to date for this level.</div> : null}
+    </> : <>
+      {!signedIn ? <div className={styles.panel}>Sign in to see your learned-word list on every device.</div> : null}
+      {signedIn && learnedLoading ? <div className={styles.panel} role="status">Loading learned words…</div> : null}
+      {signedIn && !learnedLoading && learnedItems.length === 0 ? (
+        <div className={styles.panel}>No learned words yet. Mark a word as learned and it will be saved here.</div>
+      ) : null}
+      {signedIn && learnedItems.length > 0 ? (
+        <div className={styles.vocabLearnedList}>
+          {learnedItems.map((item) => (
+            <article className={styles.vocabLearnedRow} key={item.vocabularyId}>
+              <div className={styles.vocabLearnedWord}>
+                <strong>{item.word}</strong>
+                <span>{item.kana}{romaji && item.romaji ? ` · ${item.romaji}` : ''}</span>
+              </div>
+              <p>{item.meaning}</p>
+              <button type="button" className={styles.secondaryButton} disabled={savingId === item.vocabularyId}
+                onClick={() => void unmarkLearned(item)}>
+                {savingId === item.vocabularyId ? 'Saving…' : 'Move back'}
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </>}
+  </>;
 }
 
 function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved: () => Promise<void> }) {
@@ -616,7 +993,7 @@ export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
     case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} />;
     case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
-    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} />;
+    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
     case 'kanji': return <Kanji items={props.kanjiItems} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
