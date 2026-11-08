@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
