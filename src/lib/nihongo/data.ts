@@ -139,10 +139,6 @@ export async function getPublishedVocabulary(
       `/api/learning/content?${params.toString()}`,
     );
     const rows = response.items ?? [];
-    if (!rows.length && offset === 0 && level === 'N5' && !search.trim()) {
-      const fallback = vocabulary.slice(0, limit);
-      return { items: fallback, hasMore: false, nextOffset: fallback.length };
-    }
     return {
       items: rows.map((row) => ({
         id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
