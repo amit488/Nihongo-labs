@@ -452,7 +452,7 @@ function Vocabulary({
     const requestKey = queryKeyRef.current;
     try {
       let offset = nextOffsetRef.current;
-      let more = hasMoreRef.current;
+      let more: boolean = hasMoreRef.current;
       let additions: VocabularyItem[] = [];
       const existingIds = new Set(deckItems.map((item) => item.id));
 
@@ -484,7 +484,6 @@ function Vocabulary({
         });
       }
       nextOffsetRef.current = offset;
-      setNextOffset(offset);
       hasMoreRef.current = more;
       setHasMore(more);
     } catch (error) {
