@@ -9,7 +9,7 @@ import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { ProgressBar, SectionHeading, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
+import { getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, VocabularyItem } from '@/lib/nihongo/demo-content';
@@ -59,7 +59,6 @@ export default function LearningApp({ section = [] }: Props) {
     premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
   });
   const [grammarData, setGrammarData] = useState<GrammarItem[]>(demoGrammar);
-  const [vocabData, setVocabData] = useState<VocabularyItem[]>(demoVocabulary);
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
@@ -85,11 +84,10 @@ export default function LearningApp({ section = [] }: Props) {
     if (!client) return;
     const load = async () => {
       const authPromise = client.auth.getUser();
-      const [authResult, dataSnapshot, grammarRows, vocabRows, flashcardRows] = await Promise.all([
+      const [authResult, dataSnapshot, grammarRows, flashcardRows] = await Promise.all([
         authPromise,
         authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
         getPublishedGrammar(),
-        getPublishedVocabulary(),
         getPublishedFlashcards(),
       ]);
       const user = authResult.data.user;
@@ -102,7 +100,6 @@ export default function LearningApp({ section = [] }: Props) {
       setRomaji(dataSnapshot.showRomaji);
       setSnapshot(dataSnapshot);
       if (grammarRows.length) setGrammarData(grammarRows);
-      if (vocabRows.length) setVocabData(vocabRows);
       if (flashcardRows.length) setFlashcardData(flashcardRows);
     };
     void load();
@@ -550,7 +547,6 @@ export default function LearningApp({ section = [] }: Props) {
 
 
 
-  const filteredVocabulary = useMemo(() => vocabData.filter((item) => `${item.word} ${item.kana} ${item.romaji} ${item.meaning}`.toLowerCase().includes(search.toLowerCase())), [vocabData, search]);
     const streak = signedIn ? snapshot.streak : 0;
 
   return (
@@ -573,7 +569,7 @@ export default function LearningApp({ section = [] }: Props) {
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
-          {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={filteredVocabulary} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
