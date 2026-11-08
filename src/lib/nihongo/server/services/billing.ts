@@ -8,7 +8,6 @@ type Plan = {
   interval_count: number; provider_price_id: string | null; is_active: boolean;
 };
 
-type PlanFeatureRow = { feature_key: string; feature_value: unknown };
 type PlanRow = {
   id: string; code: string; name: string; description: string | null; plan_kind: string;
   amount_minor: number; currency: string; billing_interval: 'month' | 'year' | 'lifetime';
@@ -30,48 +29,18 @@ type PlanSummary = {
   features: PlanFeature[];
 };
 
-function isEnabledFeature(value: unknown): boolean {
-  if (value === true || value === 1 || value === 'true') return true;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const record = value as Record<string, unknown>;
-    return record.enabled === true || record.value === true;
-  }
-  return false;
-}
 
 /** Grant only the feature entitlements included in the purchased plan. */
 async function syncPlanEntitlements(
   admin: SupabaseClient,
   input: { userId: string; planId: string; subscriptionId: string; paymentId?: string | null; startsAt: string; endsAt: string | null; lifetime?: boolean },
 ) {
-  const { data: features, error: featureError } = await admin.from('plan_features')
-    .select('feature_key,feature_value').eq('plan_id', input.planId);
-  if (featureError) throw new HttpError(500, 'Could not load purchased plan features.', featureError.message);
-
-  const featureRows = (features ?? []) as PlanFeatureRow[];
-  const enabled = featureRows.filter((feature) => isEnabledFeature(feature.feature_value));
-  for (const feature of enabled) {
-    let lookup = admin.from('user_entitlements').select('id')
-      .eq('user_id', input.userId).eq('feature_key', feature.feature_key)
-      .eq('source_subscription_id', input.subscriptionId);
-    if (input.lifetime && input.paymentId) lookup = lookup.eq('source_payment_id', input.paymentId);
-    else lookup = lookup.eq('starts_at', input.startsAt);
-    const { data: existing, error: lookupError } = await lookup.maybeSingle();
-    if (lookupError) throw new HttpError(500, 'Could not check existing plan entitlement.', lookupError.message);
-    if (existing) continue;
-    const { error: insertError } = await admin.from('user_entitlements').insert({
-      user_id: input.userId,
-      feature_key: feature.feature_key,
-      source_subscription_id: input.subscriptionId,
-      source_payment_id: input.paymentId ?? null,
-      status: 'active',
-      starts_at: input.startsAt,
-      ends_at: input.endsAt,
-    });
-    if (insertError?.code === '23505') continue; // another identical webhook created the entitlement first
-    if (insertError) throw new HttpError(500, `Could not activate ${feature.feature_key} entitlement.`, insertError.message);
-  }
-  return enabled.map((feature) => feature.feature_key);
+  const { data, error } = await admin.rpc('sync_plan_entitlements', {
+    _user_id: input.userId, _plan_id: input.planId, _subscription_id: input.subscriptionId,
+    _payment_id: input.paymentId ?? null, _starts_at: input.startsAt, _ends_at: input.endsAt, _lifetime: Boolean(input.lifetime),
+  });
+  if (error) throw new HttpError(500, 'Could not synchronize plan entitlements.', error.message);
+  return Array.isArray(data) ? data as string[] : [];
 }
 
 export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]> {

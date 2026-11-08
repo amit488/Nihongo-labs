@@ -2,55 +2,20 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
+import { ProgressBar, type Tone } from './learning-shared';
+import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot, type ReadingPassage } from '@/lib/nihongo/data';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
-import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary, kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
-import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
+import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
+import type { GrammarItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
-type Tone = 'green' | 'orange' | 'blue' | 'purple';
-type RazorpayPaymentResult = {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-};
-type RazorpayFailure = { error?: { description?: string } };
-type RazorpayCheckoutOptions = {
-  key: string; amount: number; currency: string; name: string; description: string;
-  order_id: string; theme: { color: string };
-  handler: (payment: RazorpayPaymentResult) => void | Promise<void>;
-};
-type RazorpayCheckout = {
-  open: () => void;
-  on: (event: 'payment.failed', callback: (payload: RazorpayFailure) => void) => void;
-};
-declare global {
-  interface Window {
-    Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayCheckout;
-  }
-}
-type MembershipPlan = {
-  id: string; code: string; name: string; description: string | null;
-  planKind: string; amountMinor: number; currency: string;
-  billingInterval: string; intervalCount: number;
-  features: Array<{ key: string; value: unknown }>;
-};
-type MembershipSubscription = {
-  id: string; status: string; current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  subscription_plans: { name: string | null; billing_interval: string | null } | null;
-};
-type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
-type CheckoutResponse = {
-  mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string;
-  amountMinor?: number; currency?: string; planName?: string; error?: string;
-};
-
+const LazyLearningFeature = lazy(() => import('./learning-features').then((module) => ({ default: module.LearningFeature })));
 
 const navGroups = [
   { label: 'LEARN', items: [
@@ -71,18 +36,6 @@ const navGroups = [
     { key: 'subscription', title: 'Membership', href: '/learn/subscription', icon: '◇' },
   ] },
 ];
-
-function Icon({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <span aria-hidden="true" className={`${styles.icon} ${className}`}>{children}</span>;
-}
-
-function ProgressBar({ value, tone = 'green' }: { value: number; tone?: 'green' | 'orange' | 'blue' | 'purple' }) {
-  return <div className={`${styles.progressTrack} ${tone === 'orange' ? styles.progressOrange : tone === 'blue' ? styles.progressBlue : tone === 'purple' ? styles.progressPurple : ''}`}><span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
-}
-
-function SectionHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
-  return <div className={styles.sectionHeading}><div><div className={styles.eyebrow}>{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div>;
-}
 
 export default function LearningApp({ section = [] }: Props) {
   const router = useRouter();
@@ -616,16 +569,8 @@ export default function LearningApp({ section = [] }: Props) {
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
-          {active === 'grammar' && <GrammarStudio items={grammarData} romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
-          {active === 'practice' && <Practice signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'vocabulary' && <Vocabulary items={filteredVocabulary} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'kanji' && <Kanji items={demoKanji} onProgressSaved={refreshLearnerSnapshot} />}
-          {active === 'kana' && <Kana mode={kanaMode} setMode={setKanaMode} quiz={kanaQuiz} setQuiz={setKanaQuiz} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'flashcards' && <Flashcards items={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
-          {active === 'reading' && <Reading romaji={romaji} setRomaji={setRomajiPreference} signedIn={signedIn} />}
-          {active === 'exams' && <Exams signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} />}
+          {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={filteredVocabulary} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} />}
-          {active === 'subscription' && <Membership signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
       </main>
@@ -1271,4 +1216,3 @@ function Membership({signedIn}:{signedIn:boolean}) {
   </>;
 }
 
-function EmptyState({title,description}:{title:string;description:string}){return <div className={styles.emptyState}><div>日</div><h2>{title}</h2><p>{description}</p></div>}
