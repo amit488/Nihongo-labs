@@ -164,7 +164,9 @@ export async function submitQuizAttempt(
     throw new HttpError(500, 'Could not save and finalize the quiz attempt. Run sql/011_backend_rpc.sql first.', finalizeError.message);
   }
 
-  const gradedByQuestionId = new Map(graded.map((row) => [row.question_id, row]));
+  const gradedByQuestionId = new Map<string, GradedResponse>(
+    graded.map((row): [string, GradedResponse] => [row.question_id, row]),
+  );
   const feedback = quiz.show_results_after_submit ? questions.map((question) => {
     const answer = keyByQuestion.get(question.id);
     if (!answer) throw new HttpError(500, `A grading key is missing for question ${question.id}.`);
