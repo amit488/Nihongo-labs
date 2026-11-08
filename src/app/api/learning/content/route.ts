@@ -41,8 +41,12 @@ export async function GET(request: NextRequest) {
     const rawSearch = request.nextUrl.searchParams.get('q')?.trim() ?? '';
     // Avoid PostgREST filter grammar injection through the .or(...) expression.
     const search = rawSearch.replace(/[(),%_]/g, ' ').replace(/\s+/g, ' ').slice(0, 80).trim();
-    const rawLimit = Number(request.nextUrl.searchParams.get('limit') || 100);
-    const limit = Number.isFinite(rawLimit) ? Math.min(250, Math.max(1, Math.floor(rawLimit))) : 100;
+    const requestedDefault = kind === 'vocabulary' ? 80 : 100;
+    const rawLimit = Number(request.nextUrl.searchParams.get('limit') || requestedDefault);
+    const maxLimit = kind === 'vocabulary' ? 100 : 250;
+    const limit = Number.isFinite(rawLimit) ? Math.min(maxLimit, Math.max(1, Math.floor(rawLimit))) : requestedDefault;
+    const rawOffset = Number(request.nextUrl.searchParams.get('offset') || 0);
+    const offset = Number.isFinite(rawOffset) ? Math.min(10000, Math.max(0, Math.floor(rawOffset))) : 0;
     if (!['N5', 'N4', 'N3', 'N2', 'N1'].includes(level)) throw new HttpError(400, 'Unsupported JLPT level.');
     const supabase = await createServerSupabase();
 
@@ -56,11 +60,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: data ?? [] }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
     }
     if (kind === 'vocabulary') {
-      let query = supabase.from('vocabulary_entries').select('id,word,kana,romaji,meaning,part_of_speech,example_sentence,example_reading,example_translation,tags').eq('jlpt_level', level).eq('publication_status', 'published').order('word').limit(limit);
+      let query = supabase.from('vocabulary_entries')
+        .select('id,word,kana,romaji,meaning,part_of_speech,example_sentence,example_reading,example_translation,tags')
+        .eq('jlpt_level', level).eq('publication_status', 'published')
+        .order('word', { ascending: true }).order('id', { ascending: true })
+        .range(offset, offset + limit);
       if (search) query = query.or(`word.ilike.%${search}%,kana.ilike.%${search}%,meaning.ilike.%${search}%`);
       const { data, error } = await query;
       if (error) throw new HttpError(500, 'Could not load vocabulary.', error.message);
-      return NextResponse.json({ items: data ?? [] }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
+      const rows = data ?? [];
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      return NextResponse.json(
+        { items, hasMore, nextOffset: offset + items.length },
+        { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } },
+      );
     }
     if (kind === 'kanji') {
       let query = supabase.from('kanji_entries').select('id,character,meaning,on_yomi,kun_yomi,stroke_count,radical,mnemonic,example_words').eq('jlpt_level', level).eq('publication_status', 'published').order('character').limit(limit);
