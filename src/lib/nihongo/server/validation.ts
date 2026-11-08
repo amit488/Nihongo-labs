@@ -56,6 +56,9 @@ export const vocabularyReviewSchema = z.object({
   vocabularyId: z.string().uuid(),
   quality: z.number().int().min(0).max(5),
 }).strict();
+export const vocabularyProgressSchema = z.object({
+  vocabularyId: z.string().uuid(),
+}).strict();
 export const billingProfileSchema = z.object({
   billingName: z.string().trim().min(1).max(120).optional(),
   billingEmail: z.string().email().max(254).optional(),

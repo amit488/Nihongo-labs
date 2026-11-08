@@ -495,7 +495,7 @@ begin
   end if;
   if not exists (
     select 1 from public.vocabulary_entries v
-    where v.id = _vocabulary_id and v.jlpt_level = 'N5'
+    where v.id = _vocabulary_id and v.jlpt_level in ('N5', 'N4')
       and v.publication_status = 'published'
   ) then
     raise exception 'Vocabulary item not found or unavailable' using errcode = 'P0002';
@@ -751,7 +751,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_last_accepted timestamptz;
   v_elapsed_seconds integer;
@@ -824,7 +824,7 @@ begin
 
   return v_credited_seconds;
 end;
-$;
+$$;
 revoke all on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
   from public, anon, authenticated;
 grant execute on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
@@ -835,7 +835,7 @@ returns bigint
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_deleted bigint;
 begin
@@ -843,30 +843,18 @@ begin
    where created_at < clock_timestamp() - interval '8 days';
   get diagnostics v_deleted = row_count;
 
-  delete from cron.job_run_details
-   where jobid in (
-     select jobid from cron.job
-      where jobname = 'nihongo-labs-heartbeat-request-retention'
-   )
-     and end_time < clock_timestamp() - interval '8 days';
-
   return v_deleted;
 end;
-$;
+$$;
 revoke all on function public.cleanup_expired_user_activity_heartbeat_requests()
   from public, anon, authenticated;
 grant execute on function public.cleanup_expired_user_activity_heartbeat_requests()
   to postgres, service_role;
 
-create extension if not exists pg_cron with schema pg_catalog;
-grant usage on schema cron to postgres;
-grant all privileges on all tables in schema cron to postgres;
-
-select cron.schedule(
-  'nihongo-labs-heartbeat-request-retention',
-  '15 * * * *',
-  $select public.cleanup_expired_user_activity_heartbeat_requests();$
-);
+-- pg_cron is managed separately by Supabase. This script intentionally does
+-- not change cron-schema grants or schedule jobs against extension-owned tables.
+-- The cleanup function above can be scheduled later from the Supabase Cron UI
+-- if heartbeat-request retention automation is required.
 
 commit;
 

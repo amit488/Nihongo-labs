@@ -20,7 +20,10 @@ export async function reviewVocabulary(admin: SupabaseClient, userId: string, vo
   });
   if (error) {
     if (error.code === 'P0002') throw new HttpError(404, 'Vocabulary item not found or unavailable.');
-    throw new HttpError(500, 'Could not save vocabulary review. Run sql/011_backend_rpc.sql first.', error.message);
+    if (error.code === 'PGRST202' || error.code === '42883') {
+      throw new HttpError(503, 'Vocabulary review is not configured. Run nihongo-labs-backend/sql/011_backend_rpc.sql in local Supabase Studio, then retry.', error.message);
+    }
+    throw new HttpError(500, 'Could not save vocabulary review. Please try again.', error.message);
   }
   return data;
 }
