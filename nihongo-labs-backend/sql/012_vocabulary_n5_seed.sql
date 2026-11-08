@@ -1,8 +1,8 @@
--- Nihongo Labs N5 vocabulary content pack: 500 entries.
--- Derived vocabulary data from OpenJLPT (CC BY-SA 4.0); see docs/VOCABULARY_CONTENT_PACK.md.
--- Example sentences are from Tatoeba; per-sentence IDs are preserved in tags as source:tatoeba:<id>.
--- JLPT level classifications are community approximations, not an official JLPT word list.
--- New rows are inserted as publication_status='review' and are not returned by the public content API until reviewed/published.
+-- Nihongo Labs N5 vocabulary seed: 500 selected entries.
+-- Adapted from OpenJLPT (CC BY-SA 4.0); see ../docs/VOCABULARY_CONTENT_PACK.md.
+-- Tatoeba example sentence IDs are preserved in tags as source:tatoeba:<id>.
+-- JLPT level assignment is a community approximation, not an official current JLPT list.
+-- New rows are held at publication_status='review' for editorial QA.
 begin;
 
 insert into public.vocabulary_entries (jlpt_level,word,kana,romaji,meaning,part_of_speech,example_sentence,example_reading,example_translation,tags,publication_status)
