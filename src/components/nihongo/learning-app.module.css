@@ -48,3 +48,25 @@
 @media(max-width:780px){.welcomeRow{align-items:flex-start;gap:14px;flex-direction:column}.jlptCountdown{align-self:flex-start;min-width:180px}}
 
 @media(max-width:780px){.progressHero{align-items:flex-start;flex-direction:column;gap:16px}.progressBarWrap{width:min(100%,340px);flex-basis:auto}}
+
+
+/* Vocabulary level, active/learned views and incremental loading. */
+.vocabTopControls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.vocabSwitch{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.vocabSwitch button{border:0;border-radius:6px;padding:7px 11px;background:transparent;color:var(--muted);font:inherit;font-size:15px;font-weight:750;cursor:pointer}
+.vocabSwitch .vocabSwitchActive{background:#303a45;color:#fff}
+.vocabActions{display:flex;justify-content:space-between;align-items:center;gap:7px;padding:10px 0 0;margin-top:auto;border-top:1px solid #f0f1f3}
+.vocabActions .ghostButton{padding:7px 9px;font-size:14px}
+.vocabLearnButton{border:1px solid #e3c0a8;background:#fff8f2;color:#80553f;border-radius:7px;padding:8px 10px;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap}
+.vocabLearnButton:hover:not(:disabled){background:#f7e8dd}
+.vocabLearnButton:disabled{opacity:.5;cursor:wait}
+.vocabLearnedList{display:flex;flex-direction:column;gap:8px}
+.vocabLearnedRow{display:grid;grid-template-columns:minmax(150px,1fr) minmax(130px,1.3fr) auto;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+.vocabLearnedWord{display:flex;flex-direction:column;gap:4px;min-width:0}
+.vocabLearnedWord strong{font-family:Georgia,serif;font-size:20px;font-weight:600;color:#303a45}
+.vocabLearnedWord span{font-size:14px;color:var(--muted)}
+.vocabLearnedRow p{margin:0;color:#525e6a;font-size:15px;line-height:1.45}
+.vocabLearnedRow .secondaryButton{white-space:nowrap;padding:7px 10px;font-size:14px}
+.vocabSentinel{height:2px;width:100%}
+.vocabLoadStatus{display:flex;justify-content:center;align-items:center;min-height:42px;padding:13px 0;color:var(--muted);font-size:14px}
+@media(max-width:760px){.vocabLearnedRow{grid-template-columns:1fr auto;gap:6px 12px}.vocabLearnedRow p{grid-column:1;grid-row:2}.vocabLearnedRow .secondaryButton{grid-column:2;grid-row:1 / span 2}.vocabTopControls{justify-content:flex-end}.vocabActions .ghostButton,.vocabLearnButton{font-size:13px;padding:7px 8px}}
