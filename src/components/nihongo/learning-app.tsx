@@ -12,7 +12,7 @@ import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
 import { getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
-import type { GrammarItem, VocabularyItem } from '@/lib/nihongo/demo-content';
+import type { GrammarItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
 const LazyLearningFeature = lazy(() => import('./learning-features').then((module) => ({ default: module.LearningFeature })));
