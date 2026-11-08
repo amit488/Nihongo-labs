@@ -843,13 +843,6 @@ begin
    where created_at < clock_timestamp() - interval '8 days';
   get diagnostics v_deleted = row_count;
 
-  delete from cron.job_run_details
-   where jobid in (
-     select jobid from cron.job
-      where jobname = 'nihongo-labs-heartbeat-request-retention'
-   )
-     and end_time < clock_timestamp() - interval '8 days';
-
   return v_deleted;
 end;
 $$;
@@ -858,15 +851,10 @@ revoke all on function public.cleanup_expired_user_activity_heartbeat_requests()
 grant execute on function public.cleanup_expired_user_activity_heartbeat_requests()
   to postgres, service_role;
 
-create extension if not exists pg_cron with schema pg_catalog;
-grant usage on schema cron to postgres;
-grant all privileges on all tables in schema cron to postgres;
-
-select cron.schedule(
-  'nihongo-labs-heartbeat-request-retention',
-  '15 * * * *',
-  $job$select public.cleanup_expired_user_activity_heartbeat_requests();$job$
-);
+-- pg_cron is managed separately by Supabase. This script intentionally does
+-- not change cron-schema grants or schedule jobs against extension-owned tables.
+-- The cleanup function above can be scheduled later from the Supabase Cron UI
+-- if heartbeat-request retention automation is required.
 
 commit;
 
