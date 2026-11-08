@@ -5,14 +5,6 @@ import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
 type RatingName = 'again' | 'hard' | 'good' | 'easy';
-type FlashcardQueueRow = {
-  id: string; front_text: string; back_text: string;
-  front_reading: string | null; back_reading: string | null;
-  front_romaji: string | null; back_romaji: string | null;
-  hint: string | null; example_sentence: string | null; example_translation: string | null;
-  source_type: string; vocabulary_id: string | null; kanji_id: string | null;
-  grammar_id: string | null; sort_order: number;
-};
 type FlashcardStateRow = {
   flashcard_id: string;
   scheduler_state: string;
@@ -78,38 +70,25 @@ export async function createFlashcardSession(userClient: SupabaseClient, admin: 
   return { sessionId: session.id, startedAt: session.started_at, deck };
 }
 
-export async function getDueFlashcards(userClient: SupabaseClient, userId: string, deckId: string, mode: 'new' | 'review' | 'mixed' | 'custom' = 'mixed') {
-  const { data: deck, error: deckError } = await userClient.from('flashcard_decks')
-    .select('id,title,description,jlpt_level,access_level,deck_type').eq('id', deckId).maybeSingle();
-  if (deckError || !deck) throw new HttpError(404, 'Flashcard deck not found or unavailable.');
-  const timezone = await getUserTimeZone(userClient, userId);
-  const todayKey = localDateKey(new Date(), timezone);
-  const [{ data: settings }, { data: cards, error: cardsError }, { data: states, error: statesError }, { data: activity, error: activityError }] = await Promise.all([
-    userClient.from('user_flashcard_settings').select('daily_new_limit,daily_review_limit,desired_retention,show_romaji,show_furigana').eq('user_id', userId).maybeSingle(),
-    userClient.from('flashcards').select('id,front_text,back_text,front_reading,back_reading,front_romaji,back_romaji,hint,example_sentence,example_translation,source_type,vocabulary_id,kanji_id,grammar_id,sort_order').eq('deck_id', deckId).eq('is_active', true).order('sort_order').limit(1000),
-    userClient.from('flashcard_review_state').select('flashcard_id,scheduler_state,due_at,repetitions,suspended_at,buried_until').eq('user_id', userId).limit(2000),
-    userClient.from('user_daily_activity').select('flashcards_reviewed,flashcards_new').eq('user_id', userId).eq('activity_date', todayKey).maybeSingle(),
-  ]);
-  if (cardsError || statesError || activityError) throw new HttpError(500, 'Could not load flashcards.', cardsError?.message || statesError?.message || activityError?.message);
-
-  const stateRows = (states ?? []) as FlashcardStateRow[];
-  const stateById = new Map<string, FlashcardStateRow>(
-    stateRows.map((row): [string, FlashcardStateRow] => [row.flashcard_id, row]),
-  );
-  const cardRows = (cards ?? []) as unknown as FlashcardQueueRow[];
-  const now = Date.now();
-  const currentSettings = settings ?? { daily_new_limit: 20, daily_review_limit: 200, show_romaji: true, show_furigana: true };
-  const reviewedToday = Number(activity?.flashcards_reviewed ?? 0);
-  const newToday = Number(activity?.flashcards_new ?? 0);
-  const reviewQuotaLeft = Math.max(0, Number(currentSettings.daily_review_limit) - Math.max(0, reviewedToday - newToday));
-  const newQuotaLeft = Math.max(0, Number(currentSettings.daily_new_limit) - newToday);
-  const due = cardRows.filter((card) => {
-    const state = stateById.get(card.id);
-    return state && !state.suspended_at && (!state.buried_until || new Date(state.buried_until).getTime() <= now) && new Date(state.due_at).getTime() <= now;
-  }).slice(0, reviewQuotaLeft);
-  const fresh = cardRows.filter((card) => !stateById.has(card.id)).slice(0, newQuotaLeft);
-  return { deck, settings: currentSettings, due: mode === 'new' ? [] : due, newCards: mode === 'review' ? [] : fresh, dueCount: mode === 'new' ? 0 : due.length, newCount: mode === 'review' ? 0 : fresh.length, quota: { reviewRemaining: reviewQuotaLeft, newRemaining: newQuotaLeft } };
+export async function getDueFlashcards(userClient: SupabaseClient, _userId: string, deckId: string, mode: 'new' | 'review' | 'mixed' | 'custom' = 'mixed') {
+  const { data, error } = await userClient.rpc('get_due_flashcards', { _deck_id: deckId, _mode: mode });
+  if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+    if (error?.code === 'P0002') throw new HttpError(404, 'Flashcard deck not found or unavailable.');
+    throw new HttpError(500, 'Could not generate flashcard queue.', error?.message);
+  }
+  return data as {
+    deck: { id: string; title: string; description: string | null; jlpt_level: string; access_level: string; deck_type: string };
+    settings: { daily_new_limit: number; daily_review_limit: number; desired_retention: number; show_romaji: boolean; show_furigana: boolean };
+    due: FlashcardQueueCard[]; newCards: FlashcardQueueCard[]; dueCount: number; newCount: number;
+    quota: { reviewRemaining: number; newRemaining: number };
+  };
 }
+type FlashcardQueueCard = {
+  id: string; front_text: string; back_text: string; front_reading: string | null; back_reading: string | null;
+  front_romaji: string | null; back_romaji: string | null; hint: string | null; example_sentence: string | null;
+  example_translation: string | null; source_type: string; vocabulary_id: string | null; kanji_id: string | null;
+  grammar_id: string | null; sort_order: number;
+};
 
 export async function reviewFlashcard(
   userClient: SupabaseClient,

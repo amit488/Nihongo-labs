@@ -89,8 +89,10 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /sendPendingTime\(true\)/);
   assert.match(component, /crypto\.randomUUID\(\)/);
   assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
-  assert.match(component, /setLiveStudySeconds\(Math\.floor\(sessionMilliseconds \/ 1000\)\)/);
-  assert.match(component, /Study · \{Math\.floor\(liveStudySeconds \/ 60\)\}/);
+  assert.match(component, /studyTimerRef = useRef<HTMLSpanElement>\(null\)/);
+  assert.match(component, /studyTimerRef\.current\.textContent = `Study · \$\{minutes\}:/);
+  assert.match(component, /<span ref=\{studyTimerRef\} className=/);
+  assert.doesNotMatch(component, /setLiveStudySeconds/);
 });
 
 
@@ -107,4 +109,41 @@ test('heartbeat idempotency records expire after eight days without deleting dai
   assert.match(migration, /cron\.schedule\([\s\S]*?'15 \* \* \* \*'/i);
   assert.match(migration, /delete from cron\.job_run_details[\s\S]*?interval '8 days'/i);
   assert.doesNotMatch(migration, /delete from public\.user_daily_activity/i);
+});
+
+
+test('dashboard and flashcard queue use RLS-respecting database RPCs', () => {
+  const path = resolve(process.cwd(), 'supabase', 'migrations', '20261108040000_learning_dashboard_queue_and_billing_rpcs.sql');
+  assert.equal(existsSync(path), true, 'dashboard/queue migration is missing');
+  const migration = readFileSync(path, 'utf8');
+  assert.match(migration, /create or replace function public\.get_learning_dashboard\(\)[\s\S]*?security invoker/i);
+  assert.match(migration, /grant execute on function public\.get_learning_dashboard\(\) to authenticated/i);
+  assert.match(migration, /create or replace function public\.get_due_flashcards\([\s\S]*?security invoker/i);
+  assert.match(migration, /s\.scheduler_state <> 'new'/i);
+  assert.match(migration, /s\.scheduler_state = 'new' and s\.suspended_at is null/i);
+  assert.match(migration, /s\.suspended_at is null/i);
+  assert.match(migration, /s\.buried_until is null or s\.buried_until <= now\(\)/i);
+  assert.match(migration, /order by s\.due_at, c\.sort_order/i);
+  assert.match(migration, /limit v_review_remaining/i);
+  assert.match(migration, /limit v_new_remaining/i);
+});
+test('entitlement synchronization is bulk, idempotent and service-role-only', () => {
+  const path = resolve(process.cwd(), 'supabase', 'migrations', '20261108040000_learning_dashboard_queue_and_billing_rpcs.sql');
+  const migration = readFileSync(path, 'utf8');
+  assert.match(migration, /create or replace function public\.sync_plan_entitlements\(/i);
+  assert.match(migration, /security definer[\s\S]*?pg_advisory_xact_lock/i);
+  assert.match(migration, /insert into public\.user_entitlements[\s\S]*?not exists/i);
+  assert.match(migration, /revoke all on function public\.sync_plan_entitlements[\s\S]*?from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.sync_plan_entitlements[\s\S]*?to service_role/i);
+});
+test('legacy heartbeat overloads are dropped and bootstrap keeps only the active signature', () => {
+  const path = resolve(process.cwd(), 'supabase', 'migrations', '20261108040000_learning_dashboard_queue_and_billing_rpcs.sql');
+  const migration = readFileSync(path, 'utf8');
+  assert.match(migration, /drop function if exists public\.record_user_heartbeat\(uuid, date\)/i);
+  assert.match(migration, /drop function if exists public\.record_user_heartbeat\(uuid, date, integer\)/i);
+  assert.match(migration, /drop function if exists public\.record_user_heartbeat\(uuid, date, integer, uuid\)/i);
+  const bootstrap = readSql('011_backend_rpc.sql');
+  const definitions = bootstrap.match(/create or replace function public\.record_user_heartbeat\(/gi) ?? [];
+  assert.equal(definitions.length, 1);
+  assert.match(bootstrap, /record_user_heartbeat\(uuid, date, integer, uuid, timestamptz\)/i);
 });
