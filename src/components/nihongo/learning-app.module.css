@@ -92,3 +92,7 @@
   color:#a94f47;
 }
 .vocabLearnButton:hover:not(:disabled){background:#f5e2de;border-color:#de978c}
+
+/* Keep each vocabulary card at its own content height inside the grid. */
+.vocabGrid{align-items:start}
+.vocabCard{align-self:start}
