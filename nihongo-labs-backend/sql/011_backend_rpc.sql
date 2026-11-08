@@ -751,7 +751,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_last_accepted timestamptz;
   v_elapsed_seconds integer;
@@ -824,7 +824,7 @@ begin
 
   return v_credited_seconds;
 end;
-$;
+$$;
 revoke all on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
   from public, anon, authenticated;
 grant execute on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
@@ -835,7 +835,7 @@ returns bigint
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_deleted bigint;
 begin
@@ -852,7 +852,7 @@ begin
 
   return v_deleted;
 end;
-$;
+$$;
 revoke all on function public.cleanup_expired_user_activity_heartbeat_requests()
   from public, anon, authenticated;
 grant execute on function public.cleanup_expired_user_activity_heartbeat_requests()
