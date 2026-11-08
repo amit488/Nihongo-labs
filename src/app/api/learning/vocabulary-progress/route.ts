@@ -109,11 +109,11 @@ export async function POST(request: NextRequest) {
     if (vocabularyError || !vocabulary) throw new HttpError(404, 'Vocabulary item not found or unavailable.');
 
     const { error } = await context.supabase.from('user_vocabulary_progress')
-      .upsert(
-        { user_id: context.user.id, vocabulary_id: input.vocabularyId },
-        { onConflict: 'user_id,vocabulary_id', ignoreDuplicates: true },
-      );
-    if (error) throw new HttpError(500, 'Could not mark this word as learned.', error.message);
+      .insert({ user_id: context.user.id, vocabulary_id: input.vocabularyId });
+    // A duplicate means the word was already learned; treat this as idempotent success.
+    if (error && error.code !== '23505') {
+      throw new HttpError(500, 'Could not mark this word as learned.', error.message);
+    }
 
     return NextResponse.json({ learned: true });
   } catch (error) {
