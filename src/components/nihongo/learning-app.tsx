@@ -6,7 +6,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNod
 import styles from './learning-app.module.css';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
-import { ProgressBar, SectionHeading, type Tone } from './learning-shared';
+import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
 import { getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
@@ -568,7 +568,7 @@ export default function LearningApp({ section = [] }: Props) {
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard name={name} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
           {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} />}
         </div>
@@ -578,20 +578,63 @@ export default function LearningApp({ section = [] }: Props) {
   );
 }
 
-function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue }: { name: string; snapshot: LearnerSnapshot; streak: number; activityTrackingNotice: string; onContinue: () => void }) {
+type DashboardLevelProgress = {
+  level: JlptLevel;
+  vocabulary: { completed: number; total: number };
+  kanji: { completed: number; total: number };
+};
+
+function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, onContinue }: {
+  name: string;
+  signedIn: boolean;
+  snapshot: LearnerSnapshot;
+  streak: number;
+  activityTrackingNotice: string;
+  onContinue: () => void;
+}) {
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+  const [greeting, setGreeting] = useState('こんにちは');
+  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [levelProgress, setLevelProgress] = useState<DashboardLevelProgress | null>(null);
+
   useEffect(() => {
-    const updateCountdown = () => setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
-    const initialUpdate = window.setTimeout(updateCountdown, 0);
-    const timer = window.setInterval(updateCountdown, 60_000);
+    const updateDashboardTime = () => {
+      setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
+      const hour = new Date().getHours();
+      setGreeting(hour < 11 ? 'おはようございます' : hour < 17 ? 'こんにちは' : 'こんばんは');
+    };
+    const initialUpdate = window.setTimeout(updateDashboardTime, 0);
+    const timer = window.setInterval(updateDashboardTime, 60_000);
     return () => {
       window.clearTimeout(initialUpdate);
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    fetch(`/api/learning/level-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json() as DashboardLevelProgress & { error?: string };
+        if (!response.ok) throw new Error(body.error || 'Could not load level progress.');
+        return body;
+      })
+      .then((body) => { if (active) setLevelProgress(body); })
+      .catch(() => { if (active) setLevelProgress(null); });
+    return () => { active = false; };
+  }, [level, signedIn]);
+
   const ready = Number(snapshot.overallPercentage ?? 0);
   const words = Number(snapshot.vocabularyCount ?? 0);
   const kanjiCount = Number(snapshot.kanjiCount ?? 0);
+  const currentProgress = levelProgress?.level === level ? levelProgress : null;
+  const vocabularyCompleted = currentProgress?.vocabulary.completed ?? 0;
+  const vocabularyTotal = currentProgress?.vocabulary.total ?? (level === 'N5' ? words : 0);
+  const kanjiCompleted = currentProgress?.kanji.completed ?? 0;
+  const kanjiTotal = currentProgress?.kanji.total ?? (level === 'N5' ? kanjiCount : 0);
+  const vocabularyPercent = vocabularyTotal > 0 ? vocabularyCompleted / vocabularyTotal * 100 : 0;
+  const kanjiPercent = kanjiTotal > 0 ? kanjiCompleted / kanjiTotal * 100 : 0;
   const rawStudiedSeconds = Number(snapshot.dailyGoal?.studiedSeconds ?? 0);
   const studiedSeconds = Number.isFinite(rawStudiedSeconds) ? Math.max(0, rawStudiedSeconds) : 0;
   const minutes = Math.floor(studiedSeconds / 60);
@@ -602,29 +645,78 @@ function Dashboard({ name, snapshot, streak, activityTrackingNotice, onContinue 
   const activity = Array.isArray(snapshot.recentActivity) ? snapshot.recentActivity.slice(0, 7).reverse() : [];
   const maximum = Math.max(1, ...activity.map((row) => Number(row.study_seconds ?? 0)));
   const dayLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
+
   return <>
-    <div className={styles.welcomeRow}><div><div className={styles.eyebrow}>YOUR STUDY SPACE</div><h1>おかえりなさい, {name}. <span>ようこそ!</span></h1><p>A little practice every day adds up. Ready to keep your momentum?</p></div><div className={styles.jlptCountdown} aria-label={`JLPT ${snapshot.preferredJlptLevel} examination countdown`}><span className={styles.jlptCountdownKicker}>NEXT JLPT · {snapshot.preferredJlptLevel}</span><strong>{daysRemaining === null ? '—' : daysRemaining === 0 ? 'Today' : daysRemaining > 0 ? daysRemaining : '—'}</strong><span className={styles.jlptCountdownCopy}>{daysRemaining === 0 ? 'Exam day' : daysRemaining !== null && daysRemaining > 0 ? 'days remaining' : 'Date passed'}</span><small className={styles.jlptCountdownDate}>6 December 2026</small></div></div>
-    <section className={styles.heroCard}><div className={styles.heroCopy}><div className={styles.heroTag}><span /> YOUR NEXT STEP</div><h2>Small steps.<br/><em>Fluent moments.</em></h2><p>Pick up where you left off and make today count. Your next lesson is ready when you are.</p><button type="button" className={styles.primaryButton} onClick={onContinue}>Continue learning <span>→</span></button><div className={styles.heroMeta}><span>◷ Daily practice</span><span>•</span><span>JLPT N5 · Beginner</span></div></div><div className={styles.heroArt}><div className={styles.sunDisc} /><div className={styles.heroKanji}>学</div><div className={styles.heroArtNote}>MANABU <span>·</span> TO LEARN</div></div></section>
-    <div className={styles.sectionTop}><div><div className={styles.eyebrow}>YOUR LEARNING PULSE</div><h2>Progress at a glance</h2></div><Link href="/learn/progress" className={styles.textLink}>View full report <span>→</span></Link></div>
+    <div className={styles.welcomeRow}>
+      <div><div className={styles.eyebrow}>YOUR STUDY SPACE</div>
+        <h1>{greeting}、{name}さん。 <span>ようこそ！</span></h1>
+        <p>A little practice every day adds up. Ready to keep your momentum?</p>
+      </div>
+      <div className={styles.jlptCountdown} aria-label={`JLPT ${snapshot.preferredJlptLevel} examination countdown`}>
+        <span className={styles.jlptCountdownKicker}>NEXT JLPT · {snapshot.preferredJlptLevel}</span>
+        <strong>{daysRemaining === null ? '—' : daysRemaining === 0 ? 'Today' : daysRemaining > 0 ? daysRemaining : '—'}</strong>
+        <span className={styles.jlptCountdownCopy}>{daysRemaining === 0 ? 'Exam day' : daysRemaining !== null && daysRemaining > 0 ? 'days remaining' : 'Date passed'}</span>
+        <small className={styles.jlptCountdownDate}>6 December 2026</small>
+      </div>
+    </div>
+    <section className={styles.heroCard}>
+      <div className={styles.heroCopy}>
+        <div className={styles.heroTag}><span /> YOUR NEXT STEP</div>
+        <h2>Small steps.<br/><em>Fluent moments.</em></h2>
+        <p>Pick up where you left off and make today count. Your next lesson is ready when you are.</p>
+        <button type="button" className={styles.primaryButton} onClick={onContinue}>Continue learning <span>→</span></button>
+        <div className={styles.heroMeta}><span>◷ Daily practice</span><span>•</span><span>JLPT N5 · Beginner</span></div>
+      </div>
+      <div className={styles.heroArt}><div className={styles.sunDisc} /><div className={styles.heroKanji}>学</div><div className={styles.heroArtNote}>MANABU <span>·</span> TO LEARN</div></div>
+    </section>
+    <div className={styles.sectionTop}>
+      <div><div className={styles.eyebrow}>YOUR LEARNING PULSE</div><h2>Progress at a glance</h2></div>
+      <div className={styles.dashboardLevelControl}>
+        <JlptLevelSwitch value={level} onChange={setLevel} label="Dashboard JLPT level" />
+        <Link href="/learn/progress" className={styles.textLink}>View full report <span>→</span></Link>
+      </div>
+    </div>
     <section className={styles.statsGrid}>
       <StatCard icon="◉" label="N5 readiness" value={`${ready}%`} note="Based on tracked learning" progress={ready} tone="green" />
-      <StatCard icon="語" label="N5 words in library" value={`${words}`} note="Published vocabulary" progress={Math.min(100, words / 800 * 100)} tone="orange" />
-      <StatCard icon="字" label="N5 kanji in library" value={`${kanjiCount}`} note="Published kanji" progress={Math.min(100, kanjiCount / 100 * 100)} tone="blue" />
+      <StatCard icon="語" label={`${level} words learned`} value={`${vocabularyCompleted} / ${vocabularyTotal}`} note="Words marked as learned" progress={vocabularyPercent} tone="orange" />
+      <StatCard icon="字" label={`${level} kanji known`} value={`${kanjiCompleted} / ${kanjiTotal}`} note="Characters marked as known" progress={kanjiPercent} tone="blue" />
       <StatCard icon="✳" label="Current streak" value={`${streak} days`} note="Days with learning activity" progress={Math.min(100, streak / 30 * 100)} tone="purple" />
     </section>
-    <section className={styles.dashboardGrid}><div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div><div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div><div className={styles.chartBars}>{(activity.length ? activity : Array.from({length:7},(_,i)=>({activity_date:'',study_seconds:0,key:i}))).map((row,i)=><div className={styles.chartColumn} key={row.activity_date || i}><div className={styles.chartTrack}><span className={styles.chartBar} style={{height:`${Math.max(2,Math.min(100,Number(row.study_seconds ?? 0)/Math.max(3600,maximum)*100))}%`}} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>)}</div></div><div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0)/60)} min</strong></span></div></div>
-      <div className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div><div className={styles.goalContent}><div
-        className={styles.goalRing}
-        role="img"
-        aria-label={`${goalPercent}% of the daily study goal completed`}
-        style={{ background: `conic-gradient(#c7695e 0 ${goalPercent}%, #e6e9ed ${goalPercent}% 100%)` }}
-      ><div><strong>{minutes}</strong><span>/ {goal} min</span></div></div><div className={styles.goalText}><strong>{goalPercent === 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong><p>{goalPercent === 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0,goal-minutes)} more minutes to reach today's learning goal.`}</p><ProgressBar value={goalPercent} /><div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0,goal-minutes)} min left</span></div></div></div></div></section>
+    <section className={styles.dashboardGrid}>
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div>
+        <div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div>
+          <div className={styles.chartBars}>{(activity.length ? activity : Array.from({ length: 7 }, (_, index) => ({ activity_date: '', study_seconds: 0, key: index }))).map((row, index) => (
+            <div className={styles.chartColumn} key={row.activity_date || index}><div className={styles.chartTrack}><span className={styles.chartBar} style={{ height: `${Math.max(2, Math.min(100, Number(row.study_seconds ?? 0) / Math.max(3600, maximum) * 100))}%` }} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>
+          ))}</div>
+        </div>
+        <div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0) / 60)} min</strong></span></div>
+      </div>
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div>
+        <div className={styles.goalContent}>
+          <div className={styles.goalRing} role="img" aria-label={`${goalPercent}% of the daily study goal completed`}
+            style={{ background: `conic-gradient(#c7695e 0 ${goalPercent}%, #e6e9ed ${goalPercent}% 100%)` }}>
+            <div><strong>{minutes}</strong><span>/ {goal} min</span></div>
+          </div>
+          <div className={styles.goalText}>
+            <strong>{goalPercent === 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong>
+            <p>{goalPercent === 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0, goal - minutes)} more minutes to reach today's learning goal.`}</p>
+            <ProgressBar value={goalPercent} />
+            <div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0, goal - minutes)} min left</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
     {activityTrackingNotice ? <div className={styles.activityTrackingNotice} role="status">Study-time tracking: {activityTrackingNotice}</div> : null}
     <div className={styles.sectionTop}><div><div className={styles.eyebrow}>A GOOD PLACE TO START</div><h2>Today&apos;s focus</h2></div><span className={styles.mutedMeta}>Choose a short activity</span></div>
-    <section className={styles.focusGrid}><FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/><FocusCard number="02" title="Everyday essentials" description="Revise useful words about daily routines." meta="Vocabulary · 6 min" tag="REVIEW" href="/learn/vocabulary" tone="orange"/><FocusCard number="03" title="A short N5 story" description="Read a beginner passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/></section>
+    <section className={styles.focusGrid}>
+      <FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/>
+      <FocusCard number="02" title="Everyday essentials" description="Revise useful words about daily routines." meta="Vocabulary · 6 min" tag="REVIEW" href="/learn/vocabulary" tone="orange"/>
+      <FocusCard number="03" title="A short N5 story" description="Read a beginner passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/>
+    </section>
   </>;
 }
-
 function StatCard({ icon, label, value, note, progress, tone }: { icon: string; label: string; value: string; note: string; progress: number; tone: Tone }) {
   return <div className={styles.statCard}><div className={styles.statTop}><span className={`${styles.statIcon} ${styles[`tone_${tone}`]}`}>{icon}</span><span className={styles.statMore}>···</span></div><div className={styles.statLabel}>{label}</div><div className={styles.statValue}>{value}</div><div className={styles.statNote}>{note}</div><ProgressBar value={progress} tone={tone === 'purple' ? 'blue' : tone}/></div>;
 }

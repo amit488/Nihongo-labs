@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
-import { getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
-import { EmptyState, ProgressBar, SectionHeading } from './learning-shared';
+import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel } from './learning-shared';
 
 type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription';
 export type LearningFeatureProps = {
@@ -35,11 +35,32 @@ type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscrip
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
 function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean }) {
+  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [showExample, setShowExample] = useState(true);
   const [saved, setSaved] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
-  const item = items.find((row) => row.id === selected) || items[0];
+  const [loading, setLoading] = useState(false);
+  const item = grammarItems.find((row) => row.id === selected) || grammarItems[0];
+
+  useEffect(() => {
+    let active = true;
+    void getPublishedGrammar(level).then((rows) => {
+      if (!active) return;
+      setGrammarItems(rows);
+      setSelected(rows[0]?.id || '');
+      setShowExample(true);
+      setLoading(false);
+    }).catch(() => {
+      if (!active) return;
+      setGrammarItems(level === 'N5' ? items : []);
+      setSelected(level === 'N5' ? items[0]?.id || '' : '');
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [level, items]);
+
   async function toggleSave() {
     if (!item) return;
     if (!signedIn) {
@@ -47,12 +68,21 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
       return;
     }
     const isSaved = saved.includes(item.id);
-    const response = await fetch('/api/learning/bookmarks', { method: isSaved ? 'DELETE' : 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resourceType: 'grammar', resourceId: item.id }) });
+    const response = await fetch('/api/learning/bookmarks', {
+      method: isSaved ? 'DELETE' : 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceType: 'grammar', resourceId: item.id }),
+    });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setNotice(body.error || 'Sign in to save grammar notes.'); return; }
+    if (!response.ok) {
+      setNotice(body.error || 'Sign in to save grammar notes.');
+      return;
+    }
     setSaved((current) => isSaved ? current.filter((id) => id !== item.id) : [...current, item.id]);
     setNotice(isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
   }
+
   useEffect(() => {
     if (!signedIn) return;
     let active = true;
@@ -60,9 +90,9 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
       .then((response) => response.ok ? response.json() as Promise<unknown> : null)
       .then((body) => {
         if (!active) return;
-        const items = asRecord(body)?.items;
-        if (!Array.isArray(items)) return;
-        const savedIds = items.flatMap((entry) => {
+        const rows = asRecord(body)?.items;
+        if (!Array.isArray(rows)) return;
+        const savedIds = rows.flatMap((entry) => {
           const row = asRecord(entry);
           return row?.resource_type === 'grammar' && typeof row.resource_id === 'string' ? [row.resource_id] : [];
         });
@@ -71,10 +101,59 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
       .catch(() => undefined);
     return () => { active = false; };
   }, [signedIn]);
-  if (!item) return <EmptyState title="Grammar lessons are being prepared" description="Published grammar points will appear here once your content team adds them to the N5 curriculum." />;
-  return <><SectionHeading eyebrow="BUILD YOUR FOUNDATION" title="Grammar, made clear." description="Understand the patterns behind everyday Japanese, one idea at a time." action={<button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/><div className={styles.splitLayout}><div className={styles.lessonList}>{items.map((row,i)=><button type="button" key={row.id} onClick={()=>{setSelected(row.id);setShowExample(true);}} className={`${styles.lessonRow} ${item.id===row.id?styles.lessonRowActive:''}`}><span className={styles.lessonNumber}>{String(i+1).padStart(2,'0')}</span><span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span><span className={styles.lessonArrow}>→</span></button>)}</div><div className={styles.lessonDetail}><div className={styles.eyebrow}>GRAMMAR NOTE · JLPT N5</div><div className={styles.patternChip}>{item.pattern}</div><h2>{item.title}</h2><p>{item.explanation}</p><div className={styles.formationBox}><span>FORMATION</span><strong>{item.formation}</strong></div><div className={styles.exampleHeader}><strong>Examples in context</strong><button type="button" onClick={()=>setShowExample((v)=>!v)}>{showExample?'Hide':'Show'} examples</button></div>{showExample && item.examples.map((example,i)=><div className={styles.exampleCard} key={i}><strong className={styles.japaneseText}>{example.japanese}</strong>{romaji?<small>{example.romaji}</small>:null}<p>{example.meaning}</p></div>)}<button type="button" className={styles.primaryButton} onClick={()=>void toggleSave()}>{signedIn && saved.includes(item.id)?'Saved grammar note':'Save grammar note'} <span>{signedIn && saved.includes(item.id)?'★':'☆'}</span></button>{notice?<small className={styles.mutedMeta}>{notice}</small>:null}</div></div></>;
-}
 
+  function changeLevel(next: JlptLevel) {
+    if (next === level) return;
+    setLevel(next);
+    setGrammarItems([]);
+    setSelected('');
+    setLoading(true);
+    setNotice('');
+  }
+
+  return <>
+    <SectionHeading eyebrow={`BUILD YOUR FOUNDATION · JLPT ${level}`} title="Grammar, made clear."
+      description="Understand the patterns behind everyday Japanese, one idea at a time."
+      action={<div className={styles.headingActions}>
+        <JlptLevelSwitch value={level} onChange={changeLevel} label="Grammar JLPT level" />
+        <button type="button" className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
+      </div>} />
+    {loading ? <div className={styles.panel} role="status">Loading {level} grammar…</div> : !item
+      ? <EmptyState title={`No published ${level} grammar yet`} description="Published grammar points for this level will appear here when they are added to the curriculum." />
+      : <div className={styles.splitLayout}>
+        <div className={styles.lessonList}>{grammarItems.map((row, index) => (
+          <button type="button" key={row.id} onClick={() => { setSelected(row.id); setShowExample(true); }}
+            className={`${styles.lessonRow} ${item.id === row.id ? styles.lessonRowActive : ''}`}>
+            <span className={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</span>
+            <span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span>
+            <span className={styles.lessonArrow}>→</span>
+          </button>
+        ))}</div>
+        <div className={styles.lessonDetail}>
+          <div className={styles.eyebrow}>GRAMMAR NOTE · JLPT {level}</div>
+          <div className={styles.patternChip}>{item.pattern}</div>
+          <h2>{item.title}</h2>
+          <p>{item.explanation}</p>
+          <div className={styles.formationBox}><span>FORMATION</span><strong>{item.formation}</strong></div>
+          <div className={styles.exampleHeader}><strong>Examples in context</strong>
+            <button type="button" onClick={() => setShowExample((value) => !value)}>{showExample ? 'Hide' : 'Show'} examples</button>
+          </div>
+          {showExample ? item.examples.map((example, index) => (
+            <div className={styles.exampleCard} key={index}>
+              <strong className={styles.japaneseText}>{example.japanese}</strong>
+              {romaji ? <small>{example.romaji}</small> : null}
+              <p>{example.meaning}</p>
+            </div>
+          )) : null}
+          <button type="button" className={styles.primaryButton} onClick={() => void toggleSave()}>
+            {signedIn && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
+            <span>{signedIn && saved.includes(item.id) ? '★' : '☆'}</span>
+          </button>
+          {notice ? <small className={styles.mutedMeta}>{notice}</small> : null}
+        </div>
+      </div>}
+  </>;
+}
 function Practice({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
   return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
 }
@@ -125,7 +204,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 'mock' | 'reading' | 'kana'; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
+function QuizRunner({
+  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true,
+}: {
+  kind: 'practice' | 'mock' | 'reading' | 'kana';
+  signedIn: boolean;
+  romaji: boolean;
+  setRomaji: (value: boolean) => void;
+  level?: JlptLevel;
+  onLevelChange?: (level: JlptLevel) => void;
+  showLevelSwitch?: boolean;
+}) {
+  const [internalLevel, setInternalLevel] = useState<JlptLevel>('N5');
+  const level = controlledLevel ?? internalLevel;
   const [quizzes, setQuizzes] = useState<QuizRecord[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<QuizRecord | null>(null);
   const [attemptId, setAttemptId] = useState('');
@@ -154,13 +245,27 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/practice/quizzes?kind=${kind}`, { credentials: 'same-origin', cache: 'no-store' })
+    fetch(`/api/practice/quizzes?kind=${kind}&level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load practice sets.'); return body; })
       .then((body) => { if (alive) setQuizzes(body.quizzes ?? []); })
       .catch((err) => { if (alive) setError(err.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [kind]);
+  }, [kind, level]);
+
+  function changeLevel(next: JlptLevel) {
+    if (next === level) return;
+    if (onLevelChange) onLevelChange(next);
+    else setInternalLevel(next);
+    setQuizzes([]);
+    setActiveQuiz(null);
+    setAttemptId('');
+    setQuestions([]);
+    setResponses({});
+    setResult(null);
+    setError('');
+    setLoading(true);
+  }
 
   async function begin(quiz: QuizRecord) {
     setError('');
@@ -296,7 +401,10 @@ function QuizRunner({ kind, signedIn, romaji, setRomaji }: { kind: 'practice' | 
   }
 
   return <>
-    <SectionHeading eyebrow={kind === 'mock' ? 'EXAM SIMULATOR' : 'DAILY PRACTICE · N5'} title={kind === 'mock' ? 'Make exam day feel familiar.' : 'A little practice goes a long way.'} description={kind === 'mock' ? 'Start a timed mock examination. Your attempt is graded and stored securely.' : 'Choose a focused practice set. Your progress and answers are saved to your account.'} action={<button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
+    <SectionHeading eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : `DAILY PRACTICE · JLPT ${level}`} title={kind === 'mock' ? 'Make exam day feel familiar.' : 'A little practice goes a long way.'} description={kind === 'mock' ? 'Start a timed mock examination. Your attempt is graded and stored securely.' : 'Choose a focused practice set. Your progress and answers are saved to your account.'} action={<div className={styles.headingActions}>
+      {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
+      <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
+    </div>} />
     {!signedIn ? <div className={styles.emptyState}><div>学</div><h2>Sign in to start learning</h2><p>Your practice attempts, exam results and streaks are saved to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : null}
     {loading ? <div className={styles.panel}>Loading practice sets…</div> : null}
     {!loading && quizzes.length === 0 ? <EmptyState title="Practice sets are not seeded yet" description="Run sql/010_n5_content_and_plans_seed.sql in local Supabase Studio to add the N5 starter practice bank." /> : null}
@@ -555,8 +663,11 @@ function Vocabulary({
     }
   }
 
-  async function markLearned(item: VocabularyItem) {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id)) {
+  async function markLearned(vocabularyId: string) {
+    // Resolve the current card by its stable database ID, never by its grid position.
+    const item = deckItems.find((row) => row.id === vocabularyId);
+    if (!item) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(vocabularyId)) {
       setNotice('This is preview content. Connect and publish vocabulary in Supabase before saving learning progress.');
       return;
     }
@@ -704,7 +815,8 @@ function Vocabulary({
                 {expandedIds.has(item.id) ? 'Close example' : 'View example'}
               </button>
               <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
-                onClick={() => void markLearned(item)}>
+                aria-label={`Mark ${item.word} as learned`} data-vocabulary-id={item.id}
+                onClick={(event) => { event.stopPropagation(); void markLearned(item.id); }}>
                 {savingId === item.id ? 'Saving…' : 'Mark learned ✓'}
               </button>
             </div>
@@ -869,7 +981,10 @@ type DueFlashcard = {
   example_translation: string | null; source_type: string;
 };
 function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
-  const decks = useMemo(() => Array.from(new Map(items.map((item) => [item.deckId, { id: item.deckId, title: item.deckTitle, slug: item.deckSlug }])).values()), [items]);
+  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [deckItems, setDeckItems] = useState<LearnerFlashcard[]>(items);
+  const [deckLoading, setDeckLoading] = useState(false);
+  const decks = useMemo(() => Array.from(new Map(deckItems.map((item) => [item.deckId, { id: item.deckId, title: item.deckTitle, slug: item.deckSlug }])).values()), [deckItems]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const deckId = selectedDeckId && decks.some((deck) => deck.id === selectedDeckId) ? selectedDeckId : (decks[0]?.id ?? '');
   const [sessionId, setSessionId] = useState('');
@@ -883,67 +998,254 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   const [previewIndex, setPreviewIndex] = useState(0);
   const card = queue[index];
   const preview = flashDeck[previewIndex % flashDeck.length];
+
+  useEffect(() => {
+    let active = true;
+    void getPublishedFlashcards(level)
+      .then((rows) => {
+        if (!active) return;
+        setDeckItems(rows.length ? rows : (level === 'N5' ? items : []));
+        setDeckLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDeckItems(level === 'N5' ? items : []);
+        setDeckLoading(false);
+      });
+    return () => { active = false; };
+  }, [level, items]);
+
+  function changeLevel(next: JlptLevel) {
+    if (next === level) return;
+    setLevel(next);
+    setDeckItems([]);
+    setDeckLoading(true);
+    setSelectedDeckId(null);
+    setSessionId('');
+    setQueue([]);
+    setIndex(0);
+    setFlipped(false);
+    setNotice('');
+    setStats({ again: 0, hard: 0, good: 0, easy: 0 });
+  }
+
   async function startSession() {
     if (!deckId || busy) return;
     setBusy(true); setNotice('');
     try {
-      const sessionResponse = await fetch('/api/flashcards/session', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deckId, mode: 'mixed' }) });
+      const sessionResponse = await fetch('/api/flashcards/session', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckId, mode: 'mixed' }),
+      });
       const session = await sessionResponse.json();
       if (!sessionResponse.ok) throw new Error(session.error || 'Could not start revision session.');
-      const dueResponse = await fetch(`/api/flashcards/due?deckId=${encodeURIComponent(deckId)}&mode=mixed`, { credentials: 'same-origin', cache: 'no-store' });
+      const dueResponse = await fetch(`/api/flashcards/due?deckId=${encodeURIComponent(deckId)}&mode=mixed`, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
       const due = await dueResponse.json();
       if (!dueResponse.ok) throw new Error(due.error || 'Could not load due flashcards.');
       const nextQueue = [...(due.due ?? []), ...(due.newCards ?? [])] as DueFlashcard[];
       setSessionId(session.sessionId); setQueue(nextQueue); setIndex(0); setFlipped(false); setCardStartedAt(Date.now());
       setNotice(nextQueue.length ? `${due.dueCount ?? 0} due · ${due.newCount ?? 0} new cards` : 'No cards are due. You are all caught up.');
-      if (!nextQueue.length) await fetch('/api/flashcards/session', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: session.sessionId }) });
+      if (!nextQueue.length) {
+        await fetch('/api/flashcards/session', {
+          method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: session.sessionId }),
+        });
+      }
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not start session.'); }
     finally { setBusy(false); }
   }
+
   async function rate(value: 'again'|'hard'|'good'|'easy') {
     if (!card || !sessionId || busy) return;
     setBusy(true); setNotice('');
     try {
-      const response = await fetch('/api/flashcards/review', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flashcardId: card.id, sessionId, rating: value, responseTimeMs: Math.max(0, Date.now()-cardStartedAt) }) });
+      const response = await fetch('/api/flashcards/review', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flashcardId: card.id, sessionId, rating: value, responseTimeMs: Math.max(0, Date.now() - cardStartedAt) }),
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not save card review.');
       setStats((current) => ({ ...current, [value]: current[value] + 1 }));
       if (index + 1 >= queue.length) {
-        await fetch('/api/flashcards/session', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) });
-        setIndex(queue.length); setNotice(`Session complete · ${queue.length} cards reviewed. Next card scheduled ${new Date(body.dueAt).toLocaleString()}.`);
-      } else { setIndex((value) => value + 1); setNotice(`Saved · next review ${new Date(body.dueAt).toLocaleString()}.`); }
-      setFlipped(false); setCardStartedAt(Date.now());
+        await fetch('/api/flashcards/session', {
+          method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        });
+        setIndex(queue.length);
+        setNotice(`Session complete · ${queue.length} cards reviewed. Next card scheduled ${new Date(body.dueAt).toLocaleString()}.`);
+      } else {
+        setIndex((current) => current + 1);
+        setNotice(`Saved · next review ${new Date(body.dueAt).toLocaleString()}.`);
+      }
+      setFlipped(false);
+      setCardStartedAt(Date.now());
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not save review.'); }
     finally { setBusy(false); }
   }
+
   const reviewed = stats.again + stats.hard + stats.good + stats.easy;
-  return <><SectionHeading eyebrow="SPACED REPETITION · FSRS-6" title="A few cards. A stronger memory." description="Each rating is saved and schedules the next review using your personal revision history." action={<button className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/>
-    <div className={styles.flashSummary}><div><strong>{signedIn ? Math.max(0,queue.length-index) : flashDeck.length}</strong><span>cards remaining</span></div><div><strong>{stats.good+stats.easy}</strong><span>remembered this session</span></div><div><strong>{stats.again+stats.hard}</strong><span>to revisit</span></div></div>
-    {!signedIn ? <div className={styles.flashStage}><div className={styles.flashTopline}><span>PREVIEW FLASHCARD</span><span>{previewIndex+1} / {flashDeck.length}</span></div><button type="button" className={`${styles.flashCard} ${flipped?styles.flashCardFlip:''}`} onClick={()=>setFlipped(!flipped)}><span className={styles.flashCardLabel}>{flipped?'MEANING':'JAPANESE'}</span>{flipped?<><strong className={styles.flashMeaning}>{preview.back}</strong><span className={styles.flashExample}>{preview.example}</span><span className={styles.flashReading}>{preview.meaning}</span></>:<><strong className={styles.flashJapanese}>{preview.front}</strong><span className={styles.flashReading}>{preview.reading}</span>{romaji&&<small>{preview.romaji}</small>}</>}<span className={styles.flipHint}>↻ Tap to reveal</span></button><div className={styles.flashActions}><Link href="/login" className={styles.primaryButton}>Sign in to save revision <span>→</span></Link><button className={styles.secondaryButton} onClick={()=>{setPreviewIndex((v)=>v+1);setFlipped(false);}}>Next preview</button></div></div>
-    : !items.length ? <EmptyState title="No published flashcards yet" description="Run the N5 content seed once in your local database to publish the vocabulary, kanji and grammar decks." />
-    : <><div className={styles.toolbar}><span>{decks.length} published decks</span><select aria-label="Choose flashcard deck" value={deckId} onChange={(event)=>{setSelectedDeckId(event.target.value);setSessionId('');setQueue([]);setIndex(0);}}>{decks.map((deck)=><option key={deck.id} value={deck.id}>{deck.title}</option>)}</select><button className={styles.primaryButton} disabled={busy || !deckId} onClick={()=>void startSession()}>{busy?'Loading…':sessionId?'Start another session':'Start revision'} <span>→</span></button></div>
-    {notice?<div className={styles.billingNote}>{notice}</div>:null}
-    {card ? <div className={styles.flashStage}><div className={styles.flashTopline}><span>{decks.find((deck)=>deck.id===deckId)?.title || 'N5 DECK'}</span><span>{index+1} / {queue.length}</span></div><button type="button" className={`${styles.flashCard} ${flipped?styles.flashCardFlip:''}`} onClick={()=>setFlipped(!flipped)}><span className={styles.flashCardLabel}>{flipped?'MEANING':'JAPANESE'}</span>{flipped?<><strong className={styles.flashMeaning}>{card.back_text}</strong>{card.back_reading?<span className={styles.flashReading}>{card.back_reading}</span>:null}{card.example_sentence?<span className={styles.flashExample}>{card.example_sentence}</span>:null}{card.example_translation?<span className={styles.flashReading}>{card.example_translation}</span>:null}{card.hint?<small>{card.hint}</small>:null}{romaji&&card.back_romaji?<small>{card.back_romaji}</small>:null}</>:<><strong className={styles.flashJapanese}>{card.front_text}</strong>{card.front_reading?<span className={styles.flashReading}>{card.front_reading}</span>:null}{romaji&&card.front_romaji?<small>{card.front_romaji}</small>:null}</>}<span className={styles.flipHint}>↻ Tap to {flipped?'see Japanese':'reveal meaning'}</span></button>{flipped?<div className={styles.ratingRow}><span>How well did you know it?</span><div><button disabled={busy} onClick={()=>void rate('again')} className={styles.rateAgain}>Again</button><button disabled={busy} onClick={()=>void rate('hard')} className={styles.rateHard}>Hard</button><button disabled={busy} onClick={()=>void rate('good')} className={styles.rateGood}>Good</button><button disabled={busy} onClick={()=>void rate('easy')} className={styles.rateEasy}>Easy</button></div></div>:<div className={styles.flashActions}><button className={styles.primaryButton} onClick={()=>setFlipped(true)}>Reveal answer <span>↗</span></button></div>}</div> : sessionId ? <div className={styles.emptyState}><div>完</div><h2>Revision session complete</h2><p>{reviewed} cards reviewed. Your next due times have been saved.</p><button className={styles.primaryButton} onClick={()=>void startSession()}>Review another deck <span>→</span></button></div> : <div className={styles.emptyState}><div>復</div><h2>Ready when you are</h2><p>Start a session to load the cards due for review and your next new cards.</p></div>}</>}
+  return <>
+    <SectionHeading eyebrow={`SPACED REPETITION · JLPT ${level} · FSRS-6`} title="A few cards. A stronger memory."
+      description="Each rating is saved and schedules the next review using your personal revision history."
+      action={<div className={styles.headingActions}>
+        <JlptLevelSwitch value={level} onChange={changeLevel} label="Flashcard JLPT level" />
+        <button className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
+      </div>} />
+    <div className={styles.flashSummary}>
+      <div><strong>{signedIn ? Math.max(0, queue.length - index) : flashDeck.length}</strong><span>cards remaining</span></div>
+      <div><strong>{stats.good + stats.easy}</strong><span>remembered this session</span></div>
+      <div><strong>{stats.again + stats.hard}</strong><span>to revisit</span></div>
+    </div>
+    {!signedIn ? <div className={styles.flashStage}>
+      <div className={styles.flashTopline}><span>{level} PREVIEW FLASHCARD</span><span>{previewIndex + 1} / {flashDeck.length}</span></div>
+      <button type="button" className={`${styles.flashCard} ${flipped ? styles.flashCardFlip : ''}`} onClick={() => setFlipped(!flipped)}>
+        <span className={styles.flashCardLabel}>{flipped ? 'MEANING' : 'JAPANESE'}</span>
+        {flipped ? <><strong className={styles.flashMeaning}>{preview.back}</strong><span className={styles.flashExample}>{preview.example}</span><span className={styles.flashReading}>{preview.meaning}</span></>
+          : <><strong className={styles.flashJapanese}>{preview.front}</strong><span className={styles.flashReading}>{preview.reading}</span>{romaji ? <small>{preview.romaji}</small> : null}</>}
+        <span className={styles.flipHint}>↻ Tap to reveal</span>
+      </button>
+      <div className={styles.flashActions}><Link href="/login" className={styles.primaryButton}>Sign in to save revision <span>→</span></Link>
+        <button className={styles.secondaryButton} onClick={() => { setPreviewIndex((value) => value + 1); setFlipped(false); }}>Next preview</button>
+      </div>
+    </div> : deckLoading ? <div className={styles.panel} role="status">Loading {level} flashcards…</div>
+      : !deckItems.length ? <EmptyState title={`No published ${level} flashcards yet`} description={`Published ${level} decks will appear here when they are added to the curriculum.`} />
+      : <>
+        <div className={styles.toolbar}>
+          <span>{decks.length} published {level} decks</span>
+          <select aria-label="Choose flashcard deck" value={deckId}
+            onChange={(event) => { setSelectedDeckId(event.target.value); setSessionId(''); setQueue([]); setIndex(0); }}>
+            {decks.map((deck) => <option key={deck.id} value={deck.id}>{deck.title}</option>)}
+          </select>
+          <button className={styles.primaryButton} disabled={busy || !deckId} onClick={() => void startSession()}>
+            {busy ? 'Loading…' : sessionId ? 'Start another session' : 'Start revision'} <span>→</span>
+          </button>
+        </div>
+        {notice ? <div className={styles.billingNote}>{notice}</div> : null}
+        {card ? <div className={styles.flashStage}>
+          <div className={styles.flashTopline}><span>{decks.find((deck) => deck.id === deckId)?.title || `${level} DECK`}</span><span>{index + 1} / {queue.length}</span></div>
+          <button type="button" className={`${styles.flashCard} ${flipped ? styles.flashCardFlip : ''}`} onClick={() => setFlipped(!flipped)}>
+            <span className={styles.flashCardLabel}>{flipped ? 'MEANING' : 'JAPANESE'}</span>
+            {flipped ? <>
+              <strong className={styles.flashMeaning}>{card.back_text}</strong>
+              {card.back_reading ? <span className={styles.flashReading}>{card.back_reading}</span> : null}
+              {card.example_sentence ? <span className={styles.flashExample}>{card.example_sentence}</span> : null}
+              {card.example_translation ? <span className={styles.flashReading}>{card.example_translation}</span> : null}
+              {card.hint ? <small>{card.hint}</small> : null}
+              {romaji && card.back_romaji ? <small>{card.back_romaji}</small> : null}
+            </> : <>
+              <strong className={styles.flashJapanese}>{card.front_text}</strong>
+              {card.front_reading ? <span className={styles.flashReading}>{card.front_reading}</span> : null}
+              {romaji && card.front_romaji ? <small>{card.front_romaji}</small> : null}
+            </>}
+            <span className={styles.flipHint}>↻ Tap to {flipped ? 'see Japanese' : 'reveal meaning'}</span>
+          </button>
+          {flipped ? <div className={styles.ratingRow}>
+            <span>How well did you know it?</span>
+            <div>
+              <button disabled={busy} onClick={() => void rate('again')} className={styles.rateAgain}>Again</button>
+              <button disabled={busy} onClick={() => void rate('hard')} className={styles.rateHard}>Hard</button>
+              <button disabled={busy} onClick={() => void rate('good')} className={styles.rateGood}>Good</button>
+              <button disabled={busy} onClick={() => void rate('easy')} className={styles.rateEasy}>Easy</button>
+            </div>
+          </div> : <div className={styles.flashActions}><button className={styles.primaryButton} onClick={() => setFlipped(true)}>Reveal answer <span>↗</span></button></div>}
+        </div> : sessionId ? <div className={styles.emptyState}>
+          <div>完</div><h2>Revision session complete</h2><p>{reviewed} cards reviewed. Your next due times have been saved.</p>
+          <button className={styles.primaryButton} onClick={() => void startSession()}>Review another deck <span>→</span></button>
+        </div> : <div className={styles.emptyState}>
+          <div>復</div><h2>Ready when you are</h2><p>Start a session to load the cards due for review and your next new cards.</p>
+        </div>}
+      </>}
   </>;
 }
 
-function Reading({ romaji, setRomaji, signedIn }: { romaji:boolean; setRomaji:(v:boolean)=>void; signedIn:boolean }) {
-  const [passages,setPassages] = useState<ReadingPassage[]>([]);
-  const [selected,setSelected] = useState(0);
-  const [translation,setTranslation] = useState(false);
-  const [showQuiz,setShowQuiz] = useState(false);
-  useEffect(()=>{let alive=true;getReadingPassages().then((rows)=>{if(alive)setPassages(rows)});return()=>{alive=false}},[]);
-  const p = passages[selected];
-  if (showQuiz) return <><SectionHeading eyebrow="N5 READING CHECK" title="Test your comprehension." description="Your answers are submitted to the secure grading service." action={<button className={styles.ghostButton} onClick={()=>setShowQuiz(false)}>Back to passages</button>}/><QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji}/></>;
-  return <><SectionHeading eyebrow="READING ROOM · JLPT N5" title="Read a little. Understand a lot." description="Graded passages with optional Romaji, English meaning and vocabulary notes." action={<button className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button>}/>
-    {!p ? <EmptyState title="Reading library is being prepared" description="Run the local N5 content seed to add graded reading passages."/> : <div className={styles.readingLayout}><article className={styles.readingPanel}><div className={styles.readingTop}><span className={styles.readingLevel}>N5 READER · 3 MIN</span><span>Story {String(selected+1).padStart(2,'0')}</span></div><div className={styles.filterPills}>{passages.map((passage,index)=><button key={passage.title} className={selected===index?styles.filterActive:''} onClick={()=>{setSelected(index);setTranslation(false)}}>{passage.title}</button>)}</div><h2>{p.title}</h2><div className={styles.readingJapanese}>{p.text}</div>{romaji&&p.romaji?<div className={styles.readingRomaji}>{p.romaji}</div>:null}<button className={styles.translationToggle} onClick={()=>setTranslation((v)=>!v)}>{translation?'Hide translation':'Show English translation'} <span>⌄</span></button>{translation&&<div className={styles.translationBox}>{p.translation}</div>}<div className={styles.wordNotes}><div className={styles.eyebrow}>WORDS TO NOTICE</div>{(p.vocabulary??[]).map((word)=><div key={`${word.word}-${word.reading}`}><span>{word.word}</span><small>{word.reading} · {word.meaning}{romaji&&word.romaji?` · ${word.romaji}`:''}</small></div>)}</div><button type="button" className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start graded comprehension <span>→</span></button></article><aside className={styles.comprehensionPanel}><div className={styles.eyebrow}>READING PRACTICE</div><div className={styles.questionNumber}>{passages.length} PASSAGES</div><h3>Read the passage carefully, then answer comprehension questions in a graded practice set.</h3><p>Answers are checked server-side, and your result is saved to your learning history.</p><button className={styles.primaryButton} onClick={()=>setShowQuiz(true)}>Start questions <span>→</span></button></aside></div>}
+function Reading({ romaji, setRomaji, signedIn }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean }) {
+  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [passages, setPassages] = useState<ReadingPassage[]>([]);
+  const [selected, setSelected] = useState(0);
+  const [translation, setTranslation] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void getReadingPassages(level).then((rows) => {
+      if (!active) return;
+      setPassages(rows);
+      setSelected(0);
+      setLoading(false);
+    }).catch(() => {
+      if (!active) return;
+      setPassages([]);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [level]);
+
+  function changeLevel(next: JlptLevel) {
+    if (next === level) return;
+    setLevel(next);
+    setPassages([]);
+    setSelected(0);
+    setTranslation(false);
+    setShowQuiz(false);
+    setLoading(true);
+  }
+
+  const passage = passages[selected];
+  if (showQuiz) {
+    return <><SectionHeading eyebrow={`READING CHECK · JLPT ${level}`} title="Test your comprehension."
+      description="Your answers are submitted to the secure grading service."
+      action={<button className={styles.ghostButton} onClick={() => setShowQuiz(false)}>Back to passages</button>} />
+      <QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={level} showLevelSwitch={false} />
+    </>;
+  }
+
+  return <>
+    <SectionHeading eyebrow={`READING ROOM · JLPT ${level}`} title="Read a little. Understand a lot."
+      description="Graded passages with optional Romaji, English meaning and vocabulary notes."
+      action={<div className={styles.headingActions}>
+        <JlptLevelSwitch value={level} onChange={changeLevel} label="Reading JLPT level" />
+        <button className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
+      </div>} />
+    {loading ? <div className={styles.panel} role="status">Loading {level} reading passages…</div>
+      : !passage ? <EmptyState title={`No published ${level} reading passages yet`} description="Published reading lessons for this level will appear here when they are added to the curriculum." />
+        : <div className={styles.readingLayout}>
+          <article className={styles.readingPanel}>
+            <div className={styles.readingTop}><span className={styles.readingLevel}>{level} READER · 3 MIN</span><span>Story {String(selected + 1).padStart(2, '0')}</span></div>
+            <div className={styles.filterPills}>{passages.map((row, index) => (
+              <button key={row.title} className={selected === index ? styles.filterActive : ''}
+                onClick={() => { setSelected(index); setTranslation(false); }}>{row.title}</button>
+            ))}</div>
+            <h2>{passage.title}</h2>
+            <div className={styles.readingJapanese}>{passage.text}</div>
+            {romaji && passage.romaji ? <div className={styles.readingRomaji}>{passage.romaji}</div> : null}
+            <button className={styles.translationToggle} onClick={() => setTranslation((value) => !value)}>
+              {translation ? 'Hide translation' : 'Show English translation'} <span>⌄</span>
+            </button>
+            {translation ? <div className={styles.translationBox}>{passage.translation}</div> : null}
+            <div className={styles.wordNotes}><div className={styles.eyebrow}>WORDS TO NOTICE</div>
+              {(passage.vocabulary ?? []).map((word) => <div key={`${word.word}-${word.reading}`}>
+                <span>{word.word}</span><small>{word.reading} · {word.meaning}{romaji && word.romaji ? ` · ${word.romaji}` : ''}</small>
+              </div>)}
+            </div>
+            <button type="button" className={styles.primaryButton} onClick={() => setShowQuiz(true)}>Start graded comprehension <span>→</span></button>
+          </article>
+          <aside className={styles.comprehensionPanel}>
+            <div className={styles.eyebrow}>READING PRACTICE</div><div className={styles.questionNumber}>{passages.length} PASSAGES</div>
+            <h3>Read the passage carefully, then answer comprehension questions in a graded practice set.</h3>
+            <p>Answers are checked server-side, and your result is saved to your learning history.</p>
+            <button className={styles.primaryButton} onClick={() => setShowQuiz(true)}>Start questions <span>→</span></button>
+          </aside>
+        </div>}
   </>;
 }
+
 
 function Exams({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
   return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
 }
-
 
 async function fetchMembershipData(signedIn: boolean): Promise<{
   plans: MembershipPlan[];

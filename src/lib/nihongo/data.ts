@@ -169,10 +169,10 @@ export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
     });
   } catch { return level === 'N5' ? kanji : []; }
 }
-export async function getPublishedGrammar() {
+export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
   try {
-    const { items } = await apiGet<ContentResponse<GrammarContentRow>>('/api/learning/content?kind=grammar&level=N5&limit=250');
-    if (!items.length) return grammar;
+    const { items } = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?kind=grammar&level=${level}&limit=250`);
+    if (!items.length) return level === 'N5' ? grammar : [];
     return items.map((row) => ({
       id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
       formation: row.formation || '', category: 'Grammar', difficulty: 'Core' as const,
@@ -180,7 +180,7 @@ export async function getPublishedGrammar() {
         japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
       })) : [],
     }));
-  } catch { return grammar; }
+  } catch { return level === 'N5' ? grammar : []; }
 }
 
 export type LearnerFlashcard = {
@@ -199,9 +199,9 @@ export type LearnerFlashcard = {
   hint: string;
 };
 
-export async function getPublishedFlashcards(): Promise<LearnerFlashcard[]> {
+export async function getPublishedFlashcards(level: 'N5' | 'N4' = 'N5'): Promise<LearnerFlashcard[]> {
   try {
-    const { items } = await apiGet<ContentResponse<FlashcardContentRow>>('/api/learning/content?kind=flashcards&level=N5&limit=20');
+    const { items } = await apiGet<ContentResponse<FlashcardContentRow>>(`/api/learning/content?kind=flashcards&level=${level}&limit=20`);
     return items.map((card) => ({
       id: card.id, deckId: card.deckId, deckTitle: card.deckTitle, deckSlug: card.deckSlug,
       front: card.front_text, reading: card.front_reading || '', romaji: card.front_romaji || '',
@@ -211,7 +211,7 @@ export async function getPublishedFlashcards(): Promise<LearnerFlashcard[]> {
   } catch { return []; }
 }
 
-export async function getReadingPassages(): Promise<ReadingPassage[]> {
-  try { return (await apiGet<ContentResponse<ReadingPassage>>('/api/learning/content?kind=reading&level=N5&limit=50')).items; }
+export async function getReadingPassages(level: 'N5' | 'N4' = 'N5'): Promise<ReadingPassage[]> {
+  try { return (await apiGet<ContentResponse<ReadingPassage>>(`/api/learning/content?kind=reading&level=${level}&limit=50`)).items; }
   catch { return []; }
 }

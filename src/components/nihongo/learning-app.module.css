@@ -96,3 +96,12 @@
 /* Keep each vocabulary card at its own content height inside the grid. */
 .vocabGrid{align-items:start}
 .vocabCard{align-self:start}
+
+/* Shared compact JLPT N5/N4 switch used across learning sections and the dashboard. */
+.jlptLevelSwitch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid #dfe4e9;border-radius:9px;background:#fff;box-shadow:0 1px 2px #24303b0a}
+.jlptLevelSwitch button{min-width:40px;border:0;border-radius:6px;padding:6px 11px;background:transparent;color:#73808c;font:inherit;font-size:14px;font-weight:750;line-height:1.2;cursor:pointer;transition:background .15s ease,color .15s ease}
+.jlptLevelSwitch button:hover{background:#f5f6f8;color:#303a45}
+.jlptLevelSwitch .jlptLevelSwitchActive{background:#303a45;color:#fff}
+.jlptLevelSwitch .jlptLevelSwitchActive:hover{background:#303a45;color:#fff}
+.dashboardLevelControl{display:flex;align-items:center;gap:12px}
+@media(max-width:780px){.dashboardLevelControl{align-self:flex-start}}
