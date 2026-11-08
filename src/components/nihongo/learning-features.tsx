@@ -6,7 +6,7 @@ import styles from './learning-app.module.css';
 import { getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
-import { EmptyState, SectionHeading } from './learning-shared';
+import { EmptyState, ProgressBar, SectionHeading } from './learning-shared';
 
 type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription';
 export type LearningFeatureProps = {
