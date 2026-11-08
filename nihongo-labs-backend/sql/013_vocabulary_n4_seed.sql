@@ -1,8 +1,8 @@
--- Nihongo Labs N4 vocabulary content pack: 500 entries.
--- Derived vocabulary data from OpenJLPT (CC BY-SA 4.0); see docs/VOCABULARY_CONTENT_PACK.md.
--- Example sentences are from Tatoeba; per-sentence IDs are preserved in tags as source:tatoeba:<id>.
--- JLPT level classifications are community approximations, not an official JLPT word list.
--- New rows are inserted as publication_status='review' and are not returned by the public content API until reviewed/published.
+-- Nihongo Labs N4 vocabulary seed: 500 selected entries.
+-- Adapted from OpenJLPT (CC BY-SA 4.0); see ../docs/VOCABULARY_CONTENT_PACK.md.
+-- Tatoeba example sentence IDs are preserved in tags as source:tatoeba:<id>.
+-- JLPT level assignment is a community approximation, not an official current JLPT list.
+-- New rows are held at publication_status='review' for editorial QA.
 begin;
 
 insert into public.vocabulary_entries (jlpt_level,word,kana,romaji,meaning,part_of_speech,example_sentence,example_reading,example_translation,tags,publication_status)
@@ -273,7 +273,7 @@ values
 ('N4','自由','じゆう','jiyuu','freedom','な-adjective','お金を使うも貯めるも自由にしなさい。','okaneotsukaumotamerumojiyuunishinasai。','You may spend or save at will.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:d1805965ec','source:tatoeba:227225']::text[],'review'),
 ('N4','十分','じゅうぶん','juubun','enough','な-adjective','私はこの本を買うのに十分なお金を持っている。',NULL,'I have enough money to buy this book.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:ab6fd5bdbb','source:tatoeba:160764']::text[],'review'),
 ('N4','女性','じょせい','josei','woman','Adjective','その少女は大きくなってすらりとした女性になった。','sonoshyoujyohaookikunattesuraritoshitajyoseininatta。','The girl has grown into a slender woman.',ARRAY['N4','adjective','people-family','source:openjlpt','source:openjlpt:8410c15b44','source:tatoeba:209175']::text[],'review'),
-('N4','親切','しんせつ','shinsetsu','kindness','な-adjective','あなたの家族はきっと親切でしょう。','anatanokazokuhakittoshinsetsudeshyou。','Your family must be very nice.',ARRAY['N4','adjective','feelings-descriptions','source:openjlpt','source:openjlpt:c904982ded','source:tatoeba:233420']::text[],'review'),
+('N4','親切','しんせつ','shinsetsu','kindness','な-adjective','あなたの家族はきっと親切でしょう。','anatanokazokuhakittoshinsetsudeshyou。','Your family must be very nice.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:c904982ded','source:tatoeba:233420']::text[],'review'),
 ('N4','凄い','すごい','sugoi','terrific','い-adjective','凄い明かりが野球場にあたっていた。','sugoiakarigayakyuujyouniatatteita。','A great light was diffused over the baseball stadium.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:ded62a84d0','source:tatoeba:143317']::text[],'review'),
 ('N4','すばらしい','すばらしい','subarashii','wonderful','い-adjective','その日は実にすばらしい日だった。','sonohihajitsunisubarashiihidatta。','It was a really beautiful day.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:0627e3997c','source:tatoeba:207334']::text[],'review'),
 ('N4','そう','そう','sou','really','な-adjective','まもなく雨が降りそうだ。','mamonakuamegafurisouda。','It is going to rain soon.',ARRAY['N4','adjective','descriptions','source:openjlpt','source:openjlpt:554ab81272','source:tatoeba:195298']::text[],'review'),
