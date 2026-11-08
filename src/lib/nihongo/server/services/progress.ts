@@ -3,21 +3,6 @@ import { HttpError } from '../http';
 import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
-type LessonWithUnit = {
-  id: string;
-  course_units: { slug: string } | Array<{ slug: string }> | null;
-};
-type FlashcardProgressRow = {
-  repetitions: number;
-  due_at: string;
-  scheduler_state: string;
-  flashcards: { source_type: string } | Array<{ source_type: string }> | null;
-};
-type QuizAttemptAreaRow = {
-  score_percentage: number | null;
-  quizzes: { slug: string | null; title: string | null } | Array<{ slug: string | null; title: string | null }> | null;
-};
-
 export async function saveLessonProgress(
   userClient: SupabaseClient,
   admin: SupabaseClient,
@@ -57,7 +42,7 @@ export async function saveLessonProgress(
   return data;
 }
 
-export async function getDashboard(userClient: SupabaseClient, _userId: string) {
+export async function getDashboard(userClient: SupabaseClient) {
   const { data, error } = await userClient.rpc('get_learning_dashboard');
   if (error || !data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(500, 'Could not load learning dashboard.', error?.message);
   return data as {

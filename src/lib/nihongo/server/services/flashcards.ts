@@ -5,14 +5,6 @@ import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
 
 type RatingName = 'again' | 'hard' | 'good' | 'easy';
-type FlashcardQueueRow = {
-  id: string; front_text: string; back_text: string;
-  front_reading: string | null; back_reading: string | null;
-  front_romaji: string | null; back_romaji: string | null;
-  hint: string | null; example_sentence: string | null; example_translation: string | null;
-  source_type: string; vocabulary_id: string | null; kanji_id: string | null;
-  grammar_id: string | null; sort_order: number;
-};
 type FlashcardStateRow = {
   flashcard_id: string;
   scheduler_state: string;

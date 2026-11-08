@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
-    const dashboard = await getDashboard(context.supabase, context.user.id);
+    const dashboard = await getDashboard(context.supabase);
     return NextResponse.json(dashboard, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return jsonError(error); }
 }
