@@ -370,13 +370,15 @@ function Vocabulary({
     setNotice('');
     setExpanded(null);
     setDeckItems([]);
-    setLearnedIds(new Set());
-    learnedIdsRef.current = new Set();
+    setLearnedIds(new Set<string>());
+    learnedIdsRef.current = new Set<string>();
     setLearnedItems([]);
     setLearnedListLoaded(false);
     setLearnedLoading(false);
     setHasMore(false);
     hasMoreRef.current = false;
+    setLoadingMore(false);
+    pageBusyRef.current = false;
     setNextOffset(0);
     nextOffsetRef.current = 0;
 
@@ -438,23 +440,49 @@ function Vocabulary({
     setLoadingMore(true);
     const requestKey = queryKeyRef.current;
     try {
-      const page = await getPublishedVocabulary(level, nextOffsetRef.current, requestedLimit, debouncedSearch);
+      let offset = nextOffsetRef.current;
+      let more = hasMoreRef.current;
+      let additions: VocabularyItem[] = [];
+      const existingIds = new Set(deckItems.map((item) => item.id));
+
+      // Continue through already-learned rows until we have a useful page of unseen words.
+      while (additions.length < requestedLimit && more) {
+        const remaining = requestedLimit - additions.length;
+        const page = await getPublishedVocabulary(
+          level,
+          offset,
+          Math.min(VOCABULARY_PAGE_SIZE, Math.max(remaining, 20)),
+          debouncedSearch,
+        );
+        if (requestKey !== queryKeyRef.current) return;
+        additions = [...additions, ...page.items.filter((item) =>
+          !learnedIdsRef.current.has(item.id) &&
+          !existingIds.has(item.id) &&
+          !additions.some((added) => added.id === item.id),
+        )];
+        offset = page.nextOffset;
+        more = page.hasMore;
+        if (page.items.length === 0) break;
+      }
+
       if (requestKey !== queryKeyRef.current) return;
-      setDeckItems((current) => {
-        const existing = new Set(current.map((item) => item.id));
-        return [...current, ...page.items.filter((item) => !learnedIdsRef.current.has(item.id) && !existing.has(item.id))];
-      });
-      nextOffsetRef.current = page.nextOffset;
-      setNextOffset(page.nextOffset);
-      hasMoreRef.current = page.hasMore;
-      setHasMore(page.hasMore);
+      if (additions.length) {
+        setDeckItems((current) => {
+          const currentIds = new Set(current.map((item) => item.id));
+          return [...current, ...additions.filter((item) => !currentIds.has(item.id))];
+        });
+      }
+      nextOffsetRef.current = offset;
+      setNextOffset(offset);
+      hasMoreRef.current = more;
+      setHasMore(more);
     } catch (error) {
       if (requestKey === queryKeyRef.current) setNotice(error instanceof Error ? error.message : 'Could not load more vocabulary.');
     } finally {
       pageBusyRef.current = false;
       if (requestKey === queryKeyRef.current) setLoadingMore(false);
     }
-  }, [level, debouncedSearch]);
+  }, [level, debouncedSearch, deckItems]);
 
   useEffect(() => {
     if (view !== 'new' || loading || !hasMore) return;
@@ -515,6 +543,10 @@ function Vocabulary({
   }
 
   async function markLearned(item: VocabularyItem) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id)) {
+      setNotice('This is preview content. Connect and publish vocabulary in Supabase before saving learning progress.');
+      return;
+    }
     if (!signedIn) {
       setNotice('Sign in to save learned words and keep them hidden from your new-word list.');
       return;
@@ -660,7 +692,7 @@ function Vocabulary({
               </button>
               <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
                 onClick={() => void markLearned(item)}>
-                {savingId === item.id ? 'Saving…' : '✓ Learned'}
+                {savingId === item.id ? 'Saving…' : 'Mark learned ✓'}
               </button>
             </div>
           </article>
