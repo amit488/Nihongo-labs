@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from './supabase';
-import { grammar, kanji, vocabulary } from './demo-content';
+import { grammar, kanji, vocabulary, type VocabularyItem } from './demo-content';
 
 export type LearnerSnapshot = {
   displayName: string;
@@ -118,16 +118,44 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
   };
 }
 
-export async function getPublishedVocabulary() {
+export type VocabularyPage = { items: VocabularyItem[]; hasMore: boolean; nextOffset: number };
+
+export async function getPublishedVocabulary(
+  level: 'N5' | 'N4' = 'N5',
+  offset = 0,
+  limit = 80,
+  search = '',
+): Promise<VocabularyPage> {
+  const params = new URLSearchParams({
+    kind: 'vocabulary',
+    level,
+    offset: String(Math.max(0, offset)),
+    limit: String(Math.min(100, Math.max(1, limit))),
+  });
+  if (search.trim()) params.set('q', search.trim());
+
   try {
-    const { items } = await apiGet<ContentResponse<VocabularyContentRow>>('/api/learning/content?kind=vocabulary&level=N5&limit=250');
-    if (!items.length) return vocabulary;
-    return items.map((row) => ({
-      id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
-      partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
-      exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
-    }));
-  } catch { return vocabulary; }
+    const response = await apiGet<ContentResponse<VocabularyContentRow> & { hasMore?: boolean; nextOffset?: number }>(
+      `/api/learning/content?${params.toString()}`,
+    );
+    const rows = response.items ?? [];
+    if (!rows.length && offset === 0 && level === 'N5' && !search.trim()) {
+      const fallback = vocabulary.slice(0, limit);
+      return { items: fallback, hasMore: false, nextOffset: fallback.length };
+    }
+    return {
+      items: rows.map((row) => ({
+        id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
+        partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
+        exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
+      })),
+      hasMore: Boolean(response.hasMore),
+      nextOffset: Number(response.nextOffset ?? offset + rows.length),
+    };
+  } catch {
+    const fallback = offset === 0 && level === 'N5' && !search.trim() ? vocabulary.slice(0, limit) : [];
+    return { items: fallback, hasMore: false, nextOffset: offset + fallback.length };
+  }
 }
 
 export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
