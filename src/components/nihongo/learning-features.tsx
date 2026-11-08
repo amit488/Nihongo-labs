@@ -335,7 +335,7 @@ function Vocabulary({
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
   const [learnedItems, setLearnedItems] = useState<LearnedVocabularyItem[]>([]);
   const [learnedListLoaded, setLearnedListLoaded] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [savingId, setSavingId] = useState('');
@@ -362,12 +362,21 @@ function Vocabulary({
 
   const queryKey = `${level}|${debouncedSearch}`;
 
+  function toggleExample(id: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   useEffect(() => {
     let active = true;
     queryKeyRef.current = queryKey;
     setLoading(true);
     setNotice('');
-    setExpanded(null);
+    setExpandedIds(new Set());
     setDeckItems([]);
     setLearnedIds(new Set<string>());
     learnedIdsRef.current = new Set<string>();
@@ -657,18 +666,18 @@ function Vocabulary({
       ) : null}
       <div className={styles.vocabGrid}>
         {deckItems.map((item) => (
-          <article key={item.id} className={`${styles.vocabCard} ${expanded === item.id ? styles.vocabExpanded : ''}`}>
-            <button type="button" className={styles.vocabCardTop} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
+          <article key={item.id} className={`${styles.vocabCard} ${expandedIds.has(item.id) ? styles.vocabExpanded : ''}`}>
+            <button type="button" className={styles.vocabCardTop} onClick={() => toggleExample(item.id)}>
               <span className={styles.wordType}>{item.partOfSpeech}</span>
-              <span className={styles.bookmark}>{expanded === item.id ? '⌃' : '⌄'}</span>
+              <span className={styles.bookmark}>{expandedIds.has(item.id) ? '⌃' : '⌄'}</span>
             </button>
-            <button type="button" className={styles.vocabCardBody} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
+            <button type="button" className={styles.vocabCardBody} onClick={() => toggleExample(item.id)}>
               <div className={styles.vocabWord}>{item.word}</div>
               <div className={styles.vocabKana}>{item.kana}</div>
               {romaji ? <div className={styles.vocabRomaji}>{item.romaji}</div> : null}
               <div className={styles.vocabMeaning}>{item.meaning}</div>
             </button>
-            {expanded === item.id ? (
+            {expandedIds.has(item.id) ? (
               <div className={styles.vocabExample}>
                 {item.example ? <strong>{item.example}</strong> : null}
                 {romaji && item.exampleRomaji ? <small>{item.exampleRomaji}</small> : null}
@@ -684,8 +693,8 @@ function Vocabulary({
               </div>
             ) : null}
             <div className={styles.vocabActions}>
-              <button type="button" className={styles.ghostButton} onClick={() => setExpanded(expanded === item.id ? null : item.id)}>
-                {expanded === item.id ? 'Close example' : 'View example'}
+              <button type="button" className={styles.ghostButton} onClick={() => toggleExample(item.id)}>
+                {expandedIds.has(item.id) ? 'Close example' : 'View example'}
               </button>
               <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
                 onClick={() => void markLearned(item)}>
