@@ -24,10 +24,12 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams;
     const level = params.get('level') || 'N5';
     const view = params.get('view') || 'ids';
-    const rawLimit = Number(params.get('limit') || (view === 'ids' ? 1000 : 100));
+    const defaultLimit = view === 'ids' ? 1000 : 500;
+    const maxLimit = view === 'ids' ? 1000 : 500;
+    const rawLimit = Number(params.get('limit') || defaultLimit);
     const limit = Number.isFinite(rawLimit)
-      ? Math.min(view === 'ids' ? 1000 : 100, Math.max(1, Math.floor(rawLimit)))
-      : view === 'ids' ? 1000 : 100;
+      ? Math.min(maxLimit, Math.max(1, Math.floor(rawLimit)))
+      : defaultLimit;
     const rawOffset = Number(params.get('offset') || 0);
     const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
     const rawSearch = params.get('q')?.trim() ?? '';
