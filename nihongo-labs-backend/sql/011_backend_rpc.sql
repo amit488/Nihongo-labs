@@ -1111,7 +1111,9 @@ begin
         c.grammar_id, c.sort_order, c.created_at
       from public.flashcards c
       left join public.flashcard_review_state s on s.flashcard_id = c.id and s.user_id = v_user_id
-      where c.deck_id = _deck_id and c.is_active = true and s.flashcard_id is null
+      where c.deck_id = _deck_id and c.is_active = true
+        and (s.flashcard_id is null or (s.scheduler_state = 'new' and s.suspended_at is null
+          and (s.buried_until is null or s.buried_until <= now())))
       order by c.sort_order, c.created_at, c.id limit v_new_remaining
     ) q;
   end if;

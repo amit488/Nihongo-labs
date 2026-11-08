@@ -120,6 +120,7 @@ test('dashboard and flashcard queue use RLS-respecting database RPCs', () => {
   assert.match(migration, /grant execute on function public\.get_learning_dashboard\(\) to authenticated/i);
   assert.match(migration, /create or replace function public\.get_due_flashcards\([\s\S]*?security invoker/i);
   assert.match(migration, /s\.scheduler_state <> 'new'/i);
+  assert.match(migration, /s\.scheduler_state = 'new' and s\.suspended_at is null/i);
   assert.match(migration, /s\.suspended_at is null/i);
   assert.match(migration, /s\.buried_until is null or s\.buried_until <= now\(\)/i);
   assert.match(migration, /order by s\.due_at, c\.sort_order/i);
