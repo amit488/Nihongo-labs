@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const level = request.nextUrl.searchParams.get('level') || 'N5';
     const rawSearch = request.nextUrl.searchParams.get('q')?.trim() ?? '';
     // Avoid PostgREST filter grammar injection through the .or(...) expression.
-    const search = rawSearch.replace(/[(),%_]/g, ' ').replace(/\s+/g, ' ').slice(0, 80).trim();
+    const search = rawSearch.replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').slice(0, 80).trim();
     const requestedDefault = kind === 'vocabulary' ? 80 : 100;
     const rawLimit = Number(request.nextUrl.searchParams.get('limit') || requestedDefault);
     const maxLimit = kind === 'vocabulary' ? 100 : 250;
