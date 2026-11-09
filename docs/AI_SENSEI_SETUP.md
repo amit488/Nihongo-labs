@@ -8,7 +8,7 @@ Add these environment variables to local `.env.local` and your Vercel project en
 
 ```bash
 OPENAI_API_KEY=your_server_side_api_key
-OPENAI_SENSEI_MODEL=gpt-6-astra
+OPENAI_SENSEI_MODEL=gpt-6-luna
 ```
 
 - Create an API key in an OpenAI API project with API billing enabled and access to the selected model.
@@ -16,7 +16,7 @@ OPENAI_SENSEI_MODEL=gpt-6-astra
 - Never name the key `NEXT_PUBLIC_*`, commit it, or paste it into browser code.
 - Restart the local Next.js server after changing `.env.local`.
 - In Vercel, add the variables to the correct environments (Preview/Production) and redeploy.
-- The model name is configurable through `OPENAI_SENSEI_MODEL`; choose a model available to your API project.
+- The model name is configurable through `OPENAI_SENSEI_MODEL`; choose a model available to your API project. The default is GPT-6 Luna because it is priced for high-volume focused tasks; GPT-6.1 Sol or GPT-6 Astra can be selected later if evaluations show a meaningful teaching-quality improvement.
 
 The route uses `store: false`, validates a strict JSON response, limits user messages to 1,500 characters, and enforces a daily quota (8 messages for free accounts, 50 for accounts with an active premium-content entitlement). Failed provider calls still consume a reserved request; this avoids a burst of repeated calls during upstream failures.
 
