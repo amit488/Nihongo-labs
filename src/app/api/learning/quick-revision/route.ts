@@ -276,30 +276,44 @@ export async function GET(request: NextRequest) {
       state as RevisionState,
     ]));
     const now = Date.now();
-    const selected = weightedPick(candidates.map((item) => ({
-      item,
-      weight: selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now),
-    })));
-    if (!selected) return NextResponse.json({ available: false }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const categoryCounts = candidates.reduce((counts, item) => {
+      counts[item.contentType] += 1;
+      return counts;
+    }, { vocabulary: 0, kanji: 0, grammar: 0 });
 
-    const options = await getOptions(context.supabase, selected);
-    if (options.length < 2) {
-      return NextResponse.json({ available: false, reason: 'not-enough-choice-options' }, {
-        headers: { 'Cache-Control': 'private, no-store' },
-      });
+    // Normalise by pool size so a large vocabulary list does not crowd out
+    // kanji and grammar. Within each category, recall history still sets priority.
+    const remaining = [...candidates];
+    for (let attempt = 0; attempt < Math.min(10, candidates.length); attempt += 1) {
+      const selected = weightedPick(remaining.map((item) => ({
+        item,
+        weight: selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now) /
+          Math.max(1, categoryCounts[item.contentType]),
+      })));
+      if (!selected) break;
+      const selectedIndex = remaining.findIndex((item) =>
+        item.contentType === selected.contentType && item.contentId === selected.contentId);
+      if (selectedIndex >= 0) remaining.splice(selectedIndex, 1);
+
+      const options = await getOptions(context.supabase, selected);
+      if (options.length < 2) continue;
+
+      return NextResponse.json({
+        available: true,
+        question: {
+          contentType: selected.contentType,
+          contentId: selected.contentId,
+          level: selected.level,
+          question: selected.question,
+          prompt: selected.prompt,
+          options,
+        },
+      }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
-    return NextResponse.json({
-      available: true,
-      question: {
-        contentType: selected.contentType,
-        contentId: selected.contentId,
-        level: selected.level,
-        question: selected.question,
-        prompt: selected.prompt,
-        options,
-      },
-    }, { headers: { 'Cache-Control': 'private, no-store' } });
+    return NextResponse.json({ available: false, reason: 'not-enough-choice-options' }, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   } catch (error) {
     return jsonError(error);
   }
