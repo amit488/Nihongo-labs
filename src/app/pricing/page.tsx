@@ -45,11 +45,6 @@ const included = [
     description: 'See why an answer missed the mark, recognise recurring patterns and focus on the grammar that needs attention.',
   },
   {
-    icon: '先生',
-    title: 'AI Japanese Sensei',
-    description: 'Ask questions about what you are learning and get contextual explanations, natural examples and level-aware guidance.',
-  },
-  {
     icon: '↻',
     title: 'Adaptive revision',
     description: 'Bring due material and weaker topics back into your study routine, shaped around your learning progress.',
