@@ -67,12 +67,13 @@ export async function GET() {
     }
 
     const topics = [...groups.entries()].map(([tag, rows]) => {
-      const attempts = rows.length;
-      const misses = rows.filter((row) => !row.is_correct);
+      const ordered = [...rows].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      const attempts = ordered.length;
+      const misses = ordered.filter((row) => !row.is_correct);
       const correct = attempts - misses.length;
       const accuracy = attempts ? Math.round(correct / attempts * 100) : 0;
       const latestMiss = misses[0]?.created_at ?? null;
-      const weak = misses.length >= 2 || (attempts >= 2 && accuracy < 70) || (!rows[0]?.is_correct && attempts >= 1);
+      const weak = misses.length >= 2 || (attempts >= 2 && accuracy < 70) || (!ordered[0]?.is_correct && attempts >= 1);
       return {
         tag,
         label: LABELS[tag] ?? labelByTag.get(tag) ?? tag.replace(/^grammar:/, '').replace(/^grammar-point:/, 'Grammar point ').replace(/[-_:]/g, ' '),
