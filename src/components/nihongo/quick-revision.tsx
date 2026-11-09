@@ -67,9 +67,6 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       activeMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
       dialogOpen.current = false;
-      setQuestion(null);
-      setResult(null);
-      setSelected('');
       return;
     }
     if (disabled) {
@@ -289,16 +286,12 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
 
 export function QuickRevisionStats({ signedIn }: { signedIn: boolean }) {
   const [stats, setStats] = useState<RevisionStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!signedIn) {
-      setStats(null);
-      return;
-    }
+    if (!signedIn) return;
     let active = true;
     const loadStats = () => {
-      setLoading(true);
       fetch('/api/learning/quick-revision?view=stats', { credentials: 'same-origin', cache: 'no-store' })
         .then(async (response) => {
           const body = await response.json().catch(() => ({})) as RevisionStats & { error?: string };
@@ -316,3 +309,68 @@ export function QuickRevisionStats({ signedIn }: { signedIn: boolean }) {
       window.removeEventListener('nihongo:quick-revision-updated', loadStats);
     };
   }, [signedIn]);
+
+  return (
+    <section className={styles.statsSection}>
+      <div className={styles.statsHeading}>
+        <div>
+          <div className={styles.eyebrow}>ACTIVE RECALL</div>
+          <h2>Quick Revision statistics</h2>
+          <p>See what you remember and which learned items need another look.</p>
+        </div>
+      </div>
+      {!signedIn ? (
+        <div className={styles.statsEmpty}>Sign in to see your Quick Revision history.</div>
+      ) : loading && !stats ? (
+        <div className={styles.statsEmpty}>Loading your revision statistics…</div>
+      ) : !stats || stats.totalAttempts === 0 ? (
+        <div className={styles.statsEmpty}>Your revision statistics will appear here after your first Quick Revision question.</div>
+      ) : (
+        <>
+          <div className={styles.statsGrid}>
+            <article className={styles.statCard}>
+              <span>Items tested</span>
+              <strong>{stats.itemsTested}</strong>
+              <small>Learned items recalled at least once</small>
+            </article>
+            <article className={styles.statCard}>
+              <span>Accuracy</span>
+              <strong>{stats.accuracy}%</strong>
+              <small>{stats.correctAttempts} correct out of {stats.totalAttempts} attempts</small>
+            </article>
+            <article className={styles.statCard}>
+              <span>To revisit</span>
+              <strong>{stats.needsWorkCount}</strong>
+              <small>Items with more incorrect than correct recalls, or a recent miss</small>
+            </article>
+          </div>
+          <div className={styles.typeSummary}>
+            {(['vocabulary', 'kanji', 'grammar'] as ContentType[]).map((type) => (
+              <div key={type}>
+                <span>{type}</span>
+                <strong>{stats.byType[type].items} tested</strong>
+                <small>{stats.byType[type].attempts} attempts</small>
+              </div>
+            ))}
+          </div>
+          {stats.needsWork.length ? (
+            <div className={styles.needsWork}>
+              <h3>Needs another look</h3>
+              <div className={styles.needsWorkList}>
+                {stats.needsWork.map((item, index) => (
+                  <div className={styles.needsWorkItem} key={`${item.contentType}-${item.label}-${index}`}>
+                    <span className={styles.needsWorkType}>{item.contentType} · {item.level}</span>
+                    <strong>{item.label}</strong>
+                    {item.detail && item.detail !== item.label ? <small>{item.detail}</small> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className={styles.statsEmpty}>No weak spots at the moment. Keep going!</div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
