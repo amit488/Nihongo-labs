@@ -6,6 +6,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNod
 import styles from './learning-app.module.css';
 import { QuickRevision, QuickRevisionStats } from './quick-revision';
 import LearningIntelligence from './learning-intelligence';
+import LearningPlans from './learning-plans';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
@@ -35,7 +36,7 @@ const navGroups = [
   ] },
   { label: 'YOUR SPACE', items: [
     { key: 'progress', title: 'My progress', href: '/learn/progress', icon: '↗' },
-    { key: 'plans', title: 'Plans', href: '/pricing', icon: '₹' },
+    { key: 'plans', title: 'Plans', href: '/learn/plans', icon: '₹' },
     { key: 'subscription', title: 'Membership', href: '/learn/subscription', icon: '◇' },
   ] },
 ];
@@ -538,7 +539,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
   }, [signedIn, isStudySection, refreshLearnerSnapshot]);
 
-  const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', progress: 'Your progress', subscription: 'Membership' };
+  const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', progress: 'Your progress', plans: 'Learning plans', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
 
   async function signOut() {
@@ -572,7 +573,8 @@ export default function LearningApp({ section = [] }: Props) {
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
-          {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active === 'plans' && <LearningPlans signedIn={signedIn} />}
+          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
