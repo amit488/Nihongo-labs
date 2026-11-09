@@ -734,6 +734,7 @@ function Vocabulary({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not save vocabulary review.');
       setNotice(`Revision saved · next review ${new Date(body.state.due_at).toLocaleDateString()}.`);
+      await onProgressSaved();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save review.');
     } finally {
