@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
 import senseiStyles from './ai-japanese-sensei.module.css';
@@ -1452,6 +1452,11 @@ type SenseiReply = {
 type SenseiMessage = { role: 'user' | 'assistant'; content: string; reply?: SenseiReply };
 
 function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
+  const searchParams = useSearchParams();
+  const topic = searchParams.get('topic');
+  const topicPrompt = topic ? `Please explain this Japanese topic in context: ${topic}` : '';
+  const [draftEdited, setDraftEdited] = useState(false);
+  const draftValue = draftEdited ? draft : topicPrompt;
   const [level, setLevel] = useState<'N5'|'N4'|'N3'|'N2'|'N1'>('N5');
   const [messages, setMessages] = useState<SenseiMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -1459,21 +1464,14 @@ function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null);
   const [quizChoice, setQuizChoice] = useState<Record<number,string>>({});
-  const startedTopic = useRef(false);
-
-  useEffect(() => {
-    if (!signedIn || startedTopic.current) return;
-    startedTopic.current = true;
-    const topic = new URLSearchParams(window.location.search).get('topic');
-    if (topic) setDraft(`Please explain this Japanese topic in context: ${topic}`);
-  }, [signedIn]);
 
   async function ask(question?: string) {
-    const text = (question ?? draft).trim();
+    const text = (question ?? draftValue).trim();
     if (!text || sending || !signedIn) return;
     const next = [...messages, { role: 'user' as const, content: text }];
     setMessages(next);
     setDraft('');
+    setDraftEdited(true);
     setSending(true);
     setError('');
     try {
@@ -1526,7 +1524,7 @@ function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
       </div>}
       {error?<div className={styles.authMessage} role="alert">{error}</div>:null}
       <form className={senseiStyles.senseiComposer} onSubmit={(event)=>{event.preventDefault();void ask();}}>
-        <textarea value={draft} onChange={(event)=>setDraft(event.target.value)} rows={3} maxLength={1500} placeholder="Ask Sensei anything about Japanese…" disabled={sending} />
+        <textarea value={draftValue} onChange={(event)=>{setDraft(event.target.value);setDraftEdited(true);}} rows={3} maxLength={1500} placeholder="Ask Sensei anything about Japanese…" disabled={sending} />
         <div><small>{draft.length}/1500 · Your chat is kept in this page session.</small><button type="submit" className={styles.primaryButton} disabled={sending||!draft.trim()}>{sending?'Thinking…':'Ask Sensei'} <span>→</span></button></div>
       </form>
     </>}
