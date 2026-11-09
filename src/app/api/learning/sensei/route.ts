@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     ]);
     if (premiumError || mistakesError || quickError) throw new HttpError(503, 'Learning context is not ready. Apply the learning intelligence migration and check your Supabase policies.', premiumError?.message || mistakesError?.message || quickError?.message);
     const level = input.level ?? preferences?.preferred_jlpt_level ?? 'N5';
-    const mistakeMap = new Map<string, { attempts: number; misses: number }>();
+    const mistakeMap = new Map<string, { attempts: number; misses: number }>();\n    const mistakeLabels = new Map<string, string>();
     for (const row of recentMistakes ?? []) {
       const value = mistakeMap.get(row.skill_tag) ?? { attempts: 0, misses: 0 };
       value.attempts += 1;
@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
         const point = labels.get(row.content_id);
         const tags = point?.tags.length ? point.tags : [`grammar-point:${row.content_id}`];
         for (const tag of tags) {
+          if (point) mistakeLabels.set(tag, point.title);
           const value = mistakeMap.get(tag) ?? { attempts: 0, misses: 0 };
           value.attempts += 1;
           if (!row.is_correct) value.misses += 1;
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
     const weakTopics = [...mistakeMap.entries()].filter(([, value]) => value.misses > 0)
       .sort((a,b)=>b[1].misses-a[1].misses).slice(0,6)
-      .map(([tag,value])=>({tag,attempts:value.attempts,misses:value.misses}));
+      .map(([tag,value])=>({tag,label:mistakeLabels.get(tag) ?? tag,attempts:value.attempts,misses:value.misses}));
 
     const timezone = await getUserTimeZone(admin, context.user.id);
     const usageDate = localDateKey(new Date(), timezone);
