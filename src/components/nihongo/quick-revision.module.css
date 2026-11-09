@@ -64,4 +64,6 @@
  .statsSection{padding:15px}.statsGrid{grid-template-columns:1fr 1fr}.statsGrid .statCard:last-child{grid-column:1/-1}
  .typeSummary{grid-template-columns:1fr}.needsWorkList{grid-template-columns:1fr}
 }
-\n.dialog.correct .brandMark{background:#a8ddb4;color:#1e6135}\n.dialog.incorrect .brandMark{background:#f4bcbc;color:#8c2929}\n
+
+.dialog.correct .brandMark{background:#a8ddb4;color:#1e6135}
+.dialog.incorrect .brandMark{background:#f4bcbc;color:#8c2929}
