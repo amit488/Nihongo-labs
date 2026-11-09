@@ -1,0 +1,31 @@
+.wrapper { display:grid; gap:15px; margin:22px 0; }
+.heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
+.heading span,.panelTitle span { color:var(--muted); font-size:10px; letter-spacing:.12em; font-weight:700; }
+.heading h2 { margin:5px 0; font:500 23px Georgia,serif; }
+.heading p { margin:0; color:var(--muted); font-size:12px; }
+.heading a { color:var(--accent-strong); font-size:12px; font-weight:650; text-decoration:none; }
+.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.metrics article,.panel { border:1px solid var(--line); border-radius:15px; background:var(--panel); padding:15px; }
+.metrics article span,.metrics article small { display:block; color:var(--muted); font-size:11px; }
+.metrics article strong { display:block; margin:7px 0; font:500 27px Georgia,serif; }
+.columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.panelTitle { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.panelTitle h3 { margin:0; font-size:14px; }
+.empty { color:var(--muted); font-size:12px; line-height:1.6; }
+.topic { display:grid; grid-template-columns:1fr auto; gap:7px 12px; padding:13px 0; border-bottom:1px solid var(--line); }
+.topic:last-child,.word:last-child { border-bottom:0; }
+.topic strong,.word strong { display:block; font-size:12px; }
+.topic small,.word small { display:block; color:var(--muted); font-size:11px; margin-top:4px; }
+.progress { height:6px; border-radius:99px; background:var(--line); overflow:hidden; }
+.progress i { display:block; height:100%; background:var(--accent); border-radius:inherit; }
+.topic > b { font-size:11px; }
+.topic p { grid-column:1/-1; margin:0; color:var(--muted); font-size:11px; line-height:1.5; }
+.word { display:grid; grid-template-columns:1fr auto; gap:6px 9px; padding:12px 0; border-bottom:1px solid var(--line); }
+.word > span { font-size:10px; font-weight:700; }
+.risk { color:#b35f4d; }
+.due { color:#687c49; }
+.word a { grid-column:2; font-size:11px; text-decoration:none; color:var(--accent-strong); }
+.word p { grid-column:1/-1; margin:0; font-size:11px; color:var(--muted); line-height:1.5; }
+.error { color:#b35f4d; font-size:12px; }
+@media (max-width:850px) { .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .columns { grid-template-columns:1fr; } }
+@media (max-width:540px) { .heading { align-items:flex-start; flex-direction:column; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
