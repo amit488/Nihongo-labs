@@ -58,7 +58,16 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
   }, [question]);
 
   useEffect(() => {
-    if (!signedIn || disabled) return;
+    if (!signedIn) {
+      activeMilliseconds.current = 0;
+      targetMilliseconds.current = FIRST_QUESTION_MS;
+      return;
+    }
+    if (disabled) {
+      activeMilliseconds.current = 0;
+      targetMilliseconds.current = FIRST_QUESTION_MS;
+      return;
+    }
 
     let disposed = false;
     let lastSampleAt = performance.now();
@@ -97,6 +106,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
           targetMilliseconds.current = activeMilliseconds.current + RETRY_WHEN_EMPTY_MS;
           return;
         }
+        dialogOpen.current = true;
         setQuestion(body.question);
         setSelected('');
         setResult(null);
@@ -118,7 +128,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       const elapsed = Math.min(1_500, Math.max(0, now - lastSampleAt));
       lastSampleAt = now;
 
-      if (!activeAndAvailable(now) || dialogOpen.current || responsePending.current || loading) return;
+      if (!activeAndAvailable(now) || dialogOpen.current || responsePending.current) return;
       activeMilliseconds.current += elapsed;
 
       if (activeMilliseconds.current >= targetMilliseconds.current) {
@@ -145,7 +155,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       window.removeEventListener('focus', recordInteraction);
       window.removeEventListener('blur', recordInteraction);
     };
-  }, [signedIn, disabled, loading]);
+  }, [signedIn, disabled]);
 
   async function submitAnswer(didNotRemember: boolean) {
     if (!question || responsePending.current || result) return;
@@ -177,6 +187,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
   }
 
   function continueLearning() {
+    dialogOpen.current = false;
     setQuestion(null);
     setSelected('');
     setResult(null);
@@ -185,7 +196,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     activeMilliseconds.current = 0;
   }
 
-  if (!signedIn || !question) return null;
+  if (!signedIn || disabled || !question) return null;
 
   const resultTone = result ? (result.isCorrect && !result.didNotRemember ? 'correct' : 'incorrect') : '';
 
