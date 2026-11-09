@@ -25,8 +25,12 @@ preference_row as (
   from local_context u left join public.user_preferences p on p.user_id = u.user_id
 ),
 published_lessons as (
-  select l.id, cu.slug as unit_slug from public.lessons l
-  join public.course_units cu on cu.id = l.unit_id where l.publication_status = 'published'
+  select l.id, cu.slug as unit_slug
+  from public.lessons l
+  join public.course_units cu on cu.id = l.unit_id
+  join public.courses c on c.id = cu.course_id
+  where l.publication_status = 'published'
+    and c.slug = 'nihongo-n5-foundations'
 ),
 lesson_progress_rows as (
   select lp.lesson_id, lp.status from public.lesson_progress lp
@@ -178,8 +182,8 @@ base_metrics as (
 mastery_metrics as (
   select b.grammar_percentage as grammar,
     b.vocabulary_percentage as vocabulary, b.kanji_percentage as kanji,
-    greatest(b.kana_unit_percentage, coalesce(round(a.kana_score)::integer, 0)) as kana,
-    greatest(b.reading_unit_percentage, coalesce(round(a.reading_score)::integer, 0)) as reading,
+    coalesce(round(a.kana_score)::integer, b.kana_unit_percentage) as kana,
+    coalesce(round(a.reading_score)::integer, b.reading_unit_percentage) as reading,
     b.lesson_percentage as overall_lessons
   from base_metrics b cross join mastery_attempt_summary a
 ),
