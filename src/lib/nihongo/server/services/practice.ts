@@ -174,7 +174,7 @@ export async function submitQuizAttempt(
   if (attempt.status !== 'in_progress') throw new HttpError(409, 'This quiz attempt has already been submitted.');
 
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
-    .select('id,slug,title,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
+    .select('id,slug,title,lesson_id,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
   if (quizError || !quiz) throw new HttpError(404, 'Quiz no longer exists.');
 
   const selectedQuestionIds = metadataQuestionIds(attempt.metadata);
@@ -265,6 +265,56 @@ export async function submitQuizAttempt(
     throw new HttpError(500, 'Could not save and finalize the quiz attempt. Run sql/011_backend_rpc.sql first.', finalizeError.message);
   }
 
+  // A graded quiz is the completion checkpoint for the curriculum lesson
+  // it belongs to. Record in-progress on a failed attempt and completion on pass.
+  const passed = score >= Number(quiz.pass_percentage);
+  if (quiz.lesson_id) {
+    const lessonStatus = passed ? 'completed' : 'in_progress';
+    const { error: lessonProgressError } = await admin.rpc('persist_lesson_progress', {
+      _user_id: userId,
+      _lesson_id: quiz.lesson_id,
+      _status: lessonStatus,
+      _last_position_seconds: duration,
+      _activity_date: localDateKey(now, timezone),
+      _study_seconds: 0,
+    });
+    if (lessonProgressError) {
+      // Grading has already been committed. A lesson-progress side effect must
+      // never turn a valid quiz result into a failed submission.
+      console.error('[Nihongo Labs] Could not update linked lesson progress:', lessonProgressError);
+    }
+
+    // Every Kana bank mixes both scripts. A passed Kana challenge therefore
+    // completes the sibling Katakana lesson as well as the linked Hiragana one.
+    if (isKanaDifficultyQuiz(String(quiz.slug))) {
+      const { data: sourceLesson, error: sourceLessonError } = await admin.from('lessons')
+        .select('unit_id')
+        .eq('id', quiz.lesson_id)
+        .maybeSingle();
+      if (!sourceLessonError && sourceLesson?.unit_id) {
+        const { data: katakanaLesson, error: katakanaLessonError } = await admin.from('lessons')
+          .select('id')
+          .eq('unit_id', sourceLesson.unit_id)
+          .eq('slug', 'katakana')
+          .eq('publication_status', 'published')
+          .maybeSingle();
+        if (!katakanaLessonError && katakanaLesson?.id) {
+          const { error: katakanaProgressError } = await admin.rpc('persist_lesson_progress', {
+            _user_id: userId,
+            _lesson_id: katakanaLesson.id,
+            _status: lessonStatus,
+            _last_position_seconds: duration,
+            _activity_date: localDateKey(now, timezone),
+            _study_seconds: 0,
+          });
+          if (katakanaProgressError) {
+            console.error('[Nihongo Labs] Could not update the linked Katakana lesson:', katakanaProgressError);
+          }
+        }
+      }
+    }
+  }
+
   // Capture taxonomy-level grammar outcomes after a successful grade. The event
   // table is private to the learner and written only by this server service.
   const quizIsGrammar = /grammar|particle|conjugation/i.test(`${quiz.slug} ${quiz.title}`);
@@ -318,7 +368,7 @@ export async function submitQuizAttempt(
     scorePercentage: score,
     earnedPoints,
     totalPoints,
-    passed: score >= Number(quiz.pass_percentage),
+    passed,
     passPercentage: Number(quiz.pass_percentage),
     durationSeconds: duration,
     feedback,
