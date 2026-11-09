@@ -34,7 +34,7 @@ type MembershipSubscription = {
 type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
-function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean }) {
+function GrammarStudio({ items, romaji, setRomaji, signedIn, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
@@ -118,6 +118,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
         return next;
       });
       setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
+      await onProgressSaved();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save grammar progress.');
     } finally {
@@ -201,8 +202,8 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
       </div>}
   </>;
 }
-function Practice({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
-  return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
+function Practice({ signedIn, romaji, setRomaji, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; onProgressSaved: () => Promise<void> }) {
+  return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onProgressSaved={onProgressSaved} />;
 }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -232,6 +233,8 @@ type QuizResult = {
 };
 type QuizRecord = { id: string; slug: string; title: string; description: string; timeLimitSeconds: number | null; passPercentage: number; accessLevel: string; questionCount: number };
 
+const KANA_SECONDS_PER_QUESTION = 45;
+
 function asJsonObject(value: JsonValue | undefined): JsonObject | null {
   return value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonObject
@@ -252,7 +255,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function QuizRunner({
-  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true,
+  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true, onBack, onProgressSaved,
 }: {
   kind: 'practice' | 'mock' | 'reading' | 'kana';
   signedIn: boolean;
@@ -261,6 +264,8 @@ function QuizRunner({
   level?: JlptLevel;
   onLevelChange?: (level: JlptLevel) => void;
   showLevelSwitch?: boolean;
+  onBack?: () => void;
+  onProgressSaved: () => Promise<void>;
 }) {
   const [internalLevel, setInternalLevel] = useState<JlptLevel>('N5');
   const level = controlledLevel ?? internalLevel;
@@ -292,7 +297,9 @@ function QuizRunner({
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/practice/quizzes?kind=${kind}&level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
+    const params = new URLSearchParams({ kind });
+    if (kind !== 'kana') params.set('level', level);
+    fetch(`/api/practice/quizzes?${params.toString()}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load practice sets.'); return body; })
       .then((body) => { if (alive) setQuizzes(body.quizzes ?? []); })
       .catch((err) => { if (alive) setError(err.message); })
@@ -325,8 +332,8 @@ function QuizRunner({
       setActiveQuiz(quiz); setAttemptId(body.attemptId);
       setQuestions(body.quiz.questions ?? []); setResponses({}); setIndex(0); setResult(null);
       const timeLimit = Number(body.quiz.time_limit_seconds ?? quiz.timeLimitSeconds ?? 0);
-      countdownRef.current = timeLimit;
-      setRemaining(timeLimit);
+      countdownRef.current = kind === 'kana' ? KANA_SECONDS_PER_QUESTION : timeLimit;
+      setRemaining(countdownRef.current);
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not start this practice set.'); }
     finally { setBusy(false); }
   }
@@ -340,9 +347,10 @@ function QuizRunner({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not submit your answers.');
       setResult(body as QuizResult);
+      await onProgressSaved();
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your answers.'); }
     finally { setBusy(false); }
-  }, [attemptId, busy, result, responses]);
+  }, [attemptId, busy, result, responses, onProgressSaved]);
 
   useEffect(() => {
     submitRef.current = submit;
@@ -355,11 +363,17 @@ function QuizRunner({
       setRemaining(countdownRef.current);
       if (countdownRef.current === 0) {
         window.clearInterval(timer);
-        void submitRef.current();
+        if (kind === 'kana' && index < questions.length - 1) {
+          countdownRef.current = KANA_SECONDS_PER_QUESTION;
+          setRemaining(KANA_SECONDS_PER_QUESTION);
+          setIndex((currentIndex) => currentIndex + 1);
+        } else {
+          void submitRef.current();
+        }
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [attemptId, result]);
+  }, [attemptId, result, kind, index, questions.length]);
 
   function choose(optionKey: string) {
     if (!current) return;
@@ -367,6 +381,13 @@ function QuizRunner({
       const existing = Array.isArray(responses[current.id]) ? responses[current.id] as string[] : [];
       setResponses((state) => ({ ...state, [current.id]: existing.includes(optionKey) ? existing.filter((key) => key !== optionKey) : [...existing, optionKey] }));
     } else setResponses((state) => ({ ...state, [current.id]: optionKey }));
+  }
+  function goToQuestion(nextIndex: number) {
+    if (kind === 'kana') {
+      countdownRef.current = KANA_SECONDS_PER_QUESTION;
+      setRemaining(KANA_SECONDS_PER_QUESTION);
+    }
+    setIndex(nextIndex);
   }
 
   const formatTime = `${Math.floor(remaining / 60).toString().padStart(2, '0')}:${(remaining % 60).toString().padStart(2, '0')}`;
@@ -414,14 +435,19 @@ function QuizRunner({
           </div>
         </div>;
       })}</div>
-      <button className={styles.primaryButton} onClick={() => { setActiveQuiz(null); setAttemptId(''); setResult(null); setResponses({}); }}>Back to {kind === 'mock' ? 'examinations' : kind === 'reading' ? 'reading' : kind === 'kana' ? 'kana' : 'practice'} <span>→</span></button>
+      <div className={styles.examControls}>
+        {kind === 'kana' && activeQuiz ? <button className={styles.ghostButton} disabled={busy} onClick={() => void begin(activeQuiz)}>Reattempt this level <span>↻</span></button> : null}
+        <button className={styles.primaryButton} onClick={() => { setActiveQuiz(null); setAttemptId(''); setResult(null); setResponses({}); }}>
+          {kind === 'kana' ? 'Back to difficulty selection' : `Back to ${kind === 'mock' ? 'examinations' : kind === 'reading' ? 'reading' : 'practice'}`} <span>→</span>
+        </button>
+      </div>
     </div>
   </>;
 
   if (activeQuiz && current) {
     return <>
-      <SectionHeading eyebrow={kind === 'mock' ? 'TIMED JLPT SIMULATOR' : kind === 'reading' ? 'READING COMPREHENSION' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE ENGINE'} title={activeQuiz.title} description={activeQuiz.description || 'Answer each question, then submit to receive detailed explanations.'} action={<button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
-      <div className={styles.examRunningTop}><div><div className={styles.eyebrow}>QUESTION {index + 1} OF {questions.length}</div><h1>{jsonDisplayText(prompt.instruction, 'Choose the best answer.')}</h1></div><div className={styles.timerBox}><small>TIME LEFT</small><strong>{formatTime}</strong></div></div>
+      <SectionHeading eyebrow={kind === 'mock' ? 'TIMED JLPT SIMULATOR' : kind === 'reading' ? 'READING COMPREHENSION' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE ENGINE'} title={activeQuiz.title} description={kind === 'kana' ? 'One character at a time. Unanswered questions are skipped automatically.' : activeQuiz.description || 'Answer each question, then submit to receive detailed explanations.'} action={kind === 'kana' ? <div className={styles.headingActions}><span className={styles.counterPill}>45 seconds per question</span><button className={styles.ghostButton} type="button" onClick={onBack}>Back to chart</button></div> : <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
+      <div className={styles.examRunningTop}><div><div className={styles.eyebrow}>QUESTION {index + 1} OF {questions.length}</div><h1>{jsonDisplayText(prompt.instruction, 'Choose the best answer.')}</h1></div><div className={styles.timerBox}><small>{kind === 'kana' ? 'QUESTION TIME' : 'TIME LEFT'}</small><strong>{formatTime}</strong></div></div>
       <ProgressBar value={(index + 1) / questions.length * 100} />
       <div className={styles.examQuestion}>
         <div className={styles.questionType}>{current.type.replaceAll('_', ' ').toUpperCase()}</div>
@@ -438,8 +464,8 @@ function QuizRunner({
           return <button type="button" key={option.key} className={`${styles.choiceButton} ${picked ? styles.choiceSelected : ''}`} onClick={() => choose(option.key)}><span>{optionLabel(option)}</span><small>{option.key}</small></button>;
         })}</div> : null}
         <div className={styles.examControls}>
-          <button className={styles.textButton} onClick={() => setIndex((value) => Math.max(0, value - 1))} disabled={index === 0}>← Previous</button>
-          {index < questions.length - 1 ? <button className={styles.primaryButton} onClick={() => setIndex((value) => value + 1)}>Next question <span>→</span></button> : <button className={styles.primaryButton} disabled={busy} onClick={() => void submit()}>{busy ? 'Submitting…' : 'Submit answers'} <span>✓</span></button>}
+          {kind !== 'kana' ? <button className={styles.textButton} onClick={() => goToQuestion(Math.max(0, index - 1))} disabled={index === 0}>← Previous</button> : <span />}
+          {index < questions.length - 1 ? <button className={styles.primaryButton} onClick={() => goToQuestion(index + 1)}>{kind === 'kana' ? 'Next character' : 'Next question'} <span>→</span></button> : <button className={styles.primaryButton} disabled={busy} onClick={() => void submit()}>{busy ? 'Submitting…' : 'Submit answers'} <span>✓</span></button>}
         </div>
         {index === questions.length - 1 && questions.length > 1 ? <button className={styles.textButton} onClick={() => void submit()} disabled={busy}>Submit now and finish the set</button> : null}
         {error ? <div className={styles.authMessage}>{error}</div> : null}
@@ -448,14 +474,19 @@ function QuizRunner({
   }
 
   return <>
-    <SectionHeading eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : `DAILY PRACTICE · JLPT ${level}`} title={kind === 'mock' ? 'Make exam day feel familiar.' : 'A little practice goes a long way.'} description={kind === 'mock' ? 'Start a timed mock examination. Your attempt is graded and stored securely.' : 'Choose a focused practice set. Your progress and answers are saved to your account.'} action={<div className={styles.headingActions}>
-      {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
-      <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
-    </div>} />
+    <SectionHeading
+      eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : kind === 'reading' ? 'READING PRACTICE' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE'}
+      title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Choose your difficulty.' : 'A little practice goes a long way.'}
+      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'Choose a level for a timed quiz with 20 questions.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
+      action={kind === 'kana' ? <span className={styles.counterPill}>Timed · 45 sec per question</span> : <div className={styles.headingActions}>
+        {showLevelSwitch ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
+        <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
+      </div>}
+    />
     {!signedIn ? <div className={styles.emptyState}><div>学</div><h2>Sign in to start learning</h2><p>Your practice attempts, exam results and streaks are saved to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : null}
     {loading ? <div className={styles.panel}>Loading practice sets…</div> : null}
-    {!loading && quizzes.length === 0 ? <EmptyState title="Practice sets are not seeded yet" description="Run sql/010_n5_content_and_plans_seed.sql in local Supabase Studio to add the N5 starter practice bank." /> : null}
-    <div className={styles.focusGrid}>{quizzes.map((quiz) => <div className={styles.focusCard} key={quiz.id}><div className={styles.focusTop}><span>{String(quiz.questionCount).padStart(2, '0')} questions</span><small>{quiz.accessLevel.toUpperCase()}</small></div><h3>{quiz.title}</h3><p>{quiz.description}</p><div className={styles.focusMeta}><span>◷ {quiz.timeLimitSeconds ? `${Math.ceil(quiz.timeLimitSeconds / 60)} min` : 'Untimed'} · Pass {quiz.passPercentage}%</span><button className={styles.textButton} disabled={!signedIn || busy} onClick={() => void begin(quiz)}>Start →</button></div></div>)}</div>
+    {!loading && quizzes.length === 0 ? <EmptyState title={kind === 'kana' ? 'Kana challenge is not installed yet' : 'Practice sets are not available yet'} description="Apply the latest local Supabase migrations to install the practice content." /> : null}
+    <div className={styles.focusGrid}>{quizzes.map((quiz) => <div className={styles.focusCard} key={quiz.id}><div className={styles.focusTop}><span>{kind === 'kana' ? '20 questions' : `${String(quiz.questionCount).padStart(2, '0')} questions`}</span><small>{quiz.accessLevel.toUpperCase()}</small></div><h3>{kind === 'kana' ? <strong>{quiz.title}</strong> : quiz.title}</h3><p>{quiz.description}</p><div className={styles.focusMeta}><span>◷ {kind === 'kana' ? 'Timed · 45 sec each · Pass ' + quiz.passPercentage + '%' : quiz.timeLimitSeconds ? `${Math.ceil(quiz.timeLimitSeconds / 60)} min · Pass ${quiz.passPercentage}%` : 'Untimed'}</span><button className={styles.textButton} disabled={!signedIn || busy} onClick={() => void begin(quiz)}>{kind === 'kana' ? 'Start level' : 'Start'} →</button></div></div>)}</div>
     {error ? <div className={styles.authMessage}>{error}</div> : null}
   </>;
 }
@@ -703,6 +734,7 @@ function Vocabulary({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not save vocabulary review.');
       setNotice(`Revision saved · next review ${new Date(body.state.due_at).toLocaleDateString()}.`);
+      await onProgressSaved();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save review.');
     } finally {
@@ -1044,7 +1076,7 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
         {selectedItem&&<div className={styles.kanjiDetail}>
           <button type="button" aria-label={flipped?'Show kanji front':'Flip kanji card'} onClick={()=>setFlipped((value)=>!value)} style={{width:'100%',border:0,background:'transparent',padding:0,cursor:'pointer'}} aria-pressed={flipped}>
             <div className={styles.kanjiBig}>{selectedItem.character}</div>
-            {flipped ? <div className={styles.kanjiMeaning}>{selectedItem.meaning}</div> : <div className={styles.kanjiMeaning} aria-hidden="true" style={{opacity:0,fontSize:12}}>Tap to reveal</div>}
+            {flipped ? <div className={styles.kanjiMeaning}>{selectedItem.meaning}</div> : <div className={styles.kanjiMeaning} aria-hidden="true" style={{opacity:0}}>Tap to reveal</div>}
             <div className={styles.kanjiMeta}><span>{selectedItem.strokes} strokes</span><span>Radical · {selectedItem.radical || '—'}</span><span>{level}</span></div>
             <div className={styles.kanjiCardHint}>{flipped?'TAP TO HIDE DETAILS':'TAP CARD TO REVEAL READINGS ↻'}</div>
           </button>
@@ -1062,11 +1094,11 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
       </div>}
   </>;
 }
-function Kana({ mode, setMode, quiz, setQuiz, signedIn, romaji, setRomaji }: { mode: 'hiragana'|'katakana'; setMode: (value:'hiragana'|'katakana')=>void; quiz: boolean; setQuiz: (value:boolean)=>void; signedIn:boolean; romaji:boolean; setRomaji:(v:boolean)=>void }) {
+function Kana({ mode, setMode, quiz, setQuiz, signedIn, romaji, setRomaji, onProgressSaved }: { mode: 'hiragana'|'katakana'; setMode: (value:'hiragana'|'katakana')=>void; quiz: boolean; setQuiz: (value:boolean)=>void; signedIn:boolean; romaji:boolean; setRomaji:(v:boolean)=>void; onProgressSaved: () => Promise<void> }) {
   const rows = mode==='hiragana'?kanaRows:katakanaRows;
   const voicedRows = mode==='hiragana'?hiraganaVoicedRows:katakanaVoicedRows;
   const voicedRomajiRows = mode==='hiragana'?hiraganaVoicedRomajiRows:katakanaVoicedRomajiRows;
-  return <>{quiz ? <><SectionHeading eyebrow="KANA KNOWLEDGE CHECK" title="Test your kana recognition." description="Complete the saved N5 kana quiz to record your result." action={<button className={styles.ghostButton} onClick={()=>setQuiz(false)}>Back to chart</button>}/><QuizRunner kind="kana" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji}/></> : <><SectionHeading eyebrow="YOUR FIRST MILESTONE" title="Get comfortable with kana." description="Master the two phonetic alphabets that make Japanese reading possible." action={<div className={styles.headingActions}><button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button><button className={styles.primaryButton} type="button" onClick={()=>setQuiz(true)}>Start scored kana quiz <span>→</span></button></div>}/><div className={styles.kanaToolbar}><div className={styles.segmented}><button className={mode==='hiragana'?styles.segmentActive:''} onClick={()=>setMode('hiragana')}>あ Hiragana</button><button className={mode==='katakana'?styles.segmentActive:''} onClick={()=>setMode('katakana')}>ア Katakana</button></div><span>46 basic characters · plus voiced sounds</span></div><div className={styles.kanaChart}><div className={styles.kanaChartHeader}><div><strong>{mode==='hiragana'?'Hiragana':'Katakana'} chart</strong><span>Each character is paired with its standard romaji reading.</span></div><span className={styles.chartCount}>46 / 46 basic</span></div><div className={styles.kanaGrid}>{rows.map((row,i)=><div className={styles.kanaRow} key={i}>{row.map((char,j)=>char?<div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{kanaRomajiRows[i][j]}</span>:null}</div>:<div className={styles.kanaBlank} key={`blank-${i}-${j}`}/>)}</div>)}</div><div className={styles.kanaExtraHeader}><strong>Dakuten &amp; Handakuten</strong><span>Voiced and semi-voiced sounds</span></div><div className={styles.kanaGrid}>{voicedRows.map((row,i)=><div className={styles.kanaRow} key={`voiced-${i}`}>{row.map((char,j)=><div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{voicedRomajiRows[i][j]}</span>:null}</div>)}</div>)}</div></div></>}</>;
+  return <>{quiz ? <QuizRunner kind="kana" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onBack={() => setQuiz(false)} onProgressSaved={onProgressSaved} /> : <><SectionHeading eyebrow="YOUR FIRST MILESTONE" title="Get comfortable with kana." description="Master the two phonetic alphabets that make Japanese reading possible." action={<div className={styles.headingActions}><button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button><button className={styles.primaryButton} type="button" onClick={()=>setQuiz(true)}>Start recognition challenge <span>→</span></button></div>}/><div className={styles.kanaToolbar}><div className={styles.segmented}><button className={mode==='hiragana'?styles.segmentActive:''} onClick={()=>setMode('hiragana')}>あ Hiragana</button><button className={mode==='katakana'?styles.segmentActive:''} onClick={()=>setMode('katakana')}>ア Katakana</button></div><span>46 basic characters · plus voiced sounds</span></div><div className={styles.kanaChart}><div className={styles.kanaChartHeader}><div><strong>{mode==='hiragana'?'Hiragana':'Katakana'} chart</strong><span>Each character is paired with its standard romaji reading.</span></div><span className={styles.chartCount}>46 / 46 basic</span></div><div className={styles.kanaGrid}>{rows.map((row,i)=><div className={styles.kanaRow} key={i}>{row.map((char,j)=>char?<div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{kanaRomajiRows[i][j]}</span>:null}</div>:<div className={styles.kanaBlank} key={`blank-${i}-${j}`}/>)}</div>)}</div><div className={styles.kanaExtraHeader}><strong>Dakuten &amp; Handakuten</strong><span>Voiced and semi-voiced sounds</span></div><div className={styles.kanaGrid}>{voicedRows.map((row,i)=><div className={styles.kanaRow} key={`voiced-${i}`}>{row.map((char,j)=><div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{voicedRomajiRows[i][j]}</span>:null}</div>)}</div>)}</div></div></>}</>;
 }
 
 const flashDeck = [
@@ -1261,7 +1293,7 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   </>;
 }
 
-function Reading({ romaji, setRomaji, signedIn }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean }) {
+function Reading({ romaji, setRomaji, signedIn, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
   const [selected, setSelected] = useState(0);
@@ -1299,7 +1331,7 @@ function Reading({ romaji, setRomaji, signedIn }: { romaji: boolean; setRomaji: 
     return <><SectionHeading eyebrow={`READING CHECK · JLPT ${level}`} title="Test your comprehension."
       description="Your answers are submitted to the secure grading service."
       action={<button className={styles.ghostButton} onClick={() => setShowQuiz(false)}>Back to passages</button>} />
-      <QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={level} showLevelSwitch={false} />
+      <QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={level} showLevelSwitch={false} onProgressSaved={onProgressSaved} />
     </>;
   }
 
@@ -1344,8 +1376,8 @@ function Reading({ romaji, setRomaji, signedIn }: { romaji: boolean; setRomaji: 
 }
 
 
-function Exams({ signedIn, romaji, setRomaji }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
-  return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} />;
+function Exams({ signedIn, romaji, setRomaji, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; onProgressSaved: () => Promise<void> }) {
+  return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onProgressSaved={onProgressSaved} />;
 }
 
 async function fetchMembershipData(signedIn: boolean): Promise<{
@@ -1439,14 +1471,14 @@ function Membership({signedIn}:{signedIn:boolean}) {
 
 export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
-    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} />;
-    case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
+    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} onProgressSaved={props.onProgressSaved} />;
+    case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
     case 'kanji': return <Kanji items={props.kanjiItems} onProgressSaved={props.onProgressSaved} />;
-    case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
+    case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
-    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} />;
-    case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
+    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} onProgressSaved={props.onProgressSaved} />;
+    case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
     default: return null;
   }

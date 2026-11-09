@@ -3,13 +3,20 @@ import { grammar, kanji, vocabulary, type VocabularyItem } from './demo-content'
 
 export type LearnerSnapshot = {
   displayName: string;
+  timeZone?: string;
   preferredJlptLevel: 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
   grammarCount: number;
+  grammarUnderstood: number;
   vocabularyCount: number;
+  vocabularyMastered: number;
   kanjiCount: number;
   kanjiMastered: number;
+  grammarAttempts: number;
+  kanaAttempts: number;
+  readingAttempts: number;
   activeDays: string[];
   lessonsCompleted: number;
+  lessonsTotal: number;
   recentScores: number[];
   overallPercentage: number;
   mastery: { grammar: number; vocabulary: number; kanji: number; kana: number; reading: number; overallLessons: number };
@@ -25,10 +32,13 @@ export type LearnerSnapshot = {
 };
 
 type DashboardResponse = {
-  profile?: { displayName?: string | null };
+  profile?: { displayName?: string | null; timezone?: string | null };
   progress?: {
-    grammarTotal?: number | null; vocabularyTotal?: number | null; kanjiTotal?: number | null; kanjiMastered?: number | null;
-    lessonsCompleted?: number | null; overallPercentage?: number | null;
+    grammarTotal?: number | null; grammarUnderstood?: number | null;
+    vocabularyTotal?: number | null; vocabularyMastered?: number | null;
+    kanjiTotal?: number | null; kanjiMastered?: number | null;
+    grammarAttempts?: number | null; kanaAttempts?: number | null; readingAttempts?: number | null;
+    lessonsCompleted?: number | null; lessonsTotal?: number | null; overallPercentage?: number | null;
     mastery?: LearnerSnapshot['mastery'];
   };
   recentActivity?: LearnerSnapshot['recentActivity'];
@@ -79,8 +89,12 @@ async function apiGet<T>(path: string): Promise<T> {
 }
 
 const previewSnapshot = (): LearnerSnapshot => ({
-  displayName: 'Learner', preferredJlptLevel: 'N5', grammarCount: grammar.length, vocabularyCount: vocabulary.length, kanjiCount: kanji.length, kanjiMastered: 0,
-  activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
+  displayName: 'Learner', timeZone: 'Asia/Kolkata', preferredJlptLevel: 'N5',
+  grammarCount: grammar.length, grammarUnderstood: 0,
+  vocabularyCount: vocabulary.length, vocabularyMastered: 0,
+  kanjiCount: kanji.length, kanjiMastered: 0,
+  grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
+  activeDays: [], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
   mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
   streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
 });
@@ -96,13 +110,20 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
   ]);
   return {
     displayName: dashboard.profile?.displayName || resolvedUser.email?.split('@')[0] || 'Learner',
+    timeZone: dashboard.profile?.timezone || 'Asia/Kolkata',
     preferredJlptLevel: dashboard.preferences?.preferred_jlpt_level ?? 'N5',
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
+    grammarUnderstood: Number(dashboard.progress?.grammarUnderstood ?? 0),
     vocabularyCount: Number(dashboard.progress?.vocabularyTotal ?? 0),
+    vocabularyMastered: Number(dashboard.progress?.vocabularyMastered ?? 0),
     kanjiCount: Number(dashboard.progress?.kanjiTotal ?? 0),
     kanjiMastered: Number(dashboard.progress?.kanjiMastered ?? 0),
+    grammarAttempts: Number(dashboard.progress?.grammarAttempts ?? 0),
+    kanaAttempts: Number(dashboard.progress?.kanaAttempts ?? 0),
+    readingAttempts: Number(dashboard.progress?.readingAttempts ?? 0),
     activeDays: (dashboard.recentActivity ?? []).map((row) => String(row.activity_date)),
     lessonsCompleted: Number(dashboard.progress?.lessonsCompleted ?? 0),
+    lessonsTotal: Number(dashboard.progress?.lessonsTotal ?? 0),
     recentScores: (dashboard.recentAttempts ?? []).map((row) => Number(row.score_percentage ?? 0)).reverse(),
     overallPercentage: Number(dashboard.progress?.overallPercentage ?? 0),
     mastery: dashboard.progress?.mastery ?? previewSnapshot().mastery,

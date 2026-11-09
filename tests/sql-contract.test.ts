@@ -147,3 +147,56 @@ test('legacy heartbeat overloads are dropped and bootstrap keeps only the active
   assert.equal(definitions.length, 1);
   assert.match(bootstrap, /record_user_heartbeat\(uuid, date, integer, uuid, timestamptz\)/i);
 });
+
+test('My Progress dashboard uses saved grammar, learned vocabulary and full graded Kana/Reading history', () => {
+  const path = resolve(process.cwd(), 'supabase', 'migrations', '20261110110000_fix_my_progress_sources.sql');
+  assert.equal(existsSync(path), true, 'My Progress source migration is missing');
+  const migration = readFileSync(path, 'utf8');
+
+  assert.match(migration, /public\.user_grammar_progress/i);
+  assert.match(migration, /public\.user_vocabulary_progress/i);
+  assert.match(migration, /public\.vocabulary_review_state/i);
+  assert.match(migration, /s\.repetitions >= 3/i);
+  assert.match(migration, /mastery_attempt_summary as/i);
+  assert.match(migration, /a\.status = 'graded'/i);
+  assert.match(migration, /coalesce\(round\(a\.kana_score\)::integer, b\.kana_unit_percentage\)/i);
+  assert.match(migration, /coalesce\(round\(a\.reading_score\)::integer, b\.reading_unit_percentage\)/i);
+  assert.match(migration, /c\.slug = 'nihongo-n5-foundations'/i);
+  assert.match(migration, /exists \([\s\S]*?from public\.quizzes q[\s\S]*?q\.lesson_id = l\.id/i);
+});
+
+test('graded quiz submissions update their linked lesson progress', () => {
+  const servicePath = resolve(process.cwd(), 'src', 'lib', 'nihongo', 'server', 'services', 'practice.ts');
+  const service = readFileSync(servicePath, 'utf8');
+  assert.match(service, /select\('id,slug,title,lesson_id,pass_percentage/);
+  assert.match(service, /persist_lesson_progress/);
+  assert.match(service, /const lessonStatus = passed \? 'completed' : 'in_progress'/);
+  assert.match(service, /\.eq\('slug', 'katakana'\)/);
+});
+
+test('My Progress UI shows source counters and refreshes after saved learner actions', () => {
+  const appPath = resolve(process.cwd(), 'src', 'components', 'nihongo', 'learning-app.tsx');
+  const featuresPath = resolve(process.cwd(), 'src', 'components', 'nihongo', 'learning-features.tsx');
+  const app = readFileSync(appPath, 'utf8');
+  const features = readFileSync(featuresPath, 'utf8');
+  assert.match(app, /snapshot\.grammarUnderstood/);
+  assert.match(app, /snapshot\.vocabularyMastered/);
+  assert.match(app, /snapshot\.readingAttempts/);
+  assert.match(app, /snapshot\.kanaAttempts/);
+  assert.match(app, /snapshot\.lessonsTotal/);
+  assert.match(features, /await onProgressSaved\(\)/);
+  assert.match(features, /void onProgressSaved\(\)/);
+});
+
+test('N5 quizzes are linked to their matching curriculum lessons in starter content', () => {
+  const seed = readSql('010_n5_content_and_plans_seed.sql');
+  const daily = seed.split(/\r?\n/).find((line) => line.includes("'n5-daily-practice'"));
+  const grammar = seed.split(/\r?\n/).find((line) => line.includes("'n5-grammar-particles'"));
+  const reading = seed.split(/\r?\n/).find((line) => line.includes("'n5-reading-check'"));
+  const mock = seed.split(/\r?\n/).find((line) => line.includes("'n5-mock-exam-01'"));
+
+  assert.ok(daily?.includes("u.slug='practice'") && daily.includes("l.slug='daily-practice'"));
+  assert.ok(grammar?.includes("u.slug='grammar'") && grammar.includes("l.slug='particles'"));
+  assert.ok(reading?.includes("u.slug='reading'") && reading.includes("l.slug='short-passages'"));
+  assert.ok(mock?.includes("u.slug='exams'") && mock.includes("l.slug='mock-exam-one'"));
+});

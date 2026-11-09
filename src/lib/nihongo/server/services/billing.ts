@@ -44,6 +44,11 @@ async function syncPlanEntitlements(
   return Array.isArray(data) ? data as string[] : [];
 }
 
+function isRetiredAiSenseiFeature(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return normalized.includes('sensei') || (normalized.includes('ai') && normalized.includes('tutor'));
+}
+
 export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]> {
   const { data: plans, error } = await supabase.from('subscription_plans')
     .select('id,code,name,description,plan_kind,amount_minor,currency,billing_interval,interval_count,is_active,display_order,plan_features(feature_key,feature_value)')
@@ -54,7 +59,9 @@ export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]
     id: plan.id, code: plan.code, name: plan.name, description: plan.description,
     planKind: plan.plan_kind, amountMinor: Number(plan.amount_minor), currency: plan.currency,
     billingInterval: plan.billing_interval, intervalCount: plan.interval_count,
-    features: (plan.plan_features ?? []).map((item) => ({ key: item.feature_key, value: item.feature_value })),
+    features: (plan.plan_features ?? [])
+      .filter((item) => !isRetiredAiSenseiFeature(item.feature_key))
+      .map((item) => ({ key: item.feature_key, value: item.feature_value })),
   }));
 }
 
@@ -130,7 +137,7 @@ export async function createCheckout(admin: SupabaseClient, userId: string, plan
     try {
       const providerSubscription = await razorpayRequest('/subscriptions', 'POST', {
         plan_id: plan.provider_price_id,
-        total_count: plan.billing_interval === 'month' ? 120 : 10,
+        total_count: plan.billing_interval === 'month' ? Math.max(1, Math.floor(120 / Math.max(1, Number(plan.interval_count) || 1))) : 10,
         customer_notify: 1,
         notes: { user_id: userId, plan_id: plan.id, plan_code: plan.code, local_subscription_id: localSubscription.id },
       });

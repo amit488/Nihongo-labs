@@ -50,8 +50,16 @@ The code does not create another database, recreate the original schema, or chan
 - `tests/sql-contract.test.ts`: security and atomic-RPC contract checks against the included SQL
 - `scripts/smoke-local.mjs`: local endpoint smoke checks
 - `docs/API_ROUTES.md`: route reference, example payloads and backend security boundaries
-- `sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
+- `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
 - `sql/011_backend_rpc.sql`: additive, restricted RPC helpers for activity, quiz attempt reservation/finalization, atomic lesson progress, FSRS writes, vocabulary scheduling and refunds
+
+## Database migration history
+
+The `supabase/migrations/` directory is an ordered, append-only history. Keep every migration file, including earlier changes later corrected or retired by a newer migration. On an existing database, `npx supabase migration up --local` applies only pending migrations; on a fresh database, all migrations are applied in timestamp order. Do not delete or rewrite a migration that may already have been applied.
+
+The separate `nihongo-labs-backend/sql/` directory contains manual seed/setup scripts. Those are not automatically executed by `supabase migration up`; follow the local setup steps below before running them. The Kana question bank is now installed by a Supabase migration, not by the general N5 starter seed.
+
+The My Progress cards are wired to persisted learner activity: Grammar reads understood grammar points, Vocabulary combines words marked learned with spaced-repetition mastery, Reading and Kana use the full graded-attempt history, and Lessons counts published N5 lessons with linked graded checkpoints. The `20261110110000`, `20261110120000` and `20261110130000` migrations install those dashboard sources and correct the N5 quiz-to-lesson links. Apply them with `npx supabase migration up --local`. Quiz completion also uses the restricted `persist_lesson_progress` RPC from `nihongo-labs-backend/sql/011_backend_rpc.sql`, so make sure that manual RPC setup has been applied in local Supabase Studio.
 
 ## Local integration steps
 
@@ -127,7 +135,7 @@ If the flashcard tables/columns are missing, create a new migration using the Su
 
 After confirming the flashcard migration is applied:
 
-1. Review and run `sql/010_n5_content_and_plans_seed.sql` once in your **local** Supabase Studio. It uses upserts so it can be rerun to update the same starter data.
+1. Review and run `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql` once in your **local** Supabase Studio. It uses upserts so it can be rerun to update the same starter data.
 2. Review and run `sql/011_backend_rpc.sql` once in your **local** Supabase Studio. It adds restricted helper functions and indexes. It is additive, but inspect the unique invoice/entitlement indexes against any data you have added before running it.
 3. Optional original starter scripts from your database package are included as `sql/007_base_seed_optional.sql` and `sql/009_flashcards_seed_optional.sql`. The new 010 seed includes its own deck tags/content/plans. Do not run redundant seeds unless you need those rows.
 
@@ -203,3 +211,36 @@ The included seed is a **starter N5 corpus**, not a claim to contain every word 
 - A production SMTP sender, legal/tax terms, domain and payment-provider account
 
 These are account credentials/settings, not missing source modules. No live services were called, no database was modified, no migration executed, and no Git push was performed while assembling this source package.
+
+
+## Learning Intelligence
+
+NihongoLabs includes grammar mistake analytics, vocabulary revision insights and adaptive revision. Grammar analytics uses question-level learning tags and graded practice history; vocabulary insights combine SM-2 review state with Quick Revision outcomes.
+
+Apply the learning-intelligence migration and the AI Sensei removal migration through your normal Supabase workflow after reviewing the existing local migration history. The removal migration drops the unused AI request quota objects and removes any retired Sensei/tutor feature keys from plan features and learner entitlements.
+
+
+The three paid checkout plans (Monthly ₹149, 6 Months ₹809 and Annual ₹1,599) are synchronized into `subscription_plans` by `20261109175000_align_learning_plans.sql`. Apply pending migrations locally before testing plan checkout. Razorpay recurring Plan IDs still need to be created/linked for each plan.
+
+
+### My Progress data sources
+
+The signed-in My Progress cards are backed by saved learner data:
+
+- **Grammar:** published N5 grammar points marked as understood in `user_grammar_progress`.
+- **Vocabulary:** N5 words marked learned in `user_vocabulary_progress`, plus words mastered through spaced repetition (`repetitions >= 3`).
+- **Kanji:** published N5 characters whose `kanji_review_state.status` is `known`.
+- **Reading and Kana:** average score across all graded attempts for the matching quiz category, with linked lesson progress as a fallback only when no graded attempts exist.
+- **Lessons:** completed N5 lessons with a published graded checkpoint. Passing a linked quiz completes its lesson; a failed graded attempt records it as in progress. The mixed-script Kana assessment updates both Hiragana and Katakana lesson records.
+
+The dashboard source correction is installed by `20261110110000_fix_my_progress_sources.sql`. The following migrations correct N5 quiz-to-lesson associations: `20261110120000_fix_grammar_quiz_lesson_link.sql` and `20261110130000_fix_n5_quiz_lesson_associations.sql`. Apply pending migrations with `npx supabase migration up --local`.
+
+### Kana recognition challenge
+
+Kana is script-based rather than JLPT-level-based. The workspace has three separate tracks:
+
+- **Easy:** 33 basic Hiragana and Katakana questions.
+- **Medium:** 33 questions covering dakuten, handakuten and combined kana.
+- **Hard:** 33 questions covering look-alike characters, small kana, long vowels and modern loanword combinations.
+
+Each attempt draws 20 shuffled questions from the selected 33-question bank. A reattempt draws the 13 questions outside the previous set plus 7 questions from that previous set, then shuffles them. Each question has a 45-second timer; unanswered questions advance automatically. The original Kana challenge migration is retained in history, and `20261110100000_kana_three_difficulty_banks.sql` upgrades it to the three-level bank while preserving the quiz history. Apply pending migrations locally with `npx supabase migration up --local`.

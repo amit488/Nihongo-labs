@@ -276,20 +276,40 @@ export async function GET(request: NextRequest) {
       state as RevisionState,
     ]));
     const now = Date.now();
+    const vocabularyIds = candidates.filter((item) => item.contentType === 'vocabulary').map((item) => item.contentId);
+    const vocabularyReviewMap = new Map<string, { due_at: string; last_rating: number | null; repetitions: number }>();
+    if (vocabularyIds.length) {
+      const { data: vocabularyStates, error: vocabularyStateError } = await context.supabase
+        .from('vocabulary_review_state')
+        .select('vocabulary_id,due_at,last_rating,repetitions')
+        .eq('user_id', context.user.id)
+        .in('vocabulary_id', vocabularyIds);
+      if (vocabularyStateError) throw new HttpError(500, 'Could not load your vocabulary revision schedule.', vocabularyStateError.message);
+      for (const row of vocabularyStates ?? []) {
+        vocabularyReviewMap.set(row.vocabulary_id, row);
+      }
+    }
     const categoryCounts = candidates.reduce((counts, item) => {
       counts[item.contentType] += 1;
       return counts;
     }, { vocabulary: 0, kanji: 0, grammar: 0 });
 
     // Normalise by pool size so a large vocabulary list does not crowd out
-    // kanji and grammar. Within each category, recall history still sets priority.
+    // kanji and grammar. Existing SM-2 due/low-rating signals nudge at-risk
+    // words forward, while Quick Revision's own recall schedule remains authoritative.
     const remaining = [...candidates];
     for (let attempt = 0; attempt < Math.min(10, candidates.length); attempt += 1) {
-      const selected = weightedPick(remaining.map((item) => ({
-        item,
-        weight: selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now) /
-          Math.max(1, categoryCounts[item.contentType]),
-      })));
+      const selected = weightedPick(remaining.map((item) => {
+        const recallWeight = selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now);
+        const vocabularyState = item.contentType === 'vocabulary' ? vocabularyReviewMap.get(item.contentId) : undefined;
+        const vocabularyBoost = recallWeight > 0 && vocabularyState
+          ? (Date.parse(vocabularyState.due_at) <= now ? 2 : 0) + (vocabularyState.last_rating !== null && vocabularyState.last_rating <= 2 ? 3 : 0)
+          : 0;
+        return {
+          item,
+          weight: (recallWeight + vocabularyBoost) / Math.max(1, categoryCounts[item.contentType]),
+        };
+      }));
       if (!selected) break;
       const selectedIndex = remaining.findIndex((item) =>
         item.contentType === selected.contentType && item.contentId === selected.contentId);
