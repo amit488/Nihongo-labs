@@ -575,7 +575,7 @@ export default function LearningApp({ section = [] }: Props) {
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
       </main>
-      <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'exams'} />
+      <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
     </div>
   );
 }
