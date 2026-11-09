@@ -90,7 +90,7 @@ export default async function PricingPage() {
           <Link href="/pricing" aria-current="page">Plans</Link>
           {signedIn ? <Link href="/learn">My workspace</Link> : <Link href="/login">Sign in</Link>}
           <Link href={primaryHref} className={styles.navCta}>
-            {signedIn ? 'Open membership' : 'Start learning'} <span>↗</span>
+            {signedIn ? 'View learning plans' : 'Start learning'} <span>↗</span>
           </Link>
         </nav>
       </header>
@@ -205,7 +205,7 @@ export default async function PricingPage() {
           <h2>Small steps.<br /><em>Fluent moments.</em></h2>
           <p>Make Japanese part of your everyday. Start with a plan that gives you room to grow.</p>
           <Link href={primaryHref} className={styles.ctaButton}>
-            {signedIn ? 'View membership plans' : 'Start your learning journey'} <span>↗</span>
+            {signedIn ? 'View learning plans' : 'Start your learning journey'} <span>↗</span>
           </Link>
         </div>
         <div className={styles.ctaKanji} aria-hidden="true">日本語</div>
