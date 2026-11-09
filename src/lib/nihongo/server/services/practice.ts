@@ -3,6 +3,7 @@ import { HttpError } from '../http';
 import { answerForLearner, explanationText, gradeAnswer, type JsonValue } from '../grading';
 import { getUserTimeZone } from '../activity';
 import { localDateKey } from '../date';
+import { KANA_QUESTION_BANK_SIZE, selectKanaQuestions } from '../../kana-rotation';
 
 type QuizAnswerKey = {
   question_id: string;
@@ -20,8 +21,6 @@ type GradedResponse = {
 };
 
 const KANA_QUESTION_COUNT = 20;
-const KANA_QUESTION_BANK_SIZE = 33;
-const KANA_ROTATION_FRESH_COUNT = 13;
 const isKanaDifficultyQuiz = (slug: string) => /^kana-(easy|medium|hard)$/.test(slug);
 
 function shuffleItems<T>(items: T[]): T[] {
@@ -107,16 +106,7 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
     if (!previousAttempt) {
       orderedQuestions = shuffleItems(questionPool).slice(0, KANA_QUESTION_COUNT);
     } else {
-      const previousSet = new Set(previousQuestionIds);
-      const outsidePrevious = shuffleItems(questionPool.filter((question) => !previousSet.has(question.id)));
-      const insidePrevious = shuffleItems(questionPool.filter((question) => previousSet.has(question.id)));
-      const freshSelection = outsidePrevious.slice(0, Math.min(KANA_ROTATION_FRESH_COUNT, outsidePrevious.length));
-      const revisitSelection = insidePrevious.slice(0, KANA_QUESTION_COUNT - freshSelection.length);
-      const selectedSet = new Set([...freshSelection, ...revisitSelection].map((question) => question.id));
-      const fillSelection = shuffleItems(questionPool.filter((question) => !selectedSet.has(question.id)))
-        .slice(0, KANA_QUESTION_COUNT - freshSelection.length - revisitSelection.length);
-      orderedQuestions = shuffleItems([...freshSelection, ...revisitSelection, ...fillSelection])
-        .slice(0, KANA_QUESTION_COUNT);
+      orderedQuestions = selectKanaQuestions(questionPool, previousQuestionIds);
     }
 
     selectedQuestionIds = orderedQuestions.map((question) => question.id);
