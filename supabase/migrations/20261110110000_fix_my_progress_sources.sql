@@ -25,12 +25,34 @@ preference_row as (
   from local_context u left join public.user_preferences p on p.user_id = u.user_id
 ),
 published_lessons as (
+  -- Only lessons with a real graded checkpoint are included in this progress
+  -- card. Kana's two script lessons share the mixed-script assessment.
   select l.id, cu.slug as unit_slug
   from public.lessons l
   join public.course_units cu on cu.id = l.unit_id
   join public.courses c on c.id = cu.course_id
   where l.publication_status = 'published'
     and c.slug = 'nihongo-n5-foundations'
+    and (
+      exists (
+        select 1 from public.quizzes q
+        where q.lesson_id = l.id
+          and q.publication_status = 'published'
+      )
+      or (
+        cu.slug = 'kana'
+        and l.slug = 'katakana'
+        and exists (
+          select 1
+          from public.lessons hiragana
+          join public.quizzes q on q.lesson_id = hiragana.id
+          where hiragana.unit_id = cu.id
+            and hiragana.slug = 'hiragana'
+            and hiragana.publication_status = 'published'
+            and q.publication_status = 'published'
+        )
+      )
+    )
 ),
 lesson_progress_rows as (
   select lp.lesson_id, lp.status from public.lesson_progress lp
