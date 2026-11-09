@@ -203,7 +203,7 @@ insert into public.quiz_options (question_id, option_key, option_content, sort_o
 select qq.id,
        option_row.value->>'key',
        jsonb_build_object('text', option_row.value->>'text'),
-       option_row.ordinality
+       option_row.ordinality::integer
 from public.quiz_questions qq
 join public.quizzes q on q.id = qq.quiz_id
 join kana_question_seed s on s.quiz_slug = q.slug and s.sort_order = qq.sort_order
