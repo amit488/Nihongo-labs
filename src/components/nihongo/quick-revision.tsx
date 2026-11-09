@@ -28,7 +28,6 @@ type RevisionStats = {
   byType: Record<ContentType, { items: number; attempts: number; correct: number }>;
 };
 
-const INTERACTION_IDLE_MS = 60_000;
 const FIRST_QUESTION_MS = 5 * 60_000;
 const RETRY_WHEN_EMPTY_MS = 60_000;
 const NEXT_QUESTION_MIN_MS = 8 * 60_000;
@@ -73,17 +72,13 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
 
     let disposed = false;
     let lastSampleAt = performance.now();
-    let lastInteractionAt = performance.now();
     let requestInProgress = false;
 
-    const activeAndAvailable = (now: number) =>
-      document.visibilityState === 'visible' &&
-      document.hasFocus() &&
-      now - lastInteractionAt <= INTERACTION_IDLE_MS;
+    // A visible, focused study workspace counts as active even while the learner
+    // is quietly reading. Time pauses when the tab is hidden or the window blurs.
+    const activeAndAvailable = () =>
+      document.visibilityState === 'visible' && document.hasFocus();
 
-    const recordInteraction = () => {
-      lastInteractionAt = performance.now();
-    };
 
     const loadQuestion = async () => {
       if (requestInProgress || responsePending.current || dialogOpen.current || disposed) return;
@@ -99,12 +94,16 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
           available?: boolean;
           question?: QuickQuestion;
           error?: string;
+          reason?: string;
         };
         if (!response.ok) throw new Error(body.error || 'Quick Revision could not load a question.');
         if (disposed) return;
         if (!body.available || !body.question) {
-          // No learned items yet, or not enough distractors to form a fair MCQ.
-          // Retry after another minute of active use without showing an empty popup.
+          setError(body.reason === 'no-learned-items'
+            ? 'Quick Revision has not found any saved learned vocabulary, known kanji or understood grammar for this account yet.'
+            : body.reason === 'not-enough-choice-options'
+              ? 'Quick Revision found learned items, but needs more published content at the same JLPT level to create answer choices.'
+              : 'Quick Revision could not find a question from your current learning progress.');
           targetMilliseconds.current = activeMilliseconds.current + RETRY_WHEN_EMPTY_MS;
           return;
         }
@@ -130,7 +129,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       const elapsed = Math.min(1_500, Math.max(0, now - lastSampleAt));
       lastSampleAt = now;
 
-      if (!activeAndAvailable(now) || dialogOpen.current || responsePending.current) return;
+      if (!activeAndAvailable() || dialogOpen.current || responsePending.current) return;
       activeMilliseconds.current += elapsed;
 
       if (activeMilliseconds.current >= targetMilliseconds.current) {
@@ -138,26 +137,9 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       }
     }, 1_000);
 
-    document.addEventListener('pointerdown', recordInteraction, { passive: true });
-    document.addEventListener('mousemove', recordInteraction, { passive: true });
-    document.addEventListener('keydown', recordInteraction);
-    document.addEventListener('scroll', recordInteraction, { passive: true });
-    document.addEventListener('touchstart', recordInteraction, { passive: true });
-    document.addEventListener('visibilitychange', recordInteraction);
-    window.addEventListener('focus', recordInteraction);
-    window.addEventListener('blur', recordInteraction);
-
     return () => {
       disposed = true;
       window.clearInterval(interval);
-      document.removeEventListener('pointerdown', recordInteraction);
-      document.removeEventListener('mousemove', recordInteraction);
-      document.removeEventListener('keydown', recordInteraction);
-      document.removeEventListener('scroll', recordInteraction);
-      document.removeEventListener('touchstart', recordInteraction);
-      document.removeEventListener('visibilitychange', recordInteraction);
-      window.removeEventListener('focus', recordInteraction);
-      window.removeEventListener('blur', recordInteraction);
     };
   }, [signedIn, disabled]);
 
@@ -201,7 +183,10 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     activeMilliseconds.current = 0;
   }
 
-  if (!signedIn || disabled || !question) return null;
+  if (!signedIn || disabled) return null;
+  if (!question) {
+    return error ? <div className={styles.errorToast} role="status" aria-live="polite">{error} Quick Revision will retry while you continue studying.</div> : null;
+  }
 
   const resultTone = result ? (result.isCorrect && !result.didNotRemember ? 'correct' : 'incorrect') : '';
 
