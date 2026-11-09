@@ -145,7 +145,7 @@ If uncertain about a linguistic nuance, say so plainly instead of fabricating.
 Personalise practice using this learner context when relevant: ${JSON.stringify({weakTopics})}.
 Return only the required structured fields.`;
 
-    const model = process.env.OPENAI_SENSEI_MODEL || 'gpt-6-astra';
+    const model = process.env.OPENAI_SENSEI_MODEL || 'gpt-6-luna';
     const upstream = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
