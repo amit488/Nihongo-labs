@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { connection, NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireUser, createAdminSupabase } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 
@@ -60,10 +61,9 @@ function normalize(value: string): string {
 
 function selectionWeight(candidate: Candidate, state: RevisionState | undefined, now: number): number {
   if (!state) return 7; // Never-tested learned items should get an early opportunity.
-  if (state.last_is_correct === false) return 10 + Math.min(5, state.incorrect_attempts);
   const dueAt = Date.parse(state.next_review_at);
-  if (!Number.isFinite(dueAt) || dueAt <= now) return 6;
-  const hoursUntilDue = (dueAt - now) / 3_600_000;
+  if (!Number.isFinite(dueAt) || dueAt <= now) return state.last_is_correct === false ? 12 + Math.min(5, state.incorrect_attempts) : 6;
+  if (state.last_is_correct === false) return 0; // Wait until the short retry interval expires.\n  const hoursUntilDue = (dueAt - now) / 3_600_000;
   const recentlySeen = state.last_reviewed_at && now - Date.parse(state.last_reviewed_at) < 5 * 60_000;
   // Correctly recalled items fade into the background, but stay eligible as a
   // low-probability fallback so a small learning pool can still be revised.
@@ -81,7 +81,7 @@ function weightedPick<T>(items: Array<{ item: T; weight: number }>): T | null {
   return items[items.length - 1].item;
 }
 
-async function getLearnedCandidates(userClient: NonNullable<Awaited<ReturnType<typeof requireUser>> extends { supabase: infer T } ? T : never>, userId: string): Promise<Candidate[]> {
+async function getLearnedCandidates(userClient: SupabaseClient, userId: string): Promise<Candidate[]> {
   const [vocabularyResult, kanjiResult, grammarResult] = await Promise.all([
     userClient.from('user_vocabulary_progress')
       .select('vocabulary_id,vocabulary_entries!inner(id,jlpt_level,word,kana,meaning,publication_status)')
@@ -151,28 +151,38 @@ async function getLearnedCandidates(userClient: NonNullable<Awaited<ReturnType<t
   return [...vocabulary, ...kanji, ...grammar];
 }
 
-async function getOptions(userClient: NonNullable<Awaited<ReturnType<typeof requireUser>> extends { supabase: infer T } ? T : never>, candidate: Candidate): Promise<string[]> {
-  const table = candidate.contentType === 'vocabulary'
-    ? 'vocabulary_entries'
-    : candidate.contentType === 'kanji' ? 'kanji_entries' : 'grammar_points';
-  const answerColumn = candidate.contentType === 'grammar' ? 'pattern' : 'meaning';
-  const { data, error } = await userClient.from(table)
-    .select(`id,${answerColumn}`)
-    .eq('jlpt_level', candidate.level)
-    .eq('publication_status', 'published')
-    .limit(500);
-  if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+async function getOptions(userClient: SupabaseClient, candidate: Candidate): Promise<string[]> {
+  let rows: Array<{ id: string; answer: string }> = [];
+  if (candidate.contentType === 'vocabulary') {
+    const { data, error } = await userClient.from('vocabulary_entries')
+      .select('id,meaning').eq('jlpt_level', candidate.level)
+      .eq('publication_status', 'published').limit(500);
+    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
+  } else if (candidate.contentType === 'kanji') {
+    const { data, error } = await userClient.from('kanji_entries')
+      .select('id,meaning').eq('jlpt_level', candidate.level)
+      .eq('publication_status', 'published').limit(500);
+    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
+  } else {
+    const { data, error } = await userClient.from('grammar_points')
+      .select('id,pattern').eq('jlpt_level', candidate.level)
+      .eq('publication_status', 'published').limit(500);
+    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.pattern }));
+  }
 
   const correct = candidate.answer;
-  const distractors = [...new Set((data ?? [])
+  const distractors = [...new Set(rows
     .filter((row) => row.id !== candidate.contentId)
-    .map((row) => row[answerColumn])
-    .filter((value): value is string => typeof value === 'string' && normalize(value) !== normalize(correct)))];
+    .map((row) => row.answer)
+    .filter((value) => typeof value === 'string' && normalize(value) !== normalize(correct)))];
   const selected = shuffle(distractors).slice(0, 3);
   return shuffle([correct, ...selected]);
 }
 
-async function getStats(userClient: NonNullable<Awaited<ReturnType<typeof requireUser>> extends { supabase: infer T } ? T : never>, userId: string) {
+async function getStats(userClient: SupabaseClient, userId: string) {
   const { data, error } = await userClient.from('quick_revision_state')
     .select('content_type,content_id,total_attempts,correct_attempts,incorrect_attempts,correct_streak,last_is_correct,last_reviewed_at,next_review_at')
     .eq('user_id', userId).limit(5000);
