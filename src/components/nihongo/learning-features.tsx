@@ -479,7 +479,7 @@ function QuizRunner({
       title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Choose your difficulty.' : 'A little practice goes a long way.'}
       description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'Choose a level for a timed quiz with 20 questions.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
       action={kind === 'kana' ? <span className={styles.counterPill}>Timed · 45 sec per question</span> : <div className={styles.headingActions}>
-        {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
+        {showLevelSwitch ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
         <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
       </div>}
     />
