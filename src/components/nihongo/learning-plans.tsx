@@ -2,52 +2,10 @@
 
 import { useState } from 'react';
 import styles from './learning-plans.module.css';
+import { pricingPlans } from '@/lib/nihongo/pricing-plans';
 
 type PlanCode = 'monthly' | 'half_year' | 'annual';
 
-const plans: Array<{
-  code: PlanCode;
-  name: string;
-  price: string;
-  period: string;
-  monthly: string;
-  billing: string;
-  note: string;
-  label: string;
-  featured?: boolean;
-}> = [
-  {
-    code: 'monthly',
-    name: 'Monthly',
-    price: '₹149',
-    period: '/ month',
-    monthly: '₹149',
-    billing: 'Billed ₹149 every month',
-    note: 'Flexible access, month to month.',
-    label: 'STAY FLEXIBLE',
-  },
-  {
-    code: 'half_year',
-    name: '6 Months',
-    price: '₹809',
-    period: '/ 6 months',
-    monthly: '₹134.83',
-    billing: 'Billed ₹809 once every 6 months',
-    note: 'Save ₹85 compared with six monthly payments.',
-    label: 'BUILD YOUR RHYTHM',
-  },
-  {
-    code: 'annual',
-    name: 'Annual',
-    price: '₹1,599',
-    period: '/ year',
-    monthly: '₹133.25',
-    billing: 'Billed ₹1,599 once a year',
-    note: 'Save ₹189 compared with twelve monthly payments.',
-    label: 'BEST LONG-TERM VALUE',
-    featured: true,
-  },
-];
 
 type CheckoutBody = {
   mode?: string;
@@ -102,7 +60,7 @@ export default function LearningPlans({ signedIn }: { signedIn: boolean }) {
       {notice ? <p className={styles.notice} role="alert">{notice}</p> : null}
 
       <div className={styles.cards}>
-        {plans.map((plan) => (
+        {pricingPlans.map((plan) => (
           <article key={plan.code} className={plan.featured ? `${styles.card} ${styles.featured}` : styles.card}>
             {plan.featured ? <span className={styles.recommended}>BEST VALUE</span> : null}
             <span className={styles.planLabel}>{plan.label}</span>
