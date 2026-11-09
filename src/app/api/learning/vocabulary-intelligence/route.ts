@@ -31,6 +31,14 @@ export async function GET(request: NextRequest) {
     if (error || learnedError || quickError) throw new HttpError(500, 'Could not load vocabulary intelligence.', error?.message || learnedError?.message || quickError?.message);
 
     const now = Date.now();
+    const learnedIds = [...new Set((learned ?? []).map((row) => row.vocabulary_id))];
+    let levelLearnedCount = 0;
+    if (learnedIds.length) {
+      const { data: levelLearned, error: levelLearnedError } = await context.supabase.from('vocabulary_entries')
+        .select('id').eq('jlpt_level', level).in('id', learnedIds);
+      if (levelLearnedError) throw new HttpError(500, 'Could not count your learned words for this level.', levelLearnedError.message);
+      levelLearnedCount = (levelLearned ?? []).length;
+    }
     const quickIds = [...new Set((quickStates ?? []).map((row) => row.content_id))];
     const quickEntries = new Map<string, { word: string; kana: string; romaji: string | null; meaning: string; part_of_speech: string | null; example_sentence: string | null; example_reading: string | null; example_translation: string | null }>();
     if (quickIds.length) {
@@ -96,7 +104,7 @@ export async function GET(request: NextRequest) {
     const masteredCount = unifiedItems.filter((item) => item.mastered).length;
     return NextResponse.json({
       level,
-      learnedCount: (learned ?? []).length,
+      learnedCount: levelLearnedCount,
       trackedCount: unifiedItems.length,
       dueCount: dueItems.length,
       atRiskCount: riskItems.length,
