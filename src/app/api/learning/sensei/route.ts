@@ -101,14 +101,17 @@ export async function POST(request: NextRequest) {
     const apiKey = requireEnv('OPENAI_API_KEY');
     const admin = createAdminSupabase();
 
-    const [{ data: preferences }, { data: premium, error: premiumError }, { data: recentMistakes, error: mistakesError }] = await Promise.all([
+    const [{ data: preferences }, { data: premium, error: premiumError }, { data: recentMistakes, error: mistakesError }, { data: quickMistakes, error: quickError }] = await Promise.all([
       context.supabase.from('user_preferences').select('preferred_jlpt_level').eq('user_id', context.user.id).maybeSingle(),
       context.supabase.from('user_entitlements').select('id').eq('user_id', context.user.id)
         .eq('feature_key', 'premium_content').eq('status', 'active').limit(1).maybeSingle(),
       context.supabase.from('grammar_attempt_events').select('skill_tag,is_correct')
         .eq('user_id', context.user.id).order('created_at', { ascending: false }).limit(80),
+      context.supabase.from('quick_revision_attempts').select('content_id,is_correct')
+        .eq('user_id', context.user.id).eq('content_type', 'grammar')
+        .order('created_at', { ascending: false }).limit(80),
     ]);
-    if (premiumError || mistakesError) throw new HttpError(503, 'Learning context is not ready. Apply the learning intelligence migration and check your Supabase policies.', premiumError?.message || mistakesError?.message);
+    if (premiumError || mistakesError || quickError) throw new HttpError(503, 'Learning context is not ready. Apply the learning intelligence migration and check your Supabase policies.', premiumError?.message || mistakesError?.message || quickError?.message);
     const level = input.level ?? preferences?.preferred_jlpt_level ?? 'N5';
     const mistakeMap = new Map<string, { attempts: number; misses: number }>();
     for (const row of recentMistakes ?? []) {
@@ -116,6 +119,26 @@ export async function POST(request: NextRequest) {
       value.attempts += 1;
       if (!row.is_correct) value.misses += 1;
       mistakeMap.set(row.skill_tag, value);
+    }
+    const quickGrammarIds = [...new Set((quickMistakes ?? []).map((row) => row.content_id))];
+    if (quickGrammarIds.length) {
+      const { data: grammarPoints, error: grammarError } = await context.supabase.from('grammar_points')
+        .select('id,title,pattern,learning_tags').in('id', quickGrammarIds);
+      if (grammarError) throw new HttpError(503, 'Could not load your grammar learning context.', grammarError.message);
+      const labels = new Map((grammarPoints ?? []).map((point) => [point.id, {
+        title: point.title || point.pattern || 'Grammar point',
+        tags: (point.learning_tags ?? []).filter((tag: unknown): tag is string => typeof tag === 'string'),
+      }]));
+      for (const row of quickMistakes ?? []) {
+        const point = labels.get(row.content_id);
+        const tags = point?.tags.length ? point.tags : [`grammar-point:${row.content_id}`];
+        for (const tag of tags) {
+          const value = mistakeMap.get(tag) ?? { attempts: 0, misses: 0 };
+          value.attempts += 1;
+          if (!row.is_correct) value.misses += 1;
+          mistakeMap.set(tag, value);
+        }
+      }
     }
     const weakTopics = [...mistakeMap.entries()].filter(([, value]) => value.misses > 0)
       .sort((a,b)=>b[1].misses-a[1].misses).slice(0,6)
