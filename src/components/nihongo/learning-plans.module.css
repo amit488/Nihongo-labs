@@ -1,16 +1,16 @@
 .page { display:grid; gap:22px; max-width:1080px; margin:0 auto; }
 .heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
 .eyebrow { color:var(--muted); font-size:var(--workspace-font-micro); font-weight:800; letter-spacing:.13em; }
-.heading h1 { margin:8px 0 7px; color:var(--ink); font:500 clamp(27px,3vw,30px) Georgia,serif; letter-spacing:-.6px; }
+.heading h1 { margin:8px 0 7px; color:var(--ink); font:500 clamp(27px,3vw,30px) var(--workspace-heading-family); letter-spacing:-.6px; }
 .heading p { margin:0; color:var(--muted); font-size:var(--workspace-font-body); line-height:1.6; }
 .cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:stretch; gap:14px; padding-top:8px; }
 .card { position:relative; display:flex; flex-direction:column; min-width:0; padding:22px 20px 19px; border:1px solid var(--line); border-radius:15px; background:var(--surface); box-shadow:var(--shadow); }
 .featured { border:1.5px solid var(--brand); background:linear-gradient(180deg,color-mix(in srgb,var(--brand) 7%,var(--surface)),var(--surface) 42%); }
 .recommended { position:absolute; top:-11px; right:17px; padding:5px 10px; border-radius:20px; background:var(--brand); color:white; font-size:var(--workspace-font-micro); font-weight:850; letter-spacing:.08em; }
 .planLabel { color:var(--muted); font-size:var(--workspace-font-micro); font-weight:800; letter-spacing:.12em; }
-.card h2 { margin:12px 0 8px; color:var(--ink); font:500 23px Georgia,serif; }
+.card h2 { margin:12px 0 8px; color:var(--ink); font:500 23px var(--workspace-heading-family); }
 .price { display:flex; align-items:baseline; gap:7px; }
-.price strong { color:var(--ink); font:500 36px Georgia,serif; letter-spacing:-1px; }
+.price strong { color:var(--ink); font:500 36px var(--workspace-heading-family); letter-spacing:-1px; }
 .price span { color:var(--muted); font-size:var(--workspace-font-body); }
 .monthly { display:flex; justify-content:space-between; gap:8px; margin-top:17px; padding:11px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); color:var(--muted); font-size:var(--workspace-font-micro); }
 .monthly strong { color:var(--ink); font-size:var(--workspace-font-micro); }
