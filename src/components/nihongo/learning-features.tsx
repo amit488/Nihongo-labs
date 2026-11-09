@@ -86,10 +86,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
   }
 
   useEffect(() => {
-    if (!signedIn) {
-      setLearnedIds(new Set<string>());
-      return;
-    }
+    if (!signedIn) return;
     let active = true;
     fetch(`/api/learning/grammar-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ grammarIds?: string[] }> : null)
