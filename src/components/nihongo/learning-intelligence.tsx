@@ -17,6 +17,7 @@ type VocabularyItem = {
 type VocabularyStats = { learnedCount: number; trackedCount: number; dueCount: number; atRiskCount: number; masteredCount: number; items: VocabularyItem[] };
 
 export default function LearningIntelligence({ signedIn }: { signedIn: boolean }) {
+  const [level, setLevel] = useState<'N5'|'N4'>('N5');
   const [grammar, setGrammar] = useState<GrammarStats | null>(null);
   const [vocabulary, setVocabulary] = useState<VocabularyStats | null>(null);
   const [error, setError] = useState('');
@@ -26,16 +27,16 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
     let active = true;
     Promise.all([
       fetch('/api/learning/grammar-intelligence', { credentials:'same-origin', cache:'no-store' }).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Grammar insights unavailable');return b as GrammarStats;}),
-      fetch('/api/learning/vocabulary-intelligence?level=N5', { credentials:'same-origin', cache:'no-store' }).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Vocabulary insights unavailable');return b as VocabularyStats;}),
+      fetch('/api/learning/vocabulary-intelligence?level='+level, { credentials:'same-origin', cache:'no-store' }).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Vocabulary insights unavailable');return b as VocabularyStats;}),
     ]).then(([g,v])=>{if(active){setGrammar(g);setVocabulary(v);}})
       .catch((e)=>{if(active)setError(e instanceof Error?e.message:'Learning insights are temporarily unavailable.');});
     return ()=>{active=false;};
-  }, [signedIn]);
+  }, [signedIn, level]);
 
   if (!signedIn) return <section className={styles.wrapper}><p>Sign in to see personalised grammar and vocabulary intelligence.</p></section>;
 
   return <section className={styles.wrapper}>
-    <div className={styles.heading}><div><span>LEARNING INTELLIGENCE</span><h2>Know what needs attention.</h2><p>Insights from your answers and vocabulary revision history.</p></div><Link href="/learn/sensei">Ask Japanese Sensei →</Link></div>
+    <div className={styles.heading}><div><span>LEARNING INTELLIGENCE</span><h2>Know what needs attention.</h2><p>Insights from your answers and vocabulary revision history.</p></div><div className={styles.headingActions}><select aria-label="Vocabulary insight JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as "N5"|"N4")}><option value="N5">N5 vocabulary</option><option value="N4">N4 vocabulary</option></select><Link href="/learn/sensei">Ask Japanese Sensei →</Link></div></div>
     {error?<p className={styles.error}>{error}</p>:null}
     <div className={styles.metrics}>
       <article><span>Grammar accuracy</span><strong>{grammar?grammar.accuracy+'%':'—'}</strong><small>{grammar?.totalAttempts??0} tagged question attempts</small></article>
