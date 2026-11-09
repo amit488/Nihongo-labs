@@ -40,6 +40,8 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [showExample, setShowExample] = useState(true);
   const [saved, setSaved] = useState<string[]>([]);
+  const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
+  const [savingLearned, setSavingLearned] = useState(false);
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const item = grammarItems.find((row) => row.id === selected) || grammarItems[0];
@@ -81,6 +83,49 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
     }
     setSaved((current) => isSaved ? current.filter((id) => id !== item.id) : [...current, item.id]);
     setNotice(isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
+  }
+
+  useEffect(() => {
+    if (!signedIn) {
+      setLearnedIds(new Set());
+      return;
+    }
+    let active = true;
+    fetch(`/api/learning/grammar-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ grammarIds?: string[] }> : null)
+      .then((body) => {
+        if (active && body?.grammarIds) setLearnedIds(new Set(body.grammarIds));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [level, signedIn]);
+
+  async function toggleUnderstood() {
+    if (!item || !signedIn || savingLearned) return;
+    const isLearned = learnedIds.has(item.id);
+    setSavingLearned(true);
+    setNotice(isLearned ? 'Removing from understood grammar…' : 'Saving understood grammar…');
+    try {
+      const response = await fetch('/api/learning/grammar-progress', {
+        method: isLearned ? 'DELETE' : 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grammarId: item.id }),
+      });
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Could not save grammar progress.');
+      setLearnedIds((current) => {
+        const next = new Set(current);
+        if (isLearned) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+      setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not save grammar progress.');
+    } finally {
+      setSavingLearned(false);
+    }
   }
 
   useEffect(() => {
@@ -145,6 +190,11 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
               <p>{example.meaning}</p>
             </div>
           )) : null}
+          {signedIn ? (
+            <button type="button" className={styles.ghostButton} disabled={savingLearned} onClick={() => void toggleUnderstood()}>
+              {savingLearned ? 'Saving…' : learnedIds.has(item.id) ? 'Understood ✓ · Remove' : 'Mark as understood'}
+            </button>
+          ) : null}
           <button type="button" className={styles.primaryButton} onClick={() => void toggleSave()}>
             {signedIn && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
             <span>{signedIn && saved.includes(item.id) ? '★' : '☆'}</span>
