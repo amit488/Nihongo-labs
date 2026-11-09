@@ -63,7 +63,8 @@ function selectionWeight(state: RevisionState | undefined, now: number): number 
   if (!state) return 7; // Never-tested learned items should get an early opportunity.
   const dueAt = Date.parse(state.next_review_at);
   if (!Number.isFinite(dueAt) || dueAt <= now) return state.last_is_correct === false ? 12 + Math.min(5, state.incorrect_attempts) : 6;
-  if (state.last_is_correct === false) return 0; // Wait until the short retry interval expires.\n  const hoursUntilDue = (dueAt - now) / 3_600_000;
+  if (state.last_is_correct === false) return 0; // Wait until the short retry interval expires.
+  const hoursUntilDue = (dueAt - now) / 3_600_000;
   const recentlySeen = state.last_reviewed_at && now - Date.parse(state.last_reviewed_at) < 5 * 60_000;
   // Correctly recalled items fade into the background, but stay eligible as a
   // low-probability fallback so a small learning pool can still be revised.
