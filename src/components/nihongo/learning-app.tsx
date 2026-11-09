@@ -739,9 +739,7 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
   const overallPercentage = Math.max(0, Math.min(100, Number(snapshot.overallPercentage) || 0));
-  const [weekDays, setWeekDays] = useState<Array<{ date: string; label: string; active: boolean }>>([]);
-
-  useEffect(() => {
+  const weekDays = useMemo(() => {
     const activeDates = new Set(snapshot.activeDays ?? []);
     const timeZone = snapshot.timeZone || 'Asia/Kolkata';
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -756,11 +754,11 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     const firstDay = new Date(today.getTime() - 6 * millisecondsPerDay);
     const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-    setWeekDays(Array.from({ length: 7 }, (_, index) => {
+    return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(firstDay.getTime() + index * millisecondsPerDay);
       const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
       return { date: dateKey, label: weekdayLabels[date.getUTCDay()], active: activeDates.has(dateKey) };
-    }));
+    });
   }, [snapshot.activeDays, snapshot.timeZone]);
   return <><QuickRevisionStats signedIn={signedIn}/><LearningIntelligence signedIn={signedIn}/><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{overallPercentage}<span>%</span></div><p>Progress is calculated from assessed lessons, learned vocabulary, understood grammar, known kanji and graded reading/Kana practice.</p></div><div className={styles.progressBarWrap}><div className={styles.progressBarTrack} role="progressbar" aria-label="Overall N5 readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercentage}><span style={{width:`${overallPercentage}%`}} /></div><span className={styles.progressBarLabel}><strong>{overallPercentage}%</strong> complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green" detail={`${snapshot.grammarUnderstood} of ${snapshot.grammarCount} N5 grammar points marked understood`}/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange" detail={`${snapshot.vocabularyMastered} of ${snapshot.vocabularyCount} N5 words learned or mastered`}/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple" detail={snapshot.readingAttempts ? `${snapshot.readingAttempts} graded reading attempts` : 'Complete a graded reading check to record progress'}/><Mastery label="Kana" value={mastery.kana} tone="green" detail={snapshot.kanaAttempts ? `${snapshot.kanaAttempts} graded Kana attempts` : 'Complete a Kana challenge to record progress'}/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange" detail={`${snapshot.lessonsCompleted} of ${snapshot.lessonsTotal} assessed N5 lessons completed`}/></div><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{weekDays.map((day)=><div className={day.active ? styles.dayDone : styles.dayEmpty} key={day.date} title={`${day.label} · ${day.date} · ${day.active ? 'Learning activity recorded' : 'No learning activity recorded'}`}><span>{day.label}</span><b aria-hidden="true">{day.active ? '✓' : '·'}</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
