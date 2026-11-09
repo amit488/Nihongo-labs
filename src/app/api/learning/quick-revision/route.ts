@@ -59,7 +59,7 @@ function normalize(value: string): string {
   return value.normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
 }
 
-function selectionWeight(candidate: Candidate, state: RevisionState | undefined, now: number): number {
+function selectionWeight(state: RevisionState | undefined, now: number): number {
   if (!state) return 7; // Never-tested learned items should get an early opportunity.
   const dueAt = Date.parse(state.next_review_at);
   if (!Number.isFinite(dueAt) || dueAt <= now) return state.last_is_correct === false ? 12 + Math.min(5, state.incorrect_attempts) : 6;
@@ -266,7 +266,7 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     const selected = weightedPick(candidates.map((item) => ({
       item,
-      weight: selectionWeight(item, stateMap.get(`${item.contentType}:${item.contentId}`), now),
+      weight: selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now),
     })));
     if (!selected) return NextResponse.json({ available: false }, { headers: { 'Cache-Control': 'private, no-store' } });
 
