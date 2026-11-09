@@ -1,7 +1,7 @@
 .wrapper { display:grid; gap:15px; margin:22px 0; font-family:inherit; }
 .heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
 .heading span,.panelTitle span { color:var(--muted); font-size:var(--workspace-font-micro); letter-spacing:.12em; font-weight:700; }
-.heading h2 { margin:5px 0; font:500 23px Georgia,serif; }
+.heading h2 { margin:5px 0; font:500 23px var(--workspace-heading-family); }
 .heading p { margin:0; color:var(--muted); font-size:var(--workspace-font-secondary); }
 .headingActions { display:flex; align-items:center; gap:12px; }
 .headingActions select { border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; font-size:var(--workspace-font-meta); }
@@ -9,7 +9,7 @@
 .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
 .metrics article,.panel { border:1px solid var(--line); border-radius:15px; background:var(--surface); padding:15px; }
 .metrics article span,.metrics article small { display:block; color:var(--muted); font-size:var(--workspace-font-meta); }
-.metrics article strong { display:block; margin:7px 0; font:500 27px Georgia,serif; }
+.metrics article strong { display:block; margin:7px 0; font:500 27px var(--workspace-heading-family); }
 .columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .panelTitle { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 .panelTitle h3 { margin:0; font-size:16px; }
