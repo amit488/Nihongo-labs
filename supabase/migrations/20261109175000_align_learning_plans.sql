@@ -25,6 +25,9 @@ select p.id, feature.feature_key, 'true'::jsonb
 from public.subscription_plans p
 cross join (values
   ('full_grammar'),
+  ('grammar_intelligence'),
+  ('vocabulary_intelligence'),
+  ('adaptive_revision'),
   ('vocabulary_revision'),
   ('kanji_revision'),
   ('daily_progress'),
