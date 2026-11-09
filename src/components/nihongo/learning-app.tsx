@@ -539,7 +539,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
   }, [signedIn, isStudySection, refreshLearnerSnapshot]);
 
-  const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', progress: 'Your progress', subscription: 'Membership', plans: 'Plans' };
+  const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', progress: 'Your progress', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
 
   async function signOut() {
@@ -575,7 +575,6 @@ export default function LearningApp({ section = [] }: Props) {
           {active === 'overview' && <Dashboard name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
           {active !== 'overview' && active !== 'progress' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
-          {active === 'plans' && <Plans />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
       </main>
@@ -730,29 +729,6 @@ function FocusCard({ number, title, description, meta, tag, href, tone }: { numb
   return <Link href={href} className={`${styles.focusCard} ${styles[`focus_${tone}`]}`}><div className={styles.focusTop}><span>{number}</span><small>{tag} ↗</small></div><h3>{title}</h3><p>{description}</p><div className={styles.focusMeta}><span>◷ {meta}</span><span>→</span></div></Link>;
 }
 
-
-function Plans() {
-  const plans = [
-    { name: 'Monthly', price: 149, period: 'month', monthly: '₹149', detail: 'Billed ₹149 every month', featured: false },
-    { name: '6 Months', price: 809, period: '6 months', monthly: '₹134.83', detail: 'Billed ₹809 every 6 months', featured: false },
-    { name: 'Annual', price: 1599, period: 'year', monthly: '₹133.25', detail: 'Billed ₹1,599 once a year', featured: true },
-  ];
-  return <section className={styles.plansPage}>
-    <SectionHeading eyebrow="SIMPLE, TRANSPARENT PRICING" title="Choose your learning plan." description="Build a consistent Japanese-learning habit with a plan that fits your pace." />
-    <div className={styles.plansGrid}>
-      {plans.map((plan) => <article key={plan.name} className={`${styles.pricingCard} ${plan.featured ? styles.pricingFeatured : ''}`}>
-        {plan.featured ? <span className={styles.pricingBadge}>BEST VALUE</span> : null}
-        <div className={styles.eyebrow}>{plan.name.toUpperCase()} PLAN</div>
-        <h2>{plan.name}</h2>
-        <div className={styles.pricingAmount}>₹{plan.price.toLocaleString('en-IN')}<small> / {plan.period}</small></div>
-        <p className={styles.pricingMonthly}>Equivalent to <strong>{plan.monthly}</strong> per month</p>
-        <p className={styles.pricingBilling}>{plan.detail}</p>
-        <Link href="/learn/subscription" className={plan.featured ? styles.primaryButton : styles.secondaryButton}>View membership <span>→</span></Link>
-      </article>)}
-    </div>
-    <p className={styles.pricingFootnote}>Monthly equivalents are shown for easy comparison. The 6-month and annual plans are charged upfront for the full term.</p>
-  </section>;
-}
 
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
