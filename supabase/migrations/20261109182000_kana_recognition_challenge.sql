@@ -24,9 +24,10 @@ on conflict (slug) do update set
 
 insert into public.course_units
   (course_id, slug, title, description, publication_status, sort_order)
-select id, 'kana', 'Kana: Hiragana & Katakana',
-       'Recognise and write the two Japanese syllabaries.', 'published', 1
-from public.courses where slug = 'nihongo-n5-foundations'
+select c.id, 'kana', 'Kana: Hiragana & Katakana',
+       'Recognise and write the two Japanese syllabaries.', 'published',
+       coalesce((select u.sort_order from public.course_units u where u.course_id = c.id and u.slug = 'kana'), 99)
+from public.courses c where c.slug = 'nihongo-n5-foundations'
 on conflict (course_id, slug) do update set
   title = excluded.title,
   description = excluded.description,
@@ -37,12 +38,13 @@ on conflict (course_id, slug) do update set
 insert into public.lessons
   (unit_id, slug, title, summary, lesson_type, access_level, publication_status,
    estimated_duration_minutes, sort_order)
-select id, 'hiragana', 'Hiragana characters',
+select u.id, 'hiragana', 'Hiragana characters',
        'Learn the basic Hiragana characters and practise recognising their sounds.',
-       'lesson', 'free', 'published', 8, 1
-from public.course_units
-where slug = 'kana'
-  and course_id = (select id from public.courses where slug = 'nihongo-n5-foundations')
+       'lesson', 'free', 'published', 8,
+       coalesce((select l.sort_order from public.lessons l where l.unit_id = u.id and l.slug = 'hiragana'), 99)
+from public.course_units u
+where u.slug = 'kana'
+  and u.course_id = (select id from public.courses where slug = 'nihongo-n5-foundations')
 on conflict (unit_id, slug) do update set
   title = excluded.title,
   summary = excluded.summary,
