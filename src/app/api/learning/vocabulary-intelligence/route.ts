@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
-function relation<T>(value: T | T[] | null): T | null {\n  return Array.isArray(value) ? (value[0] as T | undefined) ?? null : value as T | null;\n}
+function relation<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] as T | undefined) ?? null : value as T | null;
+}
 
 export async function GET(request: NextRequest) {
   await connection();
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
       if (existing) {
         existing.due = existing.due || quickItem.due;
         existing.atRisk = existing.atRisk || quickItem.atRisk;
-        existing.mastered = existing.mastered || quickItem.mastered;
+        existing.mastered = (existing.mastered || quickItem.mastered) && !existing.due && !existing.atRisk;
         if (quickItem.atRisk && (existing.lastRating === null || existing.lastRating > 1)) existing.lastRating = 1;
       } else itemsById.set(quickItem.id, quickItem);
     }
