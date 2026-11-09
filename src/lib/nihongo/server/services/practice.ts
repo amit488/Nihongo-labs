@@ -20,7 +20,6 @@ type GradedResponse = {
   is_correct: boolean; points_awarded: number; answered_at: string;
 };
 
-const KANA_QUESTION_COUNT = 20;
 const isKanaDifficultyQuiz = (slug: string) => /^kana-(easy|medium|hard)$/.test(slug);
 
 function shuffleItems<T>(items: T[]): T[] {
@@ -103,11 +102,7 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
       }
     }
 
-    if (!previousAttempt) {
-      orderedQuestions = shuffleItems(questionPool).slice(0, KANA_QUESTION_COUNT);
-    } else {
-      orderedQuestions = selectKanaQuestions(questionPool, previousQuestionIds);
-    }
+    orderedQuestions = selectKanaQuestions(questionPool, previousQuestionIds);
 
     selectedQuestionIds = orderedQuestions.map((question) => question.id);
   } else if (quiz.shuffle_questions) {
