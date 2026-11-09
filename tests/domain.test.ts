@@ -49,8 +49,9 @@ test('addInterval handles calendar periods and lifetime', () => {
 test('applyStudyTimeCredit updates an existing local activity day without changing other days', () => {
   const snapshot = {
     displayName: 'Learner', preferredJlptLevel: 'N5' as const,
-    grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
-    activeDays: ['2026-11-08', '2026-11-07'], lessonsCompleted: 0, recentScores: [],
+    grammarCount: 0, grammarUnderstood: 0, vocabularyCount: 0, vocabularyMastered: 0, kanjiCount: 0, kanjiMastered: 0,
+    grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
+    activeDays: ['2026-11-08', '2026-11-07'], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [],
     overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 2, due: { vocabulary: 0, flashcards: 0, total: 0 },
@@ -75,8 +76,9 @@ test('applyStudyTimeCredit updates an existing local activity day without changi
 test('applyStudyTimeCredit starts a new local activity day and rejects invalid credits', () => {
   const snapshot = {
     displayName: 'Learner', preferredJlptLevel: 'N5' as const,
-    grammarCount: 0, vocabularyCount: 0, kanjiCount: 0, kanjiMastered: 0,
-    activeDays: ['2026-11-07'], lessonsCompleted: 0, recentScores: [],
+    grammarCount: 0, grammarUnderstood: 0, vocabularyCount: 0, vocabularyMastered: 0, kanjiCount: 0, kanjiMastered: 0,
+    grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
+    activeDays: ['2026-11-07'], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [],
     overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
