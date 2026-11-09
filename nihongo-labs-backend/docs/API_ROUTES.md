@@ -26,7 +26,6 @@ All JSON mutations are same-origin protected and authenticated unless marked Pub
 | `POST` | `/api/learning/vocabulary-review` | SM-2 vocabulary review and daily counter update |
 | `GET` | `/api/learning/grammar-intelligence` | Learner's grammar error patterns and weak concepts |
 | `GET` | `/api/learning/vocabulary-intelligence?level=N5` | Vocabulary SM-2 risk, due queue and mastery insights |
-| `POST` | `/api/learning/sensei` | Context-aware Japanese tutor using server-side OpenAI Responses API and daily quotas |
 
 ## Practice and examinations
 
