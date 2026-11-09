@@ -438,7 +438,7 @@ function QuizRunner({
 
   if (activeQuiz && current) {
     return <>
-      <SectionHeading eyebrow={kind === 'mock' ? 'TIMED JLPT SIMULATOR' : kind === 'reading' ? 'READING COMPREHENSION' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE ENGINE'} title={activeQuiz.title} description={kind === 'kana' ? 'Identify each character before its 45-second timer runs out. Unanswered questions move on automatically.' : activeQuiz.description || 'Answer each question, then submit to receive detailed explanations.'} action={kind === 'kana' ? <span className={styles.counterPill}>45 seconds per question</span> : <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
+      <SectionHeading eyebrow={kind === 'mock' ? 'TIMED JLPT SIMULATOR' : kind === 'reading' ? 'READING COMPREHENSION' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE ENGINE'} title={activeQuiz.title} description={kind === 'kana' ? 'One character at a time. Unanswered questions are skipped automatically.' : activeQuiz.description || 'Answer each question, then submit to receive detailed explanations.'} action={kind === 'kana' ? <span className={styles.counterPill}>45 seconds per question</span> : <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>} />
       <div className={styles.examRunningTop}><div><div className={styles.eyebrow}>QUESTION {index + 1} OF {questions.length}</div><h1>{jsonDisplayText(prompt.instruction, 'Choose the best answer.')}</h1></div><div className={styles.timerBox}><small>{kind === 'kana' ? 'QUESTION TIME' : 'TIME LEFT'}</small><strong>{formatTime}</strong></div></div>
       <ProgressBar value={(index + 1) / questions.length * 100} />
       <div className={styles.examQuestion}>
@@ -469,7 +469,7 @@ function QuizRunner({
     <SectionHeading
       eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : kind === 'reading' ? 'READING PRACTICE' : kind === 'kana' ? 'KANA KNOWLEDGE CHECK' : 'DAILY PRACTICE'}
       title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Test your kana recognition.' : 'A little practice goes a long way.'}
-      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? '20 mixed-script questions across Hiragana and Katakana, with 45 seconds for each.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
+      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'Mixed Hiragana and Katakana, including look-alike characters and combined sounds.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
       action={kind === 'kana' ? <div className={styles.headingActions}><span className={styles.counterPill}>45 sec per question</span><button className={styles.ghostButton} type="button" onClick={onBack}>Back to chart</button></div> : <div className={styles.headingActions}>
         {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
         <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
