@@ -66,6 +66,10 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     if (!signedIn) {
       activeMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
+      dialogOpen.current = false;
+      setQuestion(null);
+      setResult(null);
+      setSelected('');
       return;
     }
     if (disabled) {
@@ -142,6 +146,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     }, 1_000);
 
     document.addEventListener('pointerdown', recordInteraction, { passive: true });
+    document.addEventListener('mousemove', recordInteraction, { passive: true });
     document.addEventListener('keydown', recordInteraction);
     document.addEventListener('scroll', recordInteraction, { passive: true });
     document.addEventListener('touchstart', recordInteraction, { passive: true });
@@ -153,6 +158,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       disposed = true;
       window.clearInterval(interval);
       document.removeEventListener('pointerdown', recordInteraction);
+      document.removeEventListener('mousemove', recordInteraction);
       document.removeEventListener('keydown', recordInteraction);
       document.removeEventListener('scroll', recordInteraction);
       document.removeEventListener('touchstart', recordInteraction);
