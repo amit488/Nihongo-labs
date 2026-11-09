@@ -177,7 +177,6 @@ insert into public.lesson_content_blocks (lesson_id,block_type,access_level,cont
 -- Quizzes and examination sets
 insert into public.quizzes (lesson_id,slug,title,description,access_level,publication_status,time_limit_seconds,pass_percentage,shuffle_questions,show_results_after_submit,sort_order) select l.id,'n5-daily-practice','Daily N5 Practice','A short mixed review of core particles and sentence patterns.','free','published',600,70,true,true,1 from public.lessons l join public.course_units u on u.id=l.unit_id join public.courses c on c.id=u.course_id where c.slug='nihongo-n5-foundations' and u.slug='practice' and l.slug='daily-practice' on conflict (slug) do update set lesson_id=excluded.lesson_id,title=excluded.title,description=excluded.description,access_level=excluded.access_level,publication_status='published',time_limit_seconds=excluded.time_limit_seconds,pass_percentage=excluded.pass_percentage,shuffle_questions=true,show_results_after_submit=true,sort_order=excluded.sort_order,updated_at=now();
 insert into public.quizzes (lesson_id,slug,title,description,access_level,publication_status,time_limit_seconds,pass_percentage,shuffle_questions,show_results_after_submit,sort_order) select l.id,'n5-grammar-particles','N5 Grammar: Particles','Focus on the most common beginner particles.','free','published',600,70,true,true,2 from public.lessons l join public.course_units u on u.id=l.unit_id join public.courses c on c.id=u.course_id where c.slug='nihongo-n5-foundations' and u.slug='practice' and l.slug='daily-practice' on conflict (slug) do update set lesson_id=excluded.lesson_id,title=excluded.title,description=excluded.description,access_level=excluded.access_level,publication_status='published',time_limit_seconds=excluded.time_limit_seconds,pass_percentage=excluded.pass_percentage,shuffle_questions=true,show_results_after_submit=true,sort_order=excluded.sort_order,updated_at=now();
-insert into public.quizzes (lesson_id,slug,title,description,access_level,publication_status,time_limit_seconds,pass_percentage,shuffle_questions,show_results_after_submit,sort_order) select l.id,'kana-recognition-challenge','Kana Recognition Challenge','Recognise Hiragana and Katakana, including similar-looking characters and combined sounds.','free','published',900,75,true,true,3 from public.lessons l join public.course_units u on u.id=l.unit_id join public.courses c on c.id=u.course_id where c.slug='nihongo-n5-foundations' and u.slug='kana' and l.slug='hiragana' on conflict (slug) do update set lesson_id=excluded.lesson_id,title=excluded.title,description=excluded.description,access_level=excluded.access_level,publication_status='published',time_limit_seconds=excluded.time_limit_seconds,pass_percentage=excluded.pass_percentage,shuffle_questions=true,show_results_after_submit=true,sort_order=excluded.sort_order,updated_at=now();
 insert into public.quizzes (lesson_id,slug,title,description,access_level,publication_status,time_limit_seconds,pass_percentage,shuffle_questions,show_results_after_submit,sort_order) select l.id,'n5-reading-check','N5 Reading Comprehension','Read short passages and answer comprehension questions.','free','published',600,70,true,true,4 from public.lessons l join public.course_units u on u.id=l.unit_id join public.courses c on c.id=u.course_id where c.slug='nihongo-n5-foundations' and u.slug='reading' and l.slug='short-passages' on conflict (slug) do update set lesson_id=excluded.lesson_id,title=excluded.title,description=excluded.description,access_level=excluded.access_level,publication_status='published',time_limit_seconds=excluded.time_limit_seconds,pass_percentage=excluded.pass_percentage,shuffle_questions=true,show_results_after_submit=true,sort_order=excluded.sort_order,updated_at=now();
 insert into public.quizzes (lesson_id,slug,title,description,access_level,publication_status,time_limit_seconds,pass_percentage,shuffle_questions,show_results_after_submit,sort_order) select l.id,'n5-mock-exam-01','JLPT N5 Mock Examination 01','Timed mixed practice: vocabulary, grammar, kanji and reading.','premium','published',1800,70,true,true,5 from public.lessons l join public.course_units u on u.id=l.unit_id join public.courses c on c.id=u.course_id where c.slug='nihongo-n5-foundations' and u.slug='exams' and l.slug='mock-exam-one' on conflict (slug) do update set lesson_id=excluded.lesson_id,title=excluded.title,description=excluded.description,access_level=excluded.access_level,publication_status='published',time_limit_seconds=excluded.time_limit_seconds,pass_percentage=excluded.pass_percentage,shuffle_questions=true,show_results_after_submit=true,sort_order=excluded.sort_order,updated_at=now();
 with quiz_row as (select id from public.quizzes where slug='n5-daily-practice') , qrow as (insert into public.quiz_questions (quiz_id,question_type,prompt,points,sort_order,is_active) select id,'single_choice'::public.quiz_question_type,'{"text":"わたし ___ 学生です。","romaji":"Watashi ___ gakusei desu.","meaning":"I am a student.","instruction":"Choose the correct particle."}'::jsonb,1,1,true from quiz_row on conflict (quiz_id,sort_order) do update set question_type=excluded.question_type,prompt=excluded.prompt,points=excluded.points,is_active=true,updated_at=now() returning id) insert into private.quiz_answer_keys (question_id,answer_key,explanation) select id,'{"option_key":"A"}'::jsonb,'{"explanation":"は marks the topic of the sentence. It is pronounced wa when used as a particle.","category":"particle"}'::jsonb from qrow on conflict (question_id) do update set answer_key=excluded.answer_key,explanation=excluded.explanation;
@@ -250,85 +249,7 @@ with quiz_row as (select id from public.quizzes where slug='n5-grammar-particles
 with quiz_row as (select id from public.quizzes where slug='n5-grammar-particles') , qrow as (insert into public.quiz_questions (quiz_id,question_type,prompt,points,sort_order,is_active) select id,'fill_blank'::public.quiz_question_type,'{"text":"Complete: 水を飲み ___。 (polite present)","meaning":"I drink water."}'::jsonb,1,8,true from quiz_row on conflict (quiz_id,sort_order) do update set question_type=excluded.question_type,prompt=excluded.prompt,points=excluded.points,is_active=true,updated_at=now() returning id) insert into private.quiz_answer_keys (question_id,answer_key,explanation) select id,'{"accepted":["ます"]}'::jsonb,'{"explanation":"ます is the polite non-past verb ending.","category":"grammar"}'::jsonb from qrow on conflict (question_id) do update set answer_key=excluded.answer_key,explanation=excluded.explanation;
 -- Kana recognition challenge: mixed Hiragana, Katakana, dakuten, handakuten and yoon.
 -- Each question receives a fresh 45-second window in the client runner.
-create temporary table kana_recognition_seed (
-  sort_order integer primary key,
-  prompt jsonb not null,
-  answer_key jsonb not null,
-  explanation jsonb not null,
-  options jsonb not null
-) on commit drop;
-
-insert into kana_recognition_seed (sort_order, prompt, answer_key, explanation, options)
-values
-  (1, '{"text":"あ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"A"}'::jsonb, '{"explanation":"あ is pronounced a.","category":"kana"}'::jsonb, '[{"key":"A","text":"a"},{"key":"B","text":"i"},{"key":"C","text":"e"},{"key":"D","text":"o"}]'::jsonb),
-  (2, '{"text":"Which kana is read shi?","instruction":"Choose the correct Hiragana character."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"し is pronounced shi. It is different from ち (chi) and つ (tsu).","category":"kana"}'::jsonb, '[{"key":"A","text":"ち"},{"key":"B","text":"し"},{"key":"C","text":"す"},{"key":"D","text":"つ"}]'::jsonb),
-  (3, '{"text":"シ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"A"}'::jsonb, '{"explanation":"シ is pronounced shi. Do not confuse it with ツ (tsu).","category":"kana"}'::jsonb, '[{"key":"A","text":"shi"},{"key":"B","text":"tsu"},{"key":"C","text":"so"},{"key":"D","text":"n"}]'::jsonb),
-  (4, '{"text":"つ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"C"}'::jsonb, '{"explanation":"つ is pronounced tsu. The sound is not su or shi.","category":"kana"}'::jsonb, '[{"key":"A","text":"su"},{"key":"B","text":"chi"},{"key":"C","text":"tsu"},{"key":"D","text":"te"}]'::jsonb),
-  (5, '{"text":"ソ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"ソ is pronounced so. Its shape is often confused with ン (n).","category":"kana"}'::jsonb, '[{"key":"A","text":"n"},{"key":"B","text":"so"},{"key":"C","text":"ro"},{"key":"D","text":"re"}]'::jsonb),
-  (6, '{"text":"ン","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"D"}'::jsonb, '{"explanation":"ン is pronounced n. Compare its stroke direction with ソ (so).","category":"kana"}'::jsonb, '[{"key":"A","text":"so"},{"key":"B","text":"shi"},{"key":"C","text":"tsu"},{"key":"D","text":"n"}]'::jsonb),
-  (7, '{"text":"ぬ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"ぬ is pronounced nu. It is visually similar to め (me).","category":"kana"}'::jsonb, '[{"key":"A","text":"ne"},{"key":"B","text":"nu"},{"key":"C","text":"me"},{"key":"D","text":"no"}]'::jsonb),
-  (8, '{"text":"メ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"C"}'::jsonb, '{"explanation":"メ is pronounced me. It is different from ヌ (nu).","category":"kana"}'::jsonb, '[{"key":"A","text":"nu"},{"key":"B","text":"mo"},{"key":"C","text":"me"},{"key":"D","text":"mu"}]'::jsonb),
-  (9, '{"text":"チ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"A"}'::jsonb, '{"explanation":"チ is pronounced chi. It is not シ (shi) or ツ (tsu).","category":"kana"}'::jsonb, '[{"key":"A","text":"chi"},{"key":"B","text":"shi"},{"key":"C","text":"tsu"},{"key":"D","text":"te"}]'::jsonb),
-  (10, '{"text":"きゃ","instruction":"Choose the combined sound for this Hiragana pair."}'::jsonb, '{"option_key":"D"}'::jsonb, '{"explanation":"きゃ combines き (ki) with small ゃ (ya) to make kya.","category":"kana"}'::jsonb, '[{"key":"A","text":"kyu"},{"key":"B","text":"kyo"},{"key":"C","text":"sha"},{"key":"D","text":"kya"}]'::jsonb),
-  (11, '{"text":"キャ","instruction":"Choose the combined sound for this Katakana pair."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"キャ combines キ (ki) with small ャ (ya) to make kya.","category":"kana"}'::jsonb, '[{"key":"A","text":"kyo"},{"key":"B","text":"kya"},{"key":"C","text":"cha"},{"key":"D","text":"kyu"}]'::jsonb),
-  (12, '{"text":"しゅ","instruction":"Choose the combined sound for this Hiragana pair."}'::jsonb, '{"option_key":"C"}'::jsonb, '{"explanation":"しゅ combines し (shi) with small ゅ (yu) to make shu.","category":"kana"}'::jsonb, '[{"key":"A","text":"sho"},{"key":"B","text":"chu"},{"key":"C","text":"shu"},{"key":"D","text":"kyu"}]'::jsonb),
-  (13, '{"text":"ジ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"A"}'::jsonb, '{"explanation":"ジ is pronounced ji. It is the voiced form of シ (shi).","category":"kana"}'::jsonb, '[{"key":"A","text":"ji"},{"key":"B","text":"shi"},{"key":"C","text":"chi"},{"key":"D","text":"zu"}]'::jsonb),
-  (14, '{"text":"ぎ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"D"}'::jsonb, '{"explanation":"ぎ is pronounced gi. The dakuten marks き (ki) as voiced.","category":"kana"}'::jsonb, '[{"key":"A","text":"ki"},{"key":"B","text":"ji"},{"key":"C","text":"ge"},{"key":"D","text":"gi"}]'::jsonb),
-  (15, '{"text":"パ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"パ is pronounced pa. The handakuten (small circle) changes ハ (ha) to pa.","category":"kana"}'::jsonb, '[{"key":"A","text":"ba"},{"key":"B","text":"pa"},{"key":"C","text":"ha"},{"key":"D","text":"po"}]'::jsonb),
-  (16, '{"text":"ぷ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"C"}'::jsonb, '{"explanation":"ぷ is pronounced pu. The handakuten changes ふ (fu) to pu.","category":"kana"}'::jsonb, '[{"key":"A","text":"bu"},{"key":"B","text":"po"},{"key":"C","text":"pu"},{"key":"D","text":"fu"}]'::jsonb),
-  (17, '{"text":"づ","instruction":"Choose the sound for this Hiragana character."}'::jsonb, '{"option_key":"A"}'::jsonb, '{"explanation":"づ is usually romanised zu. It is uncommon, but it is distinct in spelling from ず.","category":"kana"}'::jsonb, '[{"key":"A","text":"zu"},{"key":"B","text":"tsu"},{"key":"C","text":"ji"},{"key":"D","text":"du"}]'::jsonb),
-  (18, '{"text":"ワ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"D"}'::jsonb, '{"explanation":"ワ is pronounced wa. It is different from ラ (ra) and レ (re).","category":"kana"}'::jsonb, '[{"key":"A","text":"ra"},{"key":"B","text":"re"},{"key":"C","text":"wo"},{"key":"D","text":"wa"}]'::jsonb),
-  (19, '{"text":"Which pair is read kya?","instruction":"Choose the matching Hiragana and Katakana pair."}'::jsonb, '{"option_key":"B"}'::jsonb, '{"explanation":"きゃ and キャ both represent kya; the first is Hiragana and the second is Katakana.","category":"kana"}'::jsonb, '[{"key":"A","text":"きゅ and キュ"},{"key":"B","text":"きゃ and キャ"},{"key":"C","text":"きょ and キョ"},{"key":"D","text":"しゃ and シャ"}]'::jsonb),
-  (20, '{"text":"フ","instruction":"Choose the sound for this Katakana character."}'::jsonb, '{"option_key":"C"}'::jsonb, '{"explanation":"フ is pronounced fu. The sound is often written as fu, although it is softer than English f.","category":"kana"}'::jsonb, '[{"key":"A","text":"he"},{"key":"B","text":"ho"},{"key":"C","text":"fu"},{"key":"D","text":"bu"}]'::jsonb);
-
-insert into public.quiz_questions (quiz_id, question_type, prompt, points, sort_order, is_active)
-select q.id, 'single_choice'::public.quiz_question_type, s.prompt, 1, s.sort_order, true
-from public.quizzes q
-cross join kana_recognition_seed s
-where q.slug = 'kana-recognition-challenge'
-on conflict (quiz_id, sort_order) do update
-set question_type = excluded.question_type,
-    prompt = excluded.prompt,
-    points = excluded.points,
-    is_active = excluded.is_active,
-    updated_at = now();
-
-update public.quiz_questions
-set is_active = false, updated_at = now()
-where quiz_id = (select id from public.quizzes where slug = 'kana-recognition-challenge')
-  and sort_order > 20;
-
-delete from public.quiz_options
-where question_id in (
-  select id from public.quiz_questions
-  where quiz_id = (select id from public.quizzes where slug = 'kana-recognition-challenge')
-    and sort_order between 1 and 20
-);
-
-insert into private.quiz_answer_keys (question_id, answer_key, explanation)
-select qq.id, s.answer_key, s.explanation
-from public.quiz_questions qq
-join public.quizzes q on q.id = qq.quiz_id
-join kana_recognition_seed s on s.sort_order = qq.sort_order
-where q.slug = 'kana-recognition-challenge'
-on conflict (question_id) do update
-set answer_key = excluded.answer_key,
-    explanation = excluded.explanation,
-    updated_at = now();
-
-insert into public.quiz_options (question_id, option_key, option_content, sort_order)
-select qq.id,
-       option_row.value->>'key',
-       jsonb_build_object('text', option_row.value->>'text'),
-       option_row.ordinality
-from public.quiz_questions qq
-join public.quizzes q on q.id = qq.quiz_id
-join kana_recognition_seed s on s.sort_order = qq.sort_order
-cross join lateral jsonb_array_elements(s.options) with ordinality as option_row(value, ordinality)
-where q.slug = 'kana-recognition-challenge'
-on conflict (question_id, option_key) do update
-set option_content = excluded.option_content,
-    sort_order = excluded.sort_order;
+-- Kana quiz banks are installed by supabase/migrations/20261110100000_kana_three_difficulty_banks.sql.
 with quiz_row as (select id from public.quizzes where slug='n5-reading-check') , qrow as (insert into public.quiz_questions (quiz_id,question_type,prompt,points,sort_order,is_active) select id,'single_choice'::public.quiz_question_type,'{"text":"Passage: わたしは学生です。毎日、七時に起きます。八時に学校へ行きます。\nQuestion: What time does the student get up?","romaji":"Watashi wa gakusei desu. Mainichi, shichi-ji ni okimasu. Hachi-ji ni gakkou e ikimasu.","instruction":"Choose the correct time."}'::jsonb,1,1,true from quiz_row on conflict (quiz_id,sort_order) do update set question_type=excluded.question_type,prompt=excluded.prompt,points=excluded.points,is_active=true,updated_at=now() returning id) insert into private.quiz_answer_keys (question_id,answer_key,explanation) select id,'{"option_key":"B"}'::jsonb,'{"explanation":"七時に起きます means gets up at seven.","category":"reading"}'::jsonb from qrow on conflict (question_id) do update set answer_key=excluded.answer_key,explanation=excluded.explanation;
 insert into public.quiz_options (question_id,option_key,option_content,sort_order) select qq.id,'A','{"text":"6:00"}'::jsonb,1 from public.quiz_questions qq join public.quizzes qz on qz.id=qq.quiz_id where qz.slug='n5-reading-check' and qq.sort_order=1 on conflict (question_id,option_key) do update set option_content=excluded.option_content,sort_order=excluded.sort_order;
 insert into public.quiz_options (question_id,option_key,option_content,sort_order) select qq.id,'B','{"text":"7:00"}'::jsonb,2 from public.quiz_questions qq join public.quizzes qz on qz.id=qq.quiz_id where qz.slug='n5-reading-check' and qq.sort_order=1 on conflict (question_id,option_key) do update set option_content=excluded.option_content,sort_order=excluded.sort_order;
