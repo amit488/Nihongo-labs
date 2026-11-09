@@ -31,7 +31,7 @@ Each answer is structured into:
 - A mini quiz with an answer and explanation.
 - A suggested follow-up.
 
-The model receives a short summary of recent grammar mistake tags for personalisation. The current chat history stays in the page's client memory and is not written to Supabase.
+The model receives a compact learner context for personalisation: recent grammar mistake tags plus up to eight due or at-risk vocabulary items with their saved reading, meaning, part of speech and example. This context is read from the learner's own rows through RLS. The current chat history stays in the page's client memory and is not written to Supabase.
 
 ## Grammar mistake intelligence
 
