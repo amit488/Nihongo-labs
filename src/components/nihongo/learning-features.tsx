@@ -1456,10 +1456,10 @@ function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
   const topic = searchParams.get('topic');
   const topicPrompt = topic ? `Please explain this Japanese topic in context: ${topic}` : '';
   const [draftEdited, setDraftEdited] = useState(false);
-  const draftValue = draftEdited ? draft : topicPrompt;
   const [level, setLevel] = useState<'N5'|'N4'|'N3'|'N2'|'N1'>('N5');
   const [messages, setMessages] = useState<SenseiMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const draftValue = draftEdited ? draft : topicPrompt;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState<number | null>(null);
