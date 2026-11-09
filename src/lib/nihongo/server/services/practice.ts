@@ -19,6 +19,27 @@ type GradedResponse = {
   is_correct: boolean; points_awarded: number; answered_at: string;
 };
 
+const KANA_QUESTION_COUNT = 20;
+const KANA_ROTATION_FRESH_COUNT = 13;
+const isKanaDifficultyQuiz = (slug: string) => /^kana-(easy|medium|hard)$/.test(slug);
+
+function shuffleItems<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function metadataQuestionIds(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const candidate = (value as Record<string, unknown>).questionIds;
+  return Array.isArray(candidate)
+    ? candidate.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
 export async function startQuizAttempt(userClient: SupabaseClient, admin: SupabaseClient, userId: string, quizId: string) {
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
     .select('id,slug,title,description,time_limit_seconds,pass_percentage,max_attempts,access_level,publication_status,show_results_after_submit,shuffle_questions')
@@ -41,23 +62,80 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
   const { data: questions, error: questionsError } = await questionQuery;
   if (questionsError) throw new HttpError(500, 'Could not load quiz questions.', questionsError.message);
   if (!questions?.length) throw new HttpError(409, 'This quiz has no published questions yet.');
-  const orderedQuestions = [...(questions as unknown as QuizQuestionRow[])];
-  if (quiz.shuffle_questions) {
-    for (let index = orderedQuestions.length - 1; index > 0; index -= 1) {
-      const swap = Math.floor(Math.random() * (index + 1));
-      [orderedQuestions[index], orderedQuestions[swap]] = [orderedQuestions[swap], orderedQuestions[index]];
+
+  const questionPool = [...(questions as unknown as QuizQuestionRow[])];
+  const kanaQuiz = isKanaDifficultyQuiz(String(quiz.slug));
+  let orderedQuestions = questionPool;
+  let selectedQuestionIds: string[] | null = null;
+  let attemptNumber = 1;
+
+  if (kanaQuiz) {
+    if (questionPool.length < KANA_QUESTION_COUNT) {
+      throw new HttpError(409, 'This Kana difficulty bank needs at least 33 published questions before it can be started.');
     }
+
+    const { data: previousAttempts, error: historyError } = await admin.from('quiz_attempts')
+      .select('id,metadata,started_at')
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId)
+      .order('started_at', { ascending: false })
+      .limit(1);
+    if (historyError) throw new HttpError(500, 'Could not load your previous Kana attempts.', historyError.message);
+
+    let previousQuestionIds: string[] = [];
+    const previousAttempt = previousAttempts?.[0];
+    if (previousAttempt) {
+      previousQuestionIds = metadataQuestionIds(previousAttempt.metadata);
+      const metadata = previousAttempt.metadata && typeof previousAttempt.metadata === 'object' && !Array.isArray(previousAttempt.metadata)
+        ? previousAttempt.metadata as Record<string, unknown>
+        : {};
+      const previousNumber = Number(metadata.attemptNumber);
+      attemptNumber = Number.isInteger(previousNumber) && previousNumber > 0 ? previousNumber + 1 : 2;
+
+      // Older attempts created before the rotation metadata existed are recovered from saved responses.
+      if (!previousQuestionIds.length) {
+        const { data: priorResponses, error: responsesError } = await admin.from('quiz_responses')
+          .select('question_id')
+          .eq('user_id', userId)
+          .eq('attempt_id', previousAttempt.id);
+        if (responsesError) throw new HttpError(500, 'Could not load your previous Kana questions.', responsesError.message);
+        previousQuestionIds = (priorResponses ?? []).map((row) => row.question_id);
+      }
+    }
+
+    if (!previousAttempt) {
+      orderedQuestions = shuffleItems(questionPool).slice(0, KANA_QUESTION_COUNT);
+    } else {
+      const previousSet = new Set(previousQuestionIds);
+      const outsidePrevious = shuffleItems(questionPool.filter((question) => !previousSet.has(question.id)));
+      const insidePrevious = shuffleItems(questionPool.filter((question) => previousSet.has(question.id)));
+      const freshSelection = outsidePrevious.slice(0, Math.min(KANA_ROTATION_FRESH_COUNT, outsidePrevious.length));
+      const revisitSelection = insidePrevious.slice(0, KANA_QUESTION_COUNT - freshSelection.length);
+      const selectedSet = new Set([...freshSelection, ...revisitSelection].map((question) => question.id));
+      const fillSelection = shuffleItems(questionPool.filter((question) => !selectedSet.has(question.id)))
+        .slice(0, KANA_QUESTION_COUNT - freshSelection.length - revisitSelection.length);
+      orderedQuestions = shuffleItems([...freshSelection, ...revisitSelection, ...fillSelection])
+        .slice(0, KANA_QUESTION_COUNT);
+    }
+
+    selectedQuestionIds = orderedQuestions.map((question) => question.id);
+  } else if (quiz.shuffle_questions) {
+    orderedQuestions = shuffleItems(questionPool);
   }
-  const safeQuestions = orderedQuestions.map((question) => ({
-    id: question.id,
-    type: question.question_type,
-    prompt: question.prompt,
-    points: Number(question.points),
-    mediaAssetId: question.media_asset_id,
-    options: [...(question.quiz_options ?? [])]
+
+  const safeQuestions = orderedQuestions.map((question) => {
+    const options = [...(question.quiz_options ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((option) => ({ key: option.option_key, content: option.option_content })),
-  }));
+      .map((option) => ({ key: option.option_key, content: option.option_content }));
+    return {
+      id: question.id,
+      type: question.question_type,
+      prompt: question.prompt,
+      points: Number(question.points),
+      mediaAssetId: question.media_asset_id,
+      options: kanaQuiz ? shuffleItems(options) : options,
+    };
+  });
 
   const { data: reserved, error: attemptError } = await admin.rpc('reserve_quiz_attempt', {
     _user_id: userId,
@@ -69,7 +147,33 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
     throw new HttpError(500, 'Could not reserve quiz attempt. Run sql/011_backend_rpc.sql first.', attemptError?.message);
   }
 
-  return { attemptId: reserved[0].attempt_id, startedAt: reserved[0].started_at, quiz: { ...quiz, questions: safeQuestions } };
+  if (kanaQuiz && selectedQuestionIds) {
+    const { error: metadataError } = await admin.from('quiz_attempts')
+      .update({
+        metadata: {
+          quizKind: 'kana',
+          difficulty: String(quiz.slug).replace('kana-', ''),
+          questionIds: selectedQuestionIds,
+          attemptNumber,
+          rotationVersion: 1,
+        },
+      })
+      .eq('id', reserved[0].attempt_id)
+      .eq('user_id', userId);
+    if (metadataError) {
+      await admin.from('quiz_attempts')
+        .update({ status: 'abandoned', submitted_at: new Date().toISOString() })
+        .eq('id', reserved[0].attempt_id)
+        .eq('user_id', userId);
+      throw new HttpError(500, 'Could not save the selected Kana questions for this attempt.', metadataError.message);
+    }
+  }
+
+  return {
+    attemptId: reserved[0].attempt_id,
+    startedAt: reserved[0].started_at,
+    quiz: { ...quiz, questions: safeQuestions, attemptNumber },
+  };
 }
 
 export async function submitQuizAttempt(
@@ -79,7 +183,7 @@ export async function submitQuizAttempt(
   input: { attemptId: string; responses: Array<{ questionId: string; response: unknown }> },
 ) {
   const { data: attempt, error: attemptError } = await userClient.from('quiz_attempts')
-    .select('id,quiz_id,status,started_at').eq('id', input.attemptId).eq('user_id', userId).maybeSingle();
+    .select('id,quiz_id,status,started_at,metadata').eq('id', input.attemptId).eq('user_id', userId).maybeSingle();
   if (attemptError || !attempt) throw new HttpError(404, 'Quiz attempt not found.');
   if (attempt.status !== 'in_progress') throw new HttpError(409, 'This quiz attempt has already been submitted.');
 
@@ -87,9 +191,20 @@ export async function submitQuizAttempt(
     .select('id,slug,title,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
   if (quizError || !quiz) throw new HttpError(404, 'Quiz no longer exists.');
 
-  const { data: questions, error: questionError } = await admin.from('quiz_questions')
-    .select('id,question_type,points,sort_order,learning_tags').eq('quiz_id', attempt.quiz_id).eq('is_active', true).order('sort_order');
+  const selectedQuestionIds = metadataQuestionIds(attempt.metadata);
+  let gradingQuestionQuery = admin.from('quiz_questions')
+    .select('id,question_type,points,sort_order,learning_tags')
+    .eq('quiz_id', attempt.quiz_id)
+    .eq('is_active', true)
+    .order('sort_order');
+  if (selectedQuestionIds.length) {
+    gradingQuestionQuery = gradingQuestionQuery.in('id', selectedQuestionIds);
+  }
+  const { data: questions, error: questionError } = await gradingQuestionQuery;
   if (questionError || !questions?.length) throw new HttpError(500, 'Quiz has no active questions.');
+  if (selectedQuestionIds.length && questions.length !== selectedQuestionIds.length) {
+    throw new HttpError(409, 'The selected Kana question set changed. Please start a new attempt.');
+  }
   const timeLimit = Number(quiz.time_limit_seconds ?? 0);
   const elapsedBeforeSubmit = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
   if (timeLimit > 0 && elapsedBeforeSubmit > timeLimit + 15) {
