@@ -905,6 +905,25 @@ function Vocabulary({
   </>;
 }
 
+const KANJI_THEME_GROUPS: Array<{ title: string; description: string; characters: string }> = [
+  { title: 'Numbers, quantities & money', description: 'Count, compare amounts and recognise everyday money-related characters.', characters: '一二三四五六七八九十百千万円金銀号級第丁倍両列等' },
+  { title: 'Time, dates & sequence', description: 'Build a vocabulary for days, dates, clocks and the order of events.', characters: '日月年時分半今毎週間前後午先曜期次秒度昔予代' },
+  { title: 'People, family & relationships', description: 'Characters for people, family connections, roles and social relationships.', characters: '人男女子父母友名客君者主族童他相世様礼育' },
+  { title: 'Body, health & senses', description: 'Learn the body, the senses and common health-related terms.', characters: '目耳口手足血指歯身鼻皮面息病医薬死命生' },
+  { title: 'Learning, language & communication', description: 'Study characters used in school, reading, writing, speaking and asking questions.', characters: '学校語本文書読聞言話何漢究研詩問題章帳調申習勉練談写' },
+  { title: 'Daily actions & responsibilities', description: 'Everyday tasks, interactions, decisions and things we do.', characters: '休見仕使取受持拾始終住待助守消決整打返放注定開集勝負会配' },
+  { title: 'Movement, travel & transport', description: 'Movement from place to place and actions involved in travelling.', characters: '行来出入運泳起去進追乗発着転登動投遊落送車' },
+  { title: 'Food, drink & shopping', description: 'Common meals, ingredients, beverages and buying things.', characters: '食飲買皿酒豆茶湯味油品肉' },
+  { title: 'Nature, weather & landscape', description: 'Elements, weather, terrain, water and the natural world.', characters: '火水木土山川天雨温寒暑陽波氷湖岸島洋深炭鉄流' },
+  { title: 'Animals, plants & farming', description: 'Living things, plant growth and agricultural life.', characters: '羊犬猫魚根葉植畑農' },
+  { title: 'Places, buildings & travel destinations', description: 'Countries, neighbourhoods, buildings and destinations.', characters: '国外駅院界館宮橋区県庫港州室宿所庭屋都坂旅路柱階' },
+  { title: 'Directions, position & space', description: 'Position, orientation, sides and spatial relationships.', characters: '上下左右北南東西中央横向' },
+  { title: 'Qualities, colours & comparisons', description: 'Describe size, condition, speed, colours and contrasts.', characters: '大小高安新古長多少白悪暗苦急軽重短速全美赤青黒色緑平真質' },
+  { title: 'Thoughts, feelings & abstract ideas', description: 'Mental states, emotions and concepts that are harder to picture.', characters: '気意感想幸悲福神由有反対化事' },
+  { title: 'Objects, tools & materials', description: 'Everyday objects, instruments, luggage and materials.', characters: '電具荷球笛筆箱板物服表' },
+  { title: 'Work, roles & culture', description: 'Jobs, organisations, public roles and cultural activities.', characters: '社員係業商局部役曲祭和' },
+];
+
 function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<'N5' | 'N4'>('N5');
   const [deckItems, setDeckItems] = useState<KanjiItem[]>(items);
@@ -918,6 +937,21 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
   const [notice, setNotice] = useState('');
   const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
   const filtered = useMemo(() => deckItems.filter((row) => `${row.character} ${row.meaning} ${row.radical}`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
+  const groupedKanji = useMemo(() => {
+    const groups = KANJI_THEME_GROUPS.map((group) => ({
+      title: group.title,
+      description: group.description,
+      items: filtered.filter((row) => group.characters.includes(row.character)),
+    })).filter((group) => group.items.length > 0);
+    const assignedCharacters = new Set(groups.flatMap((group) => group.items.map((row) => row.character)));
+    const ungrouped = filtered.filter((row) => !assignedCharacters.has(row.character));
+    if (ungrouped.length) groups.push({
+      title: 'Additional kanji',
+      description: 'Newly added characters awaiting a curriculum theme.',
+      items: ungrouped,
+    });
+    return groups;
+  }, [filtered]);
   const knownCount = Object.values(status).filter((value) => value === 'known').length;
   const learningCount = Object.values(status).filter((value) => value === 'learning').length;
 
@@ -973,7 +1007,7 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
   }
 
   return <>
-    <SectionHeading eyebrow="THE BUILDING BLOCKS" title="Meet your kanji." description="Explore each character, flip for meanings and readings, and build your own familiarity over time." action={<span className={styles.counterPill}>{deckItems.length} characters</span>}/>
+    <SectionHeading eyebrow="THE BUILDING BLOCKS" title="Meet your kanji." description="Explore characters in related themes, flip for meanings and readings, and build your own familiarity over time." action={<span className={styles.counterPill}>{deckItems.length} characters</span>}/>
     <div className={styles.kanjiLevelTabs} aria-label="Kanji deck level">
       <button type="button" aria-pressed={level==='N5'} onClick={()=>changeLevel('N5')}>N5 kanji</button>
       <button type="button" aria-pressed={level==='N4'} onClick={()=>changeLevel('N4')}>N4 kanji</button>
@@ -985,7 +1019,28 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
     {notice ? <div className={styles.billingNote}>{notice}</div> : null}
     {loading ? <div className={styles.kanjiDeckEmpty}>Loading {level} kanji…</div> : !filtered.length ? <div className={styles.kanjiDeckEmpty}>No kanji found in this deck.</div> :
       <div className={styles.kanjiLayout}>
-        <div className={styles.kanjiGrid}>{filtered.map((row)=> <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={`${styles.kanjiTile} ${row.id===selected?styles.kanjiSelected:''}`}><strong>{row.character}</strong><span>{row.meaning}</span><small>{row.strokes} strokes</small></button>)}</div>
+        <div className={styles.kanjiGroups}>
+          {groupedKanji.map((group) => (
+            <section className={styles.kanjiGroup} key={group.title} aria-label={group.title}>
+              <div className={styles.kanjiGroupHeading}>
+                <div>
+                  <h3>{group.title}</h3>
+                  <p>{group.description}</p>
+                </div>
+                <span>{group.items.length} characters</span>
+              </div>
+              <div className={styles.kanjiGrid}>
+                {group.items.map((row) => (
+                  <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={`${styles.kanjiTile} ${row.id===selected?styles.kanjiSelected:''}`}>
+                    <strong>{row.character}</strong>
+                    <span>{row.meaning}</span>
+                    <small>{row.strokes} strokes</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
         {selectedItem&&<div className={styles.kanjiDetail}>
           <button type="button" aria-label={flipped?'Show kanji front':'Flip kanji card'} onClick={()=>setFlipped((value)=>!value)} style={{width:'100%',border:0,background:'transparent',padding:0,cursor:'pointer'}} aria-pressed={flipped}>
             <div className={styles.kanjiBig}>{selectedItem.character}</div>
@@ -1007,7 +1062,6 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
       </div>}
   </>;
 }
-
 function Kana({ mode, setMode, quiz, setQuiz, signedIn, romaji, setRomaji }: { mode: 'hiragana'|'katakana'; setMode: (value:'hiragana'|'katakana')=>void; quiz: boolean; setQuiz: (value:boolean)=>void; signedIn:boolean; romaji:boolean; setRomaji:(v:boolean)=>void }) {
   const rows = mode==='hiragana'?kanaRows:katakanaRows;
   const voicedRows = mode==='hiragana'?hiraganaVoicedRows:katakanaVoicedRows;
