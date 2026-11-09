@@ -210,3 +210,6 @@ These are account credentials/settings, not missing source modules. No live serv
 NihongoLabs includes grammar mistake analytics, vocabulary revision insights and adaptive revision. Grammar analytics uses question-level learning tags and graded practice history; vocabulary insights combine SM-2 review state with Quick Revision outcomes.
 
 Apply the learning-intelligence migration and the AI Sensei removal migration through your normal Supabase workflow after reviewing the existing local migration history. The removal migration drops the unused AI request quota objects and removes any retired Sensei/tutor feature keys from plan features and learner entitlements.
+
+
+The three paid checkout plans (Monthly ₹149, 6 Months ₹809 and Annual ₹1,599) are synchronized into `subscription_plans` by `20261109190000_align_learning_plans.sql`. Apply pending migrations locally before testing plan checkout. Razorpay recurring Plan IDs still need to be created/linked for each plan.
