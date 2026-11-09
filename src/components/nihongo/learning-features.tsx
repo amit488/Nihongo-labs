@@ -873,8 +873,8 @@ const KANJI_THEME_GROUPS: Array<{ title: string; description: string; characters
   { title: 'Directions, position & space', description: 'Position, orientation, sides and spatial relationships.', characters: '上下左右北南東西中央横向' },
   { title: 'Qualities, colours & comparisons', description: 'Describe size, condition, speed, colours and contrasts.', characters: '大小高安新古長多少白悪暗苦急軽重短速全美赤青黒色緑平真質' },
   { title: 'Thoughts, feelings & abstract ideas', description: 'Mental states, emotions and concepts that are harder to picture.', characters: '気意感想幸悲福神由有反対化事' },
-  { title: 'Objects, tools & materials', description: 'Everyday objects, instruments, luggage and materials.', characters: '電具荷球笛筆箱板物服表本' },
-  { title: 'Work, roles & culture', description: 'Jobs, organisations, public roles and cultural activities.', characters: '社会員係業商局部役曲祭和' },
+  { title: 'Objects, tools & materials', description: 'Everyday objects, instruments, luggage and materials.', characters: '電具荷球笛筆箱板物服表' },
+  { title: 'Work, roles & culture', description: 'Jobs, organisations, public roles and cultural activities.', characters: '社員係業商局部役曲祭和' },
 ];
 
 function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved: () => Promise<void> }) {
@@ -889,7 +889,7 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
   const [reviewLoading, setReviewLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
-  const filtered = useMemo(() => deckItems.filter((row) => \`\${row.character} \${row.meaning} \${row.radical}\`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
+  const filtered = useMemo(() => deckItems.filter((row) => `${row.character} ${row.meaning} ${row.radical}`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
   const groupedKanji = useMemo(() => {
     const groups = KANJI_THEME_GROUPS.map((group) => ({
       title: group.title,
@@ -912,13 +912,13 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
     let alive = true;
     void fetch('/api/kanji/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<{ signedIn?: boolean }> : null).then((body) => { if (alive) setSignedIn(Boolean(body?.signedIn)); }).catch(() => undefined);
 
-    void fetch(\`/api/learning/content?kind=kanji&level=\${level}&limit=250\`, { credentials: 'same-origin', cache: 'no-store' })
+    void fetch(`/api/learning/content?kind=kanji&level=${level}&limit=250`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load this kanji deck.');
         const body = await response.json() as { items?: Array<{ id:string; character:string; meaning:string; on_yomi:string[]|null; kun_yomi:string[]|null; stroke_count:number|null; radical:string|null; example_words:Array<{word?:string;reading?:string;meaning?:string}>|null }> };
         const mapped = (body.items || []).map((row) => {
           const example = row.example_words?.[0];
-          return { id:row.id, character:row.character, meaning:row.meaning, onYomi:row.on_yomi||[], kunYomi:row.kun_yomi||[], strokes:row.stroke_count||0, radical:row.radical||'', example: example ? \`\${example.word||''}\${example.reading ? \`（\${example.reading}）\` : ''}\` : '', exampleMeaning:example?.meaning||'' };
+          return { id:row.id, character:row.character, meaning:row.meaning, onYomi:row.on_yomi||[], kunYomi:row.kun_yomi||[], strokes:row.stroke_count||0, radical:row.radical||'', example: example ? `${example.word||''}${example.reading ? `（${example.reading}）` : ''}` : '', exampleMeaning:example?.meaning||'' };
         });
         if (alive) { setDeckItems(mapped); setSelected(mapped[0]?.id || ''); setFlipped(false); }
       })
@@ -929,7 +929,7 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
 
   useEffect(() => {
     let alive = true;
-    void fetch(\`/api/kanji/progress?level=\${level}\`, { credentials: 'same-origin', cache: 'no-store' })
+    void fetch(`/api/kanji/progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => response.ok ? response.json() as Promise<{ progress?: Array<{kanji_id:string;status:'known'|'learning'}> }> : null)
       .then((body) => { if (alive && body?.progress) setStatus(Object.fromEntries(body.progress.map((row) => [row.kanji_id,row.status]))); })
       .catch(() => undefined);
@@ -984,7 +984,7 @@ function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved
               </div>
               <div className={styles.kanjiGrid}>
                 {group.items.map((row) => (
-                  <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={\`\${styles.kanjiTile} \${row.id===selected?styles.kanjiSelected:''}\`}>
+                  <button type="button" key={row.id} onClick={()=>{setSelected(row.id);setFlipped(false);}} className={`${styles.kanjiTile} ${row.id===selected?styles.kanjiSelected:''}`}>
                     <strong>{row.character}</strong>
                     <span>{row.meaning}</span>
                     <small>{row.strokes} strokes</small>
