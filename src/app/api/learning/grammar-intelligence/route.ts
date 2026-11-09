@@ -2,7 +2,9 @@ import { connection, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
-type EventRow = { skill_tag: string; is_correct: boolean; created_at: string };\ntype QuickRow = { content_id: string; is_correct: boolean; created_at: string };\ntype GrammarPoint = { id: string; title: string | null; pattern: string | null; learning_tags: string[] | null };
+type EventRow = { skill_tag: string; is_correct: boolean; created_at: string };
+type QuickRow = { content_id: string; is_correct: boolean; created_at: string };
+type GrammarPoint = { id: string; title: string | null; pattern: string | null; learning_tags: string[] | null };
 
 const LABELS: Record<string, string> = {
   'particle:wa-vs-ga': 'は vs が — topic and subject',
@@ -90,8 +92,11 @@ export async function GET() {
       };
     }).sort((a, b) => Number(b.weak) - Number(a.weak) || b.misses - a.misses || a.accuracy - b.accuracy);
 
-    const totalAttempts = (data ?? []).length;
-    const totalCorrect = (data ?? []).filter((row: EventRow) => row.is_correct).length;
+    const taggedEvents = (data ?? []) as EventRow[];
+    const quickEvents = (quickRows ?? []) as QuickRow[];
+    const totalAttempts = taggedEvents.length + quickEvents.length;
+    const totalCorrect = taggedEvents.filter((row) => row.is_correct).length
+      + quickEvents.filter((row) => row.is_correct).length;
     return NextResponse.json({
       totalAttempts,
       accuracy: totalAttempts ? Math.round(totalCorrect / totalAttempts * 100) : 0,
