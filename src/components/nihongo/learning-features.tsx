@@ -474,8 +474,8 @@ function QuizRunner({
     <SectionHeading
       eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : kind === 'reading' ? 'READING PRACTICE' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE'}
       title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Choose your difficulty.' : 'A little practice goes a long way.'}
-      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'Each level has 33 questions. Every attempt draws a fresh 20-question set.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
-      action={kind === 'kana' ? <span className={styles.counterPill}>3 levels · 45 sec per question</span> : <div className={styles.headingActions}>
+      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'Choose a level for a timed quiz with 20 questions.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
+      action={kind === 'kana' ? <span className={styles.counterPill}>Timed · 45 sec per question</span> : <div className={styles.headingActions}>
         {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
         <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
       </div>}
@@ -483,7 +483,7 @@ function QuizRunner({
     {!signedIn ? <div className={styles.emptyState}><div>学</div><h2>Sign in to start learning</h2><p>Your practice attempts, exam results and streaks are saved to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : null}
     {loading ? <div className={styles.panel}>Loading practice sets…</div> : null}
     {!loading && quizzes.length === 0 ? <EmptyState title={kind === 'kana' ? 'Kana challenge is not installed yet' : 'Practice sets are not available yet'} description="Apply the latest local Supabase migrations to install the practice content." /> : null}
-    <div className={styles.focusGrid}>{quizzes.map((quiz) => <div className={styles.focusCard} key={quiz.id}><div className={styles.focusTop}><span>{kind === 'kana' ? '33-question bank · 20 per attempt' : `${String(quiz.questionCount).padStart(2, '0')} questions`}</span><small>{quiz.accessLevel.toUpperCase()}</small></div><h3>{quiz.title}</h3><p>{quiz.description}</p><div className={styles.focusMeta}><span>◷ {kind === 'kana' ? '45 sec each · Pass ' + quiz.passPercentage + '%' : quiz.timeLimitSeconds ? `${Math.ceil(quiz.timeLimitSeconds / 60)} min · Pass ${quiz.passPercentage}%` : 'Untimed'}</span><button className={styles.textButton} disabled={!signedIn || busy} onClick={() => void begin(quiz)}>{kind === 'kana' ? 'Start level' : 'Start'} →</button></div></div>)}</div>
+    <div className={styles.focusGrid}>{quizzes.map((quiz) => <div className={styles.focusCard} key={quiz.id}><div className={styles.focusTop}><span>{kind === 'kana' ? '20 questions' : `${String(quiz.questionCount).padStart(2, '0')} questions`}</span><small>{quiz.accessLevel.toUpperCase()}</small></div><h3>{kind === 'kana' ? <strong>{quiz.title}</strong> : quiz.title}</h3><p>{quiz.description}</p><div className={styles.focusMeta}><span>◷ {kind === 'kana' ? 'Timed · 45 sec each · Pass ' + quiz.passPercentage + '%' : quiz.timeLimitSeconds ? `${Math.ceil(quiz.timeLimitSeconds / 60)} min · Pass ${quiz.passPercentage}%` : 'Untimed'}</span><button className={styles.textButton} disabled={!signedIn || busy} onClick={() => void begin(quiz)}>{kind === 'kana' ? 'Start level' : 'Start'} →</button></div></div>)}</div>
     {error ? <div className={styles.authMessage}>{error}</div> : null}
   </>;
 }
