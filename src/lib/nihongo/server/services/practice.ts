@@ -84,11 +84,11 @@ export async function submitQuizAttempt(
   if (attempt.status !== 'in_progress') throw new HttpError(409, 'This quiz attempt has already been submitted.');
 
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
-    .select('id,title,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
+    .select('id,slug,title,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
   if (quizError || !quiz) throw new HttpError(404, 'Quiz no longer exists.');
 
   const { data: questions, error: questionError } = await admin.from('quiz_questions')
-    .select('id,question_type,points,sort_order').eq('quiz_id', attempt.quiz_id).eq('is_active', true).order('sort_order');
+    .select('id,question_type,points,sort_order,learning_tags').eq('quiz_id', attempt.quiz_id).eq('is_active', true).order('sort_order');
   if (questionError || !questions?.length) throw new HttpError(500, 'Quiz has no active questions.');
   const timeLimit = Number(quiz.time_limit_seconds ?? 0);
   const elapsedBeforeSubmit = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
@@ -162,6 +162,35 @@ export async function submitQuizAttempt(
       throw new HttpError(409, 'This quiz attempt has already been submitted.');
     }
     throw new HttpError(500, 'Could not save and finalize the quiz attempt. Run sql/011_backend_rpc.sql first.', finalizeError.message);
+  }
+
+  // Capture taxonomy-level grammar outcomes after a successful grade. The event
+  // table is private to the learner and written only by this server service.
+  const quizIsGrammar = /grammar|particle|conjugation/i.test(`${quiz.slug} ${quiz.title}`);
+  const grammarEvents = questions.flatMap((question) => {
+    const response = graded.find((row) => row.question_id === question.id);
+    if (!response) return [];
+    const rawTags = Array.isArray(question.learning_tags) ? question.learning_tags : [];
+    const tags = rawTags
+      .filter((tag: unknown): tag is string => typeof tag === 'string')
+      .map((tag: string) => tag.trim().toLowerCase())
+      .filter((tag: string) => /^[a-z0-9:_-]{2,80}$/.test(tag));
+    const effectiveTags = tags.length ? [...new Set(tags)] : quizIsGrammar ? ['grammar:general'] : [];
+    return effectiveTags.map((skill_tag) => ({
+      user_id: userId,
+      attempt_id: attempt.id,
+      question_id: question.id,
+      skill_tag,
+      response: response.response,
+      is_correct: response.is_correct,
+    }));
+  });
+  if (grammarEvents.length) {
+    const { error: intelligenceError } = await admin.from('grammar_attempt_events')
+      .upsert(grammarEvents, { onConflict: 'attempt_id,question_id,skill_tag', ignoreDuplicates: true });
+    // Do not turn a successfully graded attempt into a failed submission if an
+    // analytics write is temporarily unavailable. The API records this for ops.
+    if (intelligenceError) console.error('[Nihongo Labs] Could not persist grammar intelligence events:', intelligenceError);
   }
 
   const gradedByQuestionId = new Map<string, GradedResponse>(
