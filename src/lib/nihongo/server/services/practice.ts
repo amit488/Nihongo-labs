@@ -20,6 +20,7 @@ type GradedResponse = {
 };
 
 const KANA_QUESTION_COUNT = 20;
+const KANA_QUESTION_BANK_SIZE = 33;
 const KANA_ROTATION_FRESH_COUNT = 13;
 const isKanaDifficultyQuiz = (slug: string) => /^kana-(easy|medium|hard)$/.test(slug);
 
@@ -70,8 +71,8 @@ export async function startQuizAttempt(userClient: SupabaseClient, admin: Supaba
   let attemptNumber = 1;
 
   if (kanaQuiz) {
-    if (questionPool.length < KANA_QUESTION_COUNT) {
-      throw new HttpError(409, 'This Kana difficulty bank needs at least 33 published questions before it can be started.');
+    if (questionPool.length < KANA_QUESTION_BANK_SIZE) {
+      throw new HttpError(409, 'This Kana difficulty bank needs all 33 published questions before it can be started.');
     }
 
     const { data: previousAttempts, error: historyError } = await admin.from('quiz_attempts')
