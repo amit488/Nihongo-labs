@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import styles from './learning-plans.module.css';
 import { pricingPlans } from '@/lib/nihongo/pricing-plans';
 
