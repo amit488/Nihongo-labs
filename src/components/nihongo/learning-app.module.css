@@ -105,3 +105,12 @@
 .jlptLevelSwitch .jlptLevelSwitchActive:hover{background:#303a45;color:#fff}
 .dashboardLevelControl{display:flex;align-items:center;gap:12px}
 @media(max-width:780px){.dashboardLevelControl{align-self:flex-start}}
+
+/* Thematic sections for the N5 and N4 kanji decks. */
+
+.kanjiGroups{display:flex;flex-direction:column;gap:22px;min-width:0}
+.kanjiGroup{min-width:0}
+.kanjiGroupHeading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 11px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.kanjiGroupHeading h3{margin:0;color:var(--ink);font:600 18px Georgia,serif;letter-spacing:-.2px}
+.kanjiGroupHeading p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.kanjiGroupHeading span{flex:none;color:var(--muted);font-size:11px;white-space:nowrap;padding-bottom:2px}
