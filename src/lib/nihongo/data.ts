@@ -3,6 +3,7 @@ import { grammar, kanji, vocabulary, type VocabularyItem } from './demo-content'
 
 export type LearnerSnapshot = {
   displayName: string;
+  timeZone?: string;
   preferredJlptLevel: 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
   grammarCount: number;
   vocabularyCount: number;
@@ -25,7 +26,7 @@ export type LearnerSnapshot = {
 };
 
 type DashboardResponse = {
-  profile?: { displayName?: string | null };
+  profile?: { displayName?: string | null; timezone?: string | null };
   progress?: {
     grammarTotal?: number | null; vocabularyTotal?: number | null; kanjiTotal?: number | null; kanjiMastered?: number | null;
     lessonsCompleted?: number | null; overallPercentage?: number | null;
@@ -79,7 +80,7 @@ async function apiGet<T>(path: string): Promise<T> {
 }
 
 const previewSnapshot = (): LearnerSnapshot => ({
-  displayName: 'Learner', preferredJlptLevel: 'N5', grammarCount: grammar.length, vocabularyCount: vocabulary.length, kanjiCount: kanji.length, kanjiMastered: 0,
+  displayName: 'Learner', timeZone: 'Asia/Kolkata', preferredJlptLevel: 'N5', grammarCount: grammar.length, vocabularyCount: vocabulary.length, kanjiCount: kanji.length, kanjiMastered: 0,
   activeDays: [], lessonsCompleted: 0, recentScores: [], overallPercentage: 0,
   mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
   streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
@@ -96,6 +97,7 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
   ]);
   return {
     displayName: dashboard.profile?.displayName || resolvedUser.email?.split('@')[0] || 'Learner',
+    timeZone: dashboard.profile?.timezone || 'Asia/Kolkata',
     preferredJlptLevel: dashboard.preferences?.preferred_jlpt_level ?? 'N5',
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
     vocabularyCount: Number(dashboard.progress?.vocabularyTotal ?? 0),
