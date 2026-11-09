@@ -187,3 +187,16 @@ test('My Progress UI shows source counters and refreshes after saved learner act
   assert.match(features, /await onProgressSaved\(\)/);
   assert.match(features, /void onProgressSaved\(\)/);
 });
+
+test('N5 quizzes are linked to their matching curriculum lessons in starter content', () => {
+  const seed = readSql('010_n5_content_and_plans_seed.sql');
+  const daily = seed.split(/\r?\n/).find((line) => line.includes("'n5-daily-practice'"));
+  const grammar = seed.split(/\r?\n/).find((line) => line.includes("'n5-grammar-particles'"));
+  const reading = seed.split(/\r?\n/).find((line) => line.includes("'n5-reading-check'"));
+  const mock = seed.split(/\r?\n/).find((line) => line.includes("'n5-mock-exam-01''));
+
+  assert.ok(daily?.includes("u.slug='practice'") && daily.includes("l.slug='daily-practice'"));
+  assert.ok(grammar?.includes("u.slug='grammar'") && grammar.includes("l.slug='particles'"));
+  assert.ok(reading?.includes("u.slug='reading'") && reading.includes("l.slug='short-passages'"));
+  assert.ok(mock?.includes("u.slug='exams'") && mock.includes("l.slug='mock-exam-one'"));
+});
