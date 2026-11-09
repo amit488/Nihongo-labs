@@ -125,6 +125,12 @@ begin
     raise exception 'Invalid forgotten-answer payload.' using errcode = '22023';
   end if;
 
+  -- Serialize attempts for the same learner/item, including the first attempt
+  -- when no quick_revision_state row exists yet.
+  perform pg_advisory_xact_lock(
+    hashtextextended(_user_id::text || ':' || _content_type || ':' || _content_id::text, 0)
+  );
+
   select s.correct_streak
     into v_previous_streak
     from public.quick_revision_state s
