@@ -1,3 +1,4 @@
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import styles from './pricing.module.css';
@@ -94,6 +95,10 @@ const faqs = [
 ];
 
 export default async function PricingPage() {
+  // This page personalizes its navigation from the incoming Supabase session.
+  // Wait for the request before auth/session libraries read the current time.
+  await connection();
+
   let signedIn = false;
 
   try {
