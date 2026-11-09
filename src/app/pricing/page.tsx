@@ -109,8 +109,8 @@ export default async function PricingPage() {
     // Keep the public pricing page available if auth cannot be checked.
   }
 
-  const primaryHref = signedIn ? '/learn/subscription' : '/signup';
-  const primaryLabel = signedIn ? 'Choose this plan' : 'Get started';
+  const primaryHref = signedIn ? '/learn/plans' : '/signup';
+  const primaryLabel = signedIn ? 'View learning plans' : 'Get started';
 
   return (
     <main className={styles.page}>
