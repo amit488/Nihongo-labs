@@ -217,4 +217,10 @@ The three paid checkout plans (Monthly ₹149, 6 Months ₹809 and Annual ₹1,5
 
 ### Kana recognition challenge
 
-The Kana quiz is script-based rather than JLPT-level-based. It includes 20 mixed Hiragana and Katakana questions covering base sounds, look-alike characters, dakuten, handakuten and contracted sounds. Each question has a 45-second timer; unanswered questions advance automatically. The challenge content is installed by `supabase/migrations/20261109182000_kana_recognition_challenge.sql`. Apply pending migrations locally with `npx supabase migration up --local`.
+Kana is script-based rather than JLPT-level-based. The workspace has three separate tracks:
+
+- **Easy:** 33 basic Hiragana and Katakana questions.
+- **Medium:** 33 questions covering dakuten, handakuten and combined kana.
+- **Hard:** 33 questions covering look-alike characters, small kana, long vowels and modern loanword combinations.
+
+Each attempt draws 20 shuffled questions from the selected 33-question bank. A reattempt draws the 13 questions outside the previous set plus 7 questions from that previous set, then shuffles them. Each question has a 45-second timer; unanswered questions advance automatically. The original Kana challenge migration is retained in history, and `20261110100000_kana_three_difficulty_banks.sql` upgrades it to the three-level bank while preserving the quiz history. Apply pending migrations locally with `npx supabase migration up --local`.
