@@ -69,11 +69,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       dialogOpen.current = false;
       return;
     }
-    if (disabled) {
-      activeMilliseconds.current = 0;
-      targetMilliseconds.current = FIRST_QUESTION_MS;
-      return;
-    }
+    if (disabled) return;
 
     let disposed = false;
     let lastSampleAt = performance.now();
