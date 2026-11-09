@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import Link from 'next/link';
 import styles from './learning-plans.module.css';
 
 type PlanCode = 'monthly' | 'half_year' | 'annual';
@@ -91,7 +90,6 @@ export default function LearningPlans({ signedIn }: { signedIn: boolean }) {
           <h1>Choose your learning plan.</h1>
           <p>Three simple ways to keep your Japanese learning moving forward.</p>
         </div>
-        <Link href="/learn/subscription" className={styles.membershipLink}>View membership details <span>→</span></Link>
       </header>
 
       {!signedIn ? (
@@ -131,7 +129,6 @@ export default function LearningPlans({ signedIn }: { signedIn: boolean }) {
           </article>
         ))}
       </div>
-      <p className={styles.footnote}>All three plans include the same learning experience. The only difference is the billing period.</p>
     </section>
   );
 }
