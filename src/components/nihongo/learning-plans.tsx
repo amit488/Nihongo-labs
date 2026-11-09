@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import styles from './learning-plans.module.css';
-import { pricingPlans } from '@/lib/nihongo/pricing-plans';
+import { pricingPlans, type PricingPlanCode } from '@/lib/nihongo/pricing-plans';
 
-type PlanCode = 'monthly' | 'half_year' | 'annual';
+type PlanCode = PricingPlanCode;
 
 
 type CheckoutBody = {
