@@ -23,7 +23,6 @@ const navGroups = [
   { label: 'LEARN', items: [
     { key: 'overview', title: 'Overview', href: '/learn', icon: '◫' },
     { key: 'grammar', title: 'Grammar', href: '/learn/grammar', icon: '文' },
-    { key: 'sensei', title: 'Japanese Sensei', href: '/learn/sensei', icon: '先生' },
     { key: 'vocabulary', title: 'Vocabulary', href: '/learn/vocabulary', icon: '語' },
     { key: 'kanji', title: 'Kanji', href: '/learn/kanji', icon: '字' },
     { key: 'kana', title: 'Hiragana & Katakana', href: '/learn/kana', icon: 'あ' },
@@ -48,7 +47,7 @@ function Icon({ children, className = '' }: { children: ReactNode; className?: s
 export default function LearningApp({ section = [] }: Props) {
   const router = useRouter();
   const active = section[0] || 'overview';
-  const isStudySection = ['grammar', 'sensei', 'vocabulary', 'kanji', 'kana', 'practice', 'flashcards', 'reading', 'exams'].includes(active);
+  const isStudySection = ['grammar', 'vocabulary', 'kanji', 'kana', 'practice', 'flashcards', 'reading', 'exams'].includes(active);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
