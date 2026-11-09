@@ -205,6 +205,8 @@ The included seed is a **starter N5 corpus**, not a claim to contain every word 
 These are account credentials/settings, not missing source modules. No live services were called, no database was modified, no migration executed, and no Git push was performed while assembling this source package.
 
 
-## Learning intelligence and AI Japanese Sensei
+## Learning Intelligence
 
-NihongoLabs includes grammar mistake analytics, vocabulary revision insights and the AI Japanese Sensei interface/API. Read [docs/AI_SENSEI_SETUP.md](docs/AI_SENSEI_SETUP.md) before enabling the feature. Configure `OPENAI_API_KEY` and optionally `OPENAI_SENSEI_MODEL` in your server environment; never expose the key with a `NEXT_PUBLIC_` variable. Apply `supabase/migrations/20261109143000_learning_intelligence.sql` through your normal migration workflow after reviewing it against the existing local migration history.
+NihongoLabs includes grammar mistake analytics, vocabulary revision insights and adaptive revision. Grammar analytics uses question-level learning tags and graded practice history; vocabulary insights combine SM-2 review state with Quick Revision outcomes.
+
+Apply the learning-intelligence migration and the AI Sensei removal migration through your normal Supabase workflow after reviewing the existing local migration history. The removal migration drops the unused AI request quota objects and removes any retired Sensei/tutor feature keys from plan features and learner entitlements.
