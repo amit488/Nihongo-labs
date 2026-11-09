@@ -18,7 +18,7 @@
 .dialog h2{font:600 clamp(22px,3.4vw,29px)/1.25 Georgia,serif;letter-spacing:-.4px;margin:0 0 17px;color:inherit}
 .prompt{border:1px solid var(--line,#e6e9ed);border-radius:12px;background:rgba(255,255,255,.72);padding:21px 18px;margin-bottom:19px;text-align:center;font:600 clamp(25px,4vw,38px)/1.35 Georgia,serif;color:#232c37}
 .options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.option{display:flex;align-items:center;gap:11px;min-height:58px;padding:12px 13px;text-align:left;border:1px solid var(--line,#e6e9ed);border-radius:10px;background:rgba(255,255,255,.8);color:#303a45;font:600 15px/1.45 inherit;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.option{display:flex;align-items:center;gap:11px;min-height:58px;padding:12px 13px;text-align:left;border:1px solid var(--line,#e6e9ed);border-radius:10px;background:rgba(255,255,255,.8);color:#303a45;font:inherit;font-size:15px;font-weight:600;line-height:1.45;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
 .option:hover{border-color:#c67a69;transform:translateY(-1px)}
 .optionSelected{border:2px solid #b65b50;background:#faeeec;padding:11px 12px}
 .optionLetter{flex:0 0 27px;width:27px;height:27px;display:grid;place-items:center;border-radius:7px;background:#eff1f3;color:#4a5561;font-size:12px;font-weight:850}
@@ -64,3 +64,4 @@
  .statsSection{padding:15px}.statsGrid{grid-template-columns:1fr 1fr}.statsGrid .statCard:last-child{grid-column:1/-1}
  .typeSummary{grid-template-columns:1fr}.needsWorkList{grid-template-columns:1fr}
 }
+\n.dialog.correct .brandMark{background:#a8ddb4;color:#1e6135}\n.dialog.incorrect .brandMark{background:#f4bcbc;color:#8c2929}\n
