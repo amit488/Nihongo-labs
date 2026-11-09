@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 
-const relation = <T,>(value: T | T[] | null): T | null => Array.isArray(value) ? value[0] ?? null : value;
+function relation<T>(value: T | T[] | null): T | null {\n  return Array.isArray(value) ? (value[0] as T | undefined) ?? null : value as T | null;\n}
 
 export async function GET(request: NextRequest) {
   await connection();
