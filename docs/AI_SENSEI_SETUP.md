@@ -59,4 +59,4 @@ The learning-intelligence dashboard brings weakness information together; it doe
 
 ## Database migration
 
-Apply `supabase/migrations/20261109160000_learning_intelligence.sql` through your normal Supabase migration workflow before using the new analytics and AI routes. Review the SQL and verify it against your local migration history first. Do not rerun the base schema on an already initialized database.
+Apply `supabase/migrations/20261109143000_learning_intelligence.sql` through your normal Supabase migration workflow before using the new analytics and AI routes. Review the SQL and verify it against your local migration history first. Do not rerun the base schema on an already initialized database.
