@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
     if (kind === 'mock') query = query.ilike('slug', '%mock%');
     else if (kind === 'reading') query = query.ilike('slug', '%reading%');
-    else if (kind === 'kana') query = query.ilike('slug', '%kana%');
+    else if (kind === 'kana') query = query.in('slug', ['kana-easy', 'kana-medium', 'kana-hard']);
     else query = query.not('slug', 'ilike', '%mock%').not('slug', 'ilike', '%reading%').not('slug', 'ilike', '%kana%');
     const { data, error } = await query;
     if (error) throw new HttpError(500, 'Could not load practice sets.', error.message);
