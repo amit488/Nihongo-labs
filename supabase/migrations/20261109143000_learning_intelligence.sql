@@ -108,7 +108,7 @@ begin
   insert into public.ai_sensei_usage (user_id, usage_date, request_count, updated_at)
   values (_user_id, _usage_date, 1, now())
   on conflict (user_id, usage_date) do update
-    set request_count = public.ai_sensei_usage.request_count + 1,
+    set request_count = ai_sensei_usage.request_count + 1,
         updated_at = now()
     where public.ai_sensei_usage.request_count < _daily_limit
   returning request_count into v_count;
