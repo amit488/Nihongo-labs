@@ -232,6 +232,8 @@ type QuizResult = {
 };
 type QuizRecord = { id: string; slug: string; title: string; description: string; timeLimitSeconds: number | null; passPercentage: number; accessLevel: string; questionCount: number };
 
+const KANA_SECONDS_PER_QUESTION = 45;
+
 function asJsonObject(value: JsonValue | undefined): JsonObject | null {
   return value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonObject
@@ -327,7 +329,7 @@ function QuizRunner({
       setActiveQuiz(quiz); setAttemptId(body.attemptId);
       setQuestions(body.quiz.questions ?? []); setResponses({}); setIndex(0); setResult(null);
       const timeLimit = Number(body.quiz.time_limit_seconds ?? quiz.timeLimitSeconds ?? 0);
-      countdownRef.current = kind === 'kana' ? 45 : timeLimit;
+      countdownRef.current = kind === 'kana' ? KANA_SECONDS_PER_QUESTION : timeLimit;
       setRemaining(countdownRef.current);
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not start this practice set.'); }
     finally { setBusy(false); }
@@ -358,8 +360,8 @@ function QuizRunner({
       if (countdownRef.current === 0) {
         window.clearInterval(timer);
         if (kind === 'kana' && index < questions.length - 1) {
-          countdownRef.current = 45;
-          setRemaining(45);
+          countdownRef.current = KANA_SECONDS_PER_QUESTION;
+          setRemaining(KANA_SECONDS_PER_QUESTION);
           setIndex((currentIndex) => currentIndex + 1);
         } else {
           void submitRef.current();
@@ -378,8 +380,8 @@ function QuizRunner({
   }
   function goToQuestion(nextIndex: number) {
     if (kind === 'kana') {
-      countdownRef.current = 45;
-      setRemaining(45);
+      countdownRef.current = KANA_SECONDS_PER_QUESTION;
+      setRemaining(KANA_SECONDS_PER_QUESTION);
     }
     setIndex(nextIndex);
   }
