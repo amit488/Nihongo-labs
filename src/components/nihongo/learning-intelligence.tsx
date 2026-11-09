@@ -39,14 +39,14 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
     <div className={styles.heading}><div><span>LEARNING INTELLIGENCE</span><h2>Know what needs attention.</h2><p>Insights from your answers and vocabulary revision history.</p></div><div className={styles.headingActions}><select aria-label="Vocabulary insight JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as "N5"|"N4")}><option value="N5">N5 vocabulary</option><option value="N4">N4 vocabulary</option></select><Link href="/learn/sensei">Ask Japanese Sensei →</Link></div></div>
     {error?<p className={styles.error}>{error}</p>:null}
     <div className={styles.metrics}>
-      <article><span>Grammar accuracy</span><strong>{grammar?grammar.accuracy+'%':'—'}</strong><small>{grammar?.totalAttempts??0} tagged question attempts</small></article>
+      <article><span>Grammar accuracy</span><strong>{grammar?grammar.accuracy+'%':'—'}</strong><small>{grammar?.totalAttempts??0} quiz + Quick Revision attempts</small></article>
       <article><span>Grammar weak spots</span><strong>{grammar?.weakTopicCount??'—'}</strong><small>Concepts to revisit</small></article>
       <article><span>Vocabulary due</span><strong>{vocabulary?.dueCount??'—'}</strong><small>{vocabulary?.atRiskCount??0} words at risk</small></article>
       <article><span>Words mastered</span><strong>{vocabulary?.masteredCount??'—'}</strong><small>{vocabulary?.learnedCount??0} words marked learned</small></article>
     </div>
     <div className={styles.columns}>
       <div className={styles.panel}>
-        <div className={styles.panelTitle}><h3>Grammar mistake patterns</h3><span>FROM QUIZ RESULTS</span></div>
+        <div className={styles.panelTitle}><h3>Grammar mistake patterns</h3><span>QUIZZES + QUICK REVISION</span></div>
         {!grammar?.topics.length?<p className={styles.empty}>No grammar mistake patterns yet. Complete grammar practice to start building your profile. For detailed reports, tag quiz questions with skill labels.</p>:
           grammar.topics.slice(0,5).map(topic=><article className={styles.topic} key={topic.tag}>
             <div><strong>{topic.label}</strong><small>{topic.misses} missed · {topic.attempts} attempts</small></div>
