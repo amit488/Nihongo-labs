@@ -53,6 +53,12 @@ The code does not create another database, recreate the original schema, or chan
 - `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
 - `sql/011_backend_rpc.sql`: additive, restricted RPC helpers for activity, quiz attempt reservation/finalization, atomic lesson progress, FSRS writes, vocabulary scheduling and refunds
 
+## Database migration history
+
+The `supabase/migrations/` directory is an ordered, append-only history. Keep every migration file, including earlier changes later corrected or retired by a newer migration. On an existing database, `npx supabase migration up --local` applies only pending migrations; on a fresh database, all migrations are applied in timestamp order. Do not delete or rewrite a migration that may already have been applied.
+
+The separate `nihongo-labs-backend/sql/` directory contains manual seed/setup scripts. Those are not automatically executed by `supabase migration up`; follow the local setup steps below before running them. The Kana question bank is now installed by a Supabase migration, not by the general N5 starter seed.
+
 ## Local integration steps
 
 ### 1. Add source files to the existing repository
