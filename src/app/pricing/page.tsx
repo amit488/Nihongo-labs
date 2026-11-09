@@ -2,43 +2,9 @@ import { connection } from 'next/server';
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import styles from './pricing.module.css';
+import { pricingPlans } from '@/lib/nihongo/pricing-plans';
 
-const plans = [
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: '₹149',
-    period: '/ month',
-    monthly: '₹149',
-    billing: 'Billed ₹149 every month',
-    note: 'Flexible access, month to month.',
-    featured: false,
-    label: 'STAY FLEXIBLE',
-  },
-  {
-    id: 'half-year',
-    name: '6 Months',
-    price: '₹809',
-    period: '/ 6 months',
-    monthly: '₹134.83',
-    billing: 'Billed ₹809 once every 6 months',
-    note: 'Save ₹85 compared with six monthly payments.',
-    featured: false,
-    label: 'BUILD YOUR RHYTHM',
-  },
-  {
-    id: 'annual',
-    name: 'Annual',
-    price: '₹1,599',
-    period: '/ year',
-    monthly: '₹133.25',
-    billing: 'Billed ₹1,599 once a year',
-    note: 'Save ₹189 compared with twelve monthly payments.',
-    featured: true,
-    label: 'BEST LONG-TERM VALUE',
-  },
-];
-
+const plans = pricingPlans;
 const included = [
   {
     icon: '文',
