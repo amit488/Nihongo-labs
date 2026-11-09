@@ -254,7 +254,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function QuizRunner({
-  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true,
+  kind, signedIn, romaji, setRomaji, level: controlledLevel, onLevelChange, showLevelSwitch = true, onBack,
 }: {
   kind: 'practice' | 'mock' | 'reading' | 'kana';
   signedIn: boolean;
@@ -263,6 +263,7 @@ function QuizRunner({
   level?: JlptLevel;
   onLevelChange?: (level: JlptLevel) => void;
   showLevelSwitch?: boolean;
+  onBack?: () => void;
 }) {
   const [internalLevel, setInternalLevel] = useState<JlptLevel>('N5');
   const level = controlledLevel ?? internalLevel;
@@ -466,10 +467,10 @@ function QuizRunner({
 
   return <>
     <SectionHeading
-      eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : kind === 'reading' ? 'READING PRACTICE' : kind === 'kana' ? 'KANA RECOGNITION' : 'DAILY PRACTICE'}
-      title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Recognise your kana.' : 'A little practice goes a long way.'}
-      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? 'A mixed-script challenge across Hiragana, Katakana and their trickier combinations.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
-      action={kind === 'kana' ? <span className={styles.counterPill}>20 questions · 45 sec each</span> : <div className={styles.headingActions}>
+      eyebrow={kind === 'mock' ? `EXAM SIMULATOR · JLPT ${level}` : kind === 'reading' ? 'READING PRACTICE' : kind === 'kana' ? 'KANA KNOWLEDGE CHECK' : 'DAILY PRACTICE'}
+      title={kind === 'mock' ? 'Make exam day feel familiar.' : kind === 'kana' ? 'Test your kana recognition.' : 'A little practice goes a long way.'}
+      description={kind === 'mock' ? 'Start a timed mock examination.' : kind === 'kana' ? '20 mixed-script questions across Hiragana and Katakana, with 45 seconds for each.' : kind === 'reading' ? 'Choose a reading set to begin.' : 'Pick a practice set.'}
+      action={kind === 'kana' ? <div className={styles.headingActions}><span className={styles.counterPill}>45 sec per question</span><button className={styles.ghostButton} type="button" onClick={onBack}>Back to chart</button></div> : <div className={styles.headingActions}>
         {showLevelSwitch && kind !== 'kana' ? <JlptLevelSwitch value={level} onChange={changeLevel} label={kind === 'mock' ? 'Mock exam JLPT level' : 'Daily practice JLPT level'} /> : null}
         <button className={styles.ghostButton} type="button" onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji <span>あ</span></button>
       </div>}
@@ -1088,7 +1089,7 @@ function Kana({ mode, setMode, quiz, setQuiz, signedIn, romaji, setRomaji }: { m
   const rows = mode==='hiragana'?kanaRows:katakanaRows;
   const voicedRows = mode==='hiragana'?hiraganaVoicedRows:katakanaVoicedRows;
   const voicedRomajiRows = mode==='hiragana'?hiraganaVoicedRomajiRows:katakanaVoicedRomajiRows;
-  return <>{quiz ? <><SectionHeading eyebrow="KANA KNOWLEDGE CHECK" title="Test your kana recognition." description="Try a mixed-script challenge across Hiragana and Katakana." action={<button className={styles.ghostButton} onClick={()=>setQuiz(false)}>Back to chart</button>}/><QuizRunner kind="kana" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji}/></> : <><SectionHeading eyebrow="YOUR FIRST MILESTONE" title="Get comfortable with kana." description="Master the two phonetic alphabets that make Japanese reading possible." action={<div className={styles.headingActions}><button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button><button className={styles.primaryButton} type="button" onClick={()=>setQuiz(true)}>Start recognition challenge <span>→</span></button></div>}/><div className={styles.kanaToolbar}><div className={styles.segmented}><button className={mode==='hiragana'?styles.segmentActive:''} onClick={()=>setMode('hiragana')}>あ Hiragana</button><button className={mode==='katakana'?styles.segmentActive:''} onClick={()=>setMode('katakana')}>ア Katakana</button></div><span>46 basic characters · plus voiced sounds</span></div><div className={styles.kanaChart}><div className={styles.kanaChartHeader}><div><strong>{mode==='hiragana'?'Hiragana':'Katakana'} chart</strong><span>Each character is paired with its standard romaji reading.</span></div><span className={styles.chartCount}>46 / 46 basic</span></div><div className={styles.kanaGrid}>{rows.map((row,i)=><div className={styles.kanaRow} key={i}>{row.map((char,j)=>char?<div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{kanaRomajiRows[i][j]}</span>:null}</div>:<div className={styles.kanaBlank} key={`blank-${i}-${j}`}/>)}</div>)}</div><div className={styles.kanaExtraHeader}><strong>Dakuten &amp; Handakuten</strong><span>Voiced and semi-voiced sounds</span></div><div className={styles.kanaGrid}>{voicedRows.map((row,i)=><div className={styles.kanaRow} key={`voiced-${i}`}>{row.map((char,j)=><div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{voicedRomajiRows[i][j]}</span>:null}</div>)}</div>)}</div></div></>}</>;
+  return <>{quiz ? <QuizRunner kind="kana" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onBack={() => setQuiz(false)} /> : <><SectionHeading eyebrow="YOUR FIRST MILESTONE" title="Get comfortable with kana." description="Master the two phonetic alphabets that make Japanese reading possible." action={<div className={styles.headingActions}><button type="button" className={styles.ghostButton} onClick={()=>setRomaji(!romaji)}>{romaji?'Hide':'Show'} romaji</button><button className={styles.primaryButton} type="button" onClick={()=>setQuiz(true)}>Start recognition challenge <span>→</span></button></div>}/><div className={styles.kanaToolbar}><div className={styles.segmented}><button className={mode==='hiragana'?styles.segmentActive:''} onClick={()=>setMode('hiragana')}>あ Hiragana</button><button className={mode==='katakana'?styles.segmentActive:''} onClick={()=>setMode('katakana')}>ア Katakana</button></div><span>46 basic characters · plus voiced sounds</span></div><div className={styles.kanaChart}><div className={styles.kanaChartHeader}><div><strong>{mode==='hiragana'?'Hiragana':'Katakana'} chart</strong><span>Each character is paired with its standard romaji reading.</span></div><span className={styles.chartCount}>46 / 46 basic</span></div><div className={styles.kanaGrid}>{rows.map((row,i)=><div className={styles.kanaRow} key={i}>{row.map((char,j)=>char?<div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{kanaRomajiRows[i][j]}</span>:null}</div>:<div className={styles.kanaBlank} key={`blank-${i}-${j}`}/>)}</div>)}</div><div className={styles.kanaExtraHeader}><strong>Dakuten &amp; Handakuten</strong><span>Voiced and semi-voiced sounds</span></div><div className={styles.kanaGrid}>{voicedRows.map((row,i)=><div className={styles.kanaRow} key={`voiced-${i}`}>{row.map((char,j)=><div className={styles.kanaCell} key={char}><strong>{char}</strong>{romaji?<span>{voicedRomajiRows[i][j]}</span>:null}</div>)}</div>)}</div></div></>}</>;
 }
 
 const flashDeck = [
