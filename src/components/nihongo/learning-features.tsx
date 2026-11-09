@@ -1,15 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
-import senseiStyles from './ai-japanese-sensei.module.css';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel } from './learning-shared';
 
-type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription' | 'sensei';
+type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription';
 export type LearningFeatureProps = {
   active: FeatureSection; grammarItems: GrammarItem[]; vocabularyItems: VocabularyItem[]; kanjiItems: KanjiItem[];
   flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
@@ -1437,99 +1436,6 @@ function Membership({signedIn}:{signedIn:boolean}) {
   </>;
 }
 
-
-type SenseiExample = { japanese: string; romaji: string; translation: string; focus: string };
-type SenseiReply = {
-  answer: string;
-  level_note: string;
-  grammar_breakdown: { pattern: string; formation: string; usage: string };
-  examples: SenseiExample[];
-  common_confusion: string;
-  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
-  mini_quiz: { question: string; options: string[]; correct_answer: string; explanation: string };
-  follow_up: string;
-};
-type SenseiMessage = { role: 'user' | 'assistant'; content: string; reply?: SenseiReply };
-
-function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
-  const searchParams = useSearchParams();
-  const topic = searchParams.get('topic');
-  const topicPrompt = topic ? `Please explain this Japanese topic in context: ${topic}` : '';
-  const [draftEdited, setDraftEdited] = useState(false);
-  const [level, setLevel] = useState<'N5'|'N4'|'N3'|'N2'|'N1'>('N5');
-  const [messages, setMessages] = useState<SenseiMessage[]>([]);
-  const [draft, setDraft] = useState('');
-  const draftValue = draftEdited ? draft : topicPrompt;
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [quizChoice, setQuizChoice] = useState<Record<number,string>>({});
-
-  async function ask(question?: string) {
-    const text = (question ?? draftValue).trim();
-    if (!text || sending || !signedIn) return;
-    const next = [...messages, { role: 'user' as const, content: text }];
-    setMessages(next);
-    setDraft('');
-    setDraftEdited(true);
-    setSending(true);
-    setError('');
-    try {
-      const response = await fetch('/api/learning/sensei', {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level, messages: next.slice(-10).map(({role,content})=>({role,content})) }),
-      });
-      const body = await response.json().catch(() => ({})) as { reply?: SenseiReply; remaining?: number; error?: string };
-      if (!response.ok || !body.reply) throw new Error(body.error || 'Sensei could not answer right now.');
-      setMessages((current) => [...current, { role: 'assistant', content: body.reply!.answer, reply: body.reply }]);
-      setRemaining(typeof body.remaining === 'number' ? body.remaining : null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Sensei could not answer right now.');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return <section className={senseiStyles.senseiPage}>
-    <SectionHeading eyebrow="YOUR PERSONAL JAPANESE TUTOR" title="Meet your Japanese Sensei." description="Ask about grammar, particles, kanji, vocabulary or a sentence you are struggling with. Get an explanation, natural examples and a quick check of understanding." action={<select aria-label="Sensei JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as typeof level)}>{(['N5','N4','N3','N2','N1'] as const).map((value)=><option key={value}>{value}</option>)}</select>} />
-    {!signedIn ? <div className={styles.panel}><h3>Sign in to speak with Sensei</h3><p>Your learning context is personal to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : <>
-      <div className={senseiStyles.senseiIntro}>
-        <div className={senseiStyles.senseiAvatar}>先生</div>
-        <div><strong>Japanese Sensei</strong><p>Context-aware explanations · JLPT {level} · Practice as you learn</p>{remaining!==null?<small>{remaining} AI messages remaining today</small>:null}</div>
-      </div>
-      {messages.length===0 ? <div className={senseiStyles.senseiStarters}>
-        <p>What would you like to understand today?</p>
-        {[
-          'Explain the difference between は and が with natural examples.',
-          'When should I use に instead of で?',
-          'Teach me the て-form and test me afterwards.',
-          'Explain this sentence word by word: 昨日、友達と映画を見ました。',
-        ].map((prompt)=><button type="button" key={prompt} onClick={()=>void ask(prompt)}>{prompt}<span>→</span></button>)}
-      </div> : <div className={senseiStyles.senseiConversation} aria-live="polite">
-        {messages.map((message,index)=><article key={index} className={message.role==='user'?senseiStyles.senseiUser:senseiStyles.senseiAssistant}>
-          {message.role==='user'?<p>{message.content}</p>:message.reply?<div className={senseiStyles.senseiAnswer}>
-            <p className={senseiStyles.senseiMainAnswer}>{message.reply.answer}</p>
-            <small>{message.reply.level_note}</small>
-            <div className={senseiStyles.senseiRule}><b>{message.reply.grammar_breakdown.pattern}</b><span>{message.reply.grammar_breakdown.formation}</span><p>{message.reply.grammar_breakdown.usage}</p></div>
-            <h4>Examples in context</h4>
-            {message.reply.examples.map((example,i)=><div className={senseiStyles.senseiExample} key={i}><strong>{example.japanese}</strong><span>{example.romaji}</span><p>{example.translation}</p><small>{example.focus}</small></div>)}
-            <div className={senseiStyles.senseiConfusion}><b>Common confusion</b><p>{message.reply.common_confusion}</p></div>
-            {message.reply.vocabulary.length>0?<div className={senseiStyles.senseiVocab}><b>Vocabulary in this explanation</b>{message.reply.vocabulary.map((word,i)=><span key={i}><strong>{word.word}</strong>（{word.reading}） — {word.meaning}</span>)}</div>:null}
-            <div className={senseiStyles.senseiMiniQuiz}><b>Check your understanding</b><p>{message.reply.mini_quiz.question}</p>{message.reply.mini_quiz.options.map((option,i)=><button type="button" key={i} className={quizChoice[index]===option?senseiStyles.senseiQuizSelected:''} onClick={()=>setQuizChoice((current)=>({...current,[index]:option}))}>{option}</button>)}{quizChoice[index]?<p className={senseiStyles.senseiQuizFeedback}>{quizChoice[index]===message.reply!.mini_quiz.correct_answer?'Correct — well done!':'Not quite. Review the explanation.'} {message.reply.mini_quiz.explanation}</p>:null}</div>
-            <p className={senseiStyles.senseiFollowUp}>{message.reply.follow_up}</p>
-          </div>:<p>{message.content}</p>}
-        </article>)}
-        {sending?<div className={senseiStyles.senseiTyping}>Sensei is thinking…</div>:null}
-      </div>}
-      {error?<div className={styles.authMessage} role="alert">{error}</div>:null}
-      <form className={senseiStyles.senseiComposer} onSubmit={(event)=>{event.preventDefault();void ask();}}>
-        <textarea value={draftValue} onChange={(event)=>{setDraft(event.target.value);setDraftEdited(true);}} rows={3} maxLength={1500} placeholder="Ask Sensei anything about Japanese…" disabled={sending} />
-        <div><small>{draft.length}/1500 · Your chat is kept in this page session.</small><button type="submit" className={styles.primaryButton} disabled={sending||!draft.trim()}>{sending?'Thinking…':'Ask Sensei'} <span>→</span></button></div>
-      </form>
-    </>}
-  </section>;
-}
 
 export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
