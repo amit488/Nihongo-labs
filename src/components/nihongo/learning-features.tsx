@@ -87,7 +87,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn }: { items: GrammarI
 
   useEffect(() => {
     if (!signedIn) {
-      setLearnedIds(new Set());
+      setLearnedIds(new Set<string>());
       return;
     }
     let active = true;
