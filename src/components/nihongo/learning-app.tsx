@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { QuickRevision, QuickRevisionStats } from './quick-revision';
+import LearningIntelligence from './learning-intelligence';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
@@ -46,7 +47,7 @@ function Icon({ children, className = '' }: { children: ReactNode; className?: s
 export default function LearningApp({ section = [] }: Props) {
   const router = useRouter();
   const active = section[0] || 'overview';
-  const isStudySection = ['grammar', 'vocabulary', 'kanji', 'kana', 'practice', 'flashcards', 'reading', 'exams'].includes(active);
+  const isStudySection = ['grammar', 'sensei', 'vocabulary', 'kanji', 'kana', 'practice', 'flashcards', 'reading', 'exams'].includes(active);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -726,8 +727,6 @@ function StatCard({ icon, label, value, note, progress, tone }: { icon: string; 
 function FocusCard({ number, title, description, meta, tag, href, tone }: { number: string; title: string; description: string; meta: string; tag: string; href: string; tone: string }) {
   return <Link href={href} className={`${styles.focusCard} ${styles[`focus_${tone}`]}`}><div className={styles.focusTop}><span>{number}</span><small>{tag} ↗</small></div><h3>{title}</h3><p>{description}</p><div className={styles.focusMeta}><span>◷ {meta}</span><span>→</span></div></Link>;
 }
-
-import LearningIntelligence from './learning-intelligence';
 
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
