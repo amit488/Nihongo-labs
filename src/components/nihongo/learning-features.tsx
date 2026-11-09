@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
+import senseiStyles from './ai-japanese-sensei.module.css';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
@@ -1492,14 +1493,14 @@ function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
     }
   }
 
-  return <section className={styles.senseiPage}>
+  return <section className={senseiStyles.senseiPage}>
     <SectionHeading eyebrow="YOUR PERSONAL JAPANESE TUTOR" title="Meet your Japanese Sensei." description="Ask about grammar, particles, kanji, vocabulary or a sentence you are struggling with. Get an explanation, natural examples and a quick check of understanding." action={<select aria-label="Sensei JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as typeof level)}>{(['N5','N4','N3','N2','N1'] as const).map((value)=><option key={value}>{value}</option>)}</select>} />
     {!signedIn ? <div className={styles.panel}><h3>Sign in to speak with Sensei</h3><p>Your learning context is personal to your account.</p><Link href="/login" className={styles.primaryButton}>Sign in <span>→</span></Link></div> : <>
-      <div className={styles.senseiIntro}>
-        <div className={styles.senseiAvatar}>先生</div>
+      <div className={senseiStyles.senseiIntro}>
+        <div className={senseiStyles.senseiAvatar}>先生</div>
         <div><strong>Japanese Sensei</strong><p>Context-aware explanations · JLPT {level} · Practice as you learn</p>{remaining!==null?<small>{remaining} AI messages remaining today</small>:null}</div>
       </div>
-      {messages.length===0 ? <div className={styles.senseiStarters}>
+      {messages.length===0 ? <div className={senseiStyles.senseiStarters}>
         <p>What would you like to understand today?</p>
         {[
           'Explain the difference between は and が with natural examples.',
@@ -1507,24 +1508,24 @@ function AiJapaneseSensei({ signedIn }: { signedIn: boolean }) {
           'Teach me the て-form and test me afterwards.',
           'Explain this sentence word by word: 昨日、友達と映画を見ました。',
         ].map((prompt)=><button type="button" key={prompt} onClick={()=>void ask(prompt)}>{prompt}<span>→</span></button>)}
-      </div> : <div className={styles.senseiConversation} aria-live="polite">
-        {messages.map((message,index)=><article key={index} className={message.role==='user'?styles.senseiUser:styles.senseiAssistant}>
-          {message.role==='user'?<p>{message.content}</p>:message.reply?<div className={styles.senseiAnswer}>
-            <p className={styles.senseiMainAnswer}>{message.reply.answer}</p>
+      </div> : <div className={senseiStyles.senseiConversation} aria-live="polite">
+        {messages.map((message,index)=><article key={index} className={message.role==='user'?senseiStyles.senseiUser:senseiStyles.senseiAssistant}>
+          {message.role==='user'?<p>{message.content}</p>:message.reply?<div className={senseiStyles.senseiAnswer}>
+            <p className={senseiStyles.senseiMainAnswer}>{message.reply.answer}</p>
             <small>{message.reply.level_note}</small>
-            <div className={styles.senseiRule}><b>{message.reply.grammar_breakdown.pattern}</b><span>{message.reply.grammar_breakdown.formation}</span><p>{message.reply.grammar_breakdown.usage}</p></div>
+            <div className={senseiStyles.senseiRule}><b>{message.reply.grammar_breakdown.pattern}</b><span>{message.reply.grammar_breakdown.formation}</span><p>{message.reply.grammar_breakdown.usage}</p></div>
             <h4>Examples in context</h4>
-            {message.reply.examples.map((example,i)=><div className={styles.senseiExample} key={i}><strong>{example.japanese}</strong><span>{example.romaji}</span><p>{example.translation}</p><small>{example.focus}</small></div>)}
-            <div className={styles.senseiConfusion}><b>Common confusion</b><p>{message.reply.common_confusion}</p></div>
-            {message.reply.vocabulary.length>0?<div className={styles.senseiVocab}><b>Vocabulary in this explanation</b>{message.reply.vocabulary.map((word,i)=><span key={i}><strong>{word.word}</strong>（{word.reading}） — {word.meaning}</span>)}</div>:null}
-            <div className={styles.senseiMiniQuiz}><b>Check your understanding</b><p>{message.reply.mini_quiz.question}</p>{message.reply.mini_quiz.options.map((option,i)=><button type="button" key={i} className={quizChoice[index]===option?styles.senseiQuizSelected:''} onClick={()=>setQuizChoice((current)=>({...current,[index]:option}))}>{option}</button>)}{quizChoice[index]?<p className={styles.senseiQuizFeedback}>{quizChoice[index]===message.reply!.mini_quiz.correct_answer?'Correct — well done!':'Not quite. Review the explanation.'} {message.reply.mini_quiz.explanation}</p>:null}</div>
-            <p className={styles.senseiFollowUp}>{message.reply.follow_up}</p>
+            {message.reply.examples.map((example,i)=><div className={senseiStyles.senseiExample} key={i}><strong>{example.japanese}</strong><span>{example.romaji}</span><p>{example.translation}</p><small>{example.focus}</small></div>)}
+            <div className={senseiStyles.senseiConfusion}><b>Common confusion</b><p>{message.reply.common_confusion}</p></div>
+            {message.reply.vocabulary.length>0?<div className={senseiStyles.senseiVocab}><b>Vocabulary in this explanation</b>{message.reply.vocabulary.map((word,i)=><span key={i}><strong>{word.word}</strong>（{word.reading}） — {word.meaning}</span>)}</div>:null}
+            <div className={senseiStyles.senseiMiniQuiz}><b>Check your understanding</b><p>{message.reply.mini_quiz.question}</p>{message.reply.mini_quiz.options.map((option,i)=><button type="button" key={i} className={quizChoice[index]===option?senseiStyles.senseiQuizSelected:''} onClick={()=>setQuizChoice((current)=>({...current,[index]:option}))}>{option}</button>)}{quizChoice[index]?<p className={senseiStyles.senseiQuizFeedback}>{quizChoice[index]===message.reply!.mini_quiz.correct_answer?'Correct — well done!':'Not quite. Review the explanation.'} {message.reply.mini_quiz.explanation}</p>:null}</div>
+            <p className={senseiStyles.senseiFollowUp}>{message.reply.follow_up}</p>
           </div>:<p>{message.content}</p>}
         </article>)}
-        {sending?<div className={styles.senseiTyping}>Sensei is thinking…</div>:null}
+        {sending?<div className={senseiStyles.senseiTyping}>Sensei is thinking…</div>:null}
       </div>}
       {error?<div className={styles.authMessage} role="alert">{error}</div>:null}
-      <form className={styles.senseiComposer} onSubmit={(event)=>{event.preventDefault();void ask();}}>
+      <form className={senseiStyles.senseiComposer} onSubmit={(event)=>{event.preventDefault();void ask();}}>
         <textarea value={draft} onChange={(event)=>setDraft(event.target.value)} rows={3} maxLength={1500} placeholder="Ask Sensei anything about Japanese…" disabled={sending} />
         <div><small>{draft.length}/1500 · Your chat is kept in this page session.</small><button type="submit" className={styles.primaryButton} disabled={sending||!draft.trim()}>{sending?'Thinking…':'Ask Sensei'} <span>→</span></button></div>
       </form>
