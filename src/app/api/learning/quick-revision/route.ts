@@ -209,19 +209,30 @@ async function getStats(userClient: SupabaseClient, userId: string) {
 
   const grouped: Record<ContentType, string[]> = { vocabulary: [], kanji: [], grammar: [] };
   for (const state of needsWork) grouped[state.content_type].push(state.content_id);
-  const [vocabularyRows, kanjiRows, grammarRows] = await Promise.all([
-    grouped.vocabulary.length ? userClient.from('vocabulary_entries').select('id,word,kana,jlpt_level').in('id', grouped.vocabulary) : Promise.resolve({ data: [], error: null }),
-    grouped.kanji.length ? userClient.from('kanji_entries').select('id,character,jlpt_level').in('id', grouped.kanji) : Promise.resolve({ data: [], error: null }),
-    grouped.grammar.length ? userClient.from('grammar_points').select('id,title,pattern,jlpt_level').in('id', grouped.grammar) : Promise.resolve({ data: [], error: null }),
+  const [vocabularyLabels, kanjiLabels, grammarLabels] = await Promise.all([
+    (async () => {
+      if (!grouped.vocabulary.length) return [];
+      const { data, error } = await userClient.from('vocabulary_entries')
+        .select('id,word,kana,jlpt_level').in('id', grouped.vocabulary);
+      if (error) throw new HttpError(500, 'Could not load vocabulary revision topics.', error.message);
+      return (data ?? []).map((row) => ({ contentType: 'vocabulary' as const, label: row.word, detail: row.kana, level: row.jlpt_level }));
+    })(),
+    (async () => {
+      if (!grouped.kanji.length) return [];
+      const { data, error } = await userClient.from('kanji_entries')
+        .select('id,character,jlpt_level').in('id', grouped.kanji);
+      if (error) throw new HttpError(500, 'Could not load kanji revision topics.', error.message);
+      return (data ?? []).map((row) => ({ contentType: 'kanji' as const, label: row.character, detail: row.character, level: row.jlpt_level }));
+    })(),
+    (async () => {
+      if (!grouped.grammar.length) return [];
+      const { data, error } = await userClient.from('grammar_points')
+        .select('id,title,pattern,jlpt_level').in('id', grouped.grammar);
+      if (error) throw new HttpError(500, 'Could not load grammar revision topics.', error.message);
+      return (data ?? []).map((row) => ({ contentType: 'grammar' as const, label: row.title || row.pattern, detail: row.pattern, level: row.jlpt_level }));
+    })(),
   ]);
-  const lookupError = vocabularyRows.error || kanjiRows.error || grammarRows.error;
-  if (lookupError) throw new HttpError(500, 'Could not load concepts that need revision.', lookupError.message);
-
-  const labels = [
-    ...(vocabularyRows.data ?? []).map((row) => ({ contentType: 'vocabulary' as const, label: row.word, detail: row.kana, level: row.jlpt_level })),
-    ...(kanjiRows.data ?? []).map((row) => ({ contentType: 'kanji' as const, label: row.character, detail: row.character, level: row.jlpt_level })),
-    ...(grammarRows.data ?? []).map((row) => ({ contentType: 'grammar' as const, label: row.title || row.pattern, detail: row.pattern, level: row.jlpt_level })),
-  ];
+  const labels = [...vocabularyLabels, ...kanjiLabels, ...grammarLabels];
 
   return {
     totalAttempts: totals.attempts,
