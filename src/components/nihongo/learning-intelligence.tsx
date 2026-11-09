@@ -55,7 +55,7 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
           </article>)}
       </div>
       <div className={styles.panel}>
-        <div className={styles.panelTitle}><h3>Vocabulary needs attention</h3><span>SM-2 REVISION</span></div>
+        <div className={styles.panelTitle}><h3>Vocabulary needs attention</h3><span>SM-2 + QUICK REVISION</span></div>
         {!vocabulary?.items.length?<p className={styles.empty}>No reviewed vocabulary is at risk yet. Rate words in your vocabulary cards to build a revision history.</p>:
           vocabulary.items.slice(0,6).map(item=><article className={styles.word} key={item.id}>
             <div><strong>{item.word}</strong><small>{item.kana} · {item.meaning}</small></div>
