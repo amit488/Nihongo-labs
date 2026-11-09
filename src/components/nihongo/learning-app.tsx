@@ -36,7 +36,7 @@ const navGroups = [
   ] },
   { label: 'YOUR SPACE', items: [
     { key: 'progress', title: 'My progress', href: '/learn/progress', icon: '↗' },
-    { key: 'plans', title: 'Plans', href: '/learn/plans', icon: '₹' },
+    { key: 'plans', title: 'Plans', href: '/pricing', icon: '₹' },
     { key: 'subscription', title: 'Membership', href: '/learn/subscription', icon: '◇' },
   ] },
 ];
