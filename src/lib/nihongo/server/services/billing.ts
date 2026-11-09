@@ -137,7 +137,7 @@ export async function createCheckout(admin: SupabaseClient, userId: string, plan
     try {
       const providerSubscription = await razorpayRequest('/subscriptions', 'POST', {
         plan_id: plan.provider_price_id,
-        total_count: plan.billing_interval === 'month' ? 120 : 10,
+        total_count: plan.billing_interval === 'month' ? Math.max(1, Math.floor(120 / Math.max(1, Number(plan.interval_count) || 1))) : 10,
         customer_notify: 1,
         notes: { user_id: userId, plan_id: plan.id, plan_code: plan.code, local_subscription_id: localSubscription.id },
       });
