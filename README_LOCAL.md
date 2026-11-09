@@ -50,7 +50,7 @@ The code does not create another database, recreate the original schema, or chan
 - `tests/sql-contract.test.ts`: security and atomic-RPC contract checks against the included SQL
 - `scripts/smoke-local.mjs`: local endpoint smoke checks
 - `docs/API_ROUTES.md`: route reference, example payloads and backend security boundaries
-- `sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
+- `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
 - `sql/011_backend_rpc.sql`: additive, restricted RPC helpers for activity, quiz attempt reservation/finalization, atomic lesson progress, FSRS writes, vocabulary scheduling and refunds
 
 ## Local integration steps
@@ -127,7 +127,7 @@ If the flashcard tables/columns are missing, create a new migration using the Su
 
 After confirming the flashcard migration is applied:
 
-1. Review and run `sql/010_n5_content_and_plans_seed.sql` once in your **local** Supabase Studio. It uses upserts so it can be rerun to update the same starter data.
+1. Review and run `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql` once in your **local** Supabase Studio. It uses upserts so it can be rerun to update the same starter data.
 2. Review and run `sql/011_backend_rpc.sql` once in your **local** Supabase Studio. It adds restricted helper functions and indexes. It is additive, but inspect the unique invoice/entitlement indexes against any data you have added before running it.
 3. Optional original starter scripts from your database package are included as `sql/007_base_seed_optional.sql` and `sql/009_flashcards_seed_optional.sql`. The new 010 seed includes its own deck tags/content/plans. Do not run redundant seeds unless you need those rows.
 
@@ -213,3 +213,8 @@ Apply the learning-intelligence migration and the AI Sensei removal migration th
 
 
 The three paid checkout plans (Monthly ₹149, 6 Months ₹809 and Annual ₹1,599) are synchronized into `subscription_plans` by `20261109175000_align_learning_plans.sql`. Apply pending migrations locally before testing plan checkout. Razorpay recurring Plan IDs still need to be created/linked for each plan.
+
+
+### Kana recognition challenge
+
+The Kana quiz is script-based rather than JLPT-level-based. It includes 20 mixed Hiragana and Katakana questions covering base sounds, look-alike characters, dakuten, handakuten and contracted sounds. Each question has a 45-second timer; unanswered questions advance automatically. The challenge content is installed by `supabase/migrations/20261109182000_kana_recognition_challenge.sql`. Apply pending migrations locally with `npx supabase migration up --local`.
