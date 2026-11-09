@@ -193,7 +193,7 @@ test('N5 quizzes are linked to their matching curriculum lessons in starter cont
   const daily = seed.split(/\r?\n/).find((line) => line.includes("'n5-daily-practice'"));
   const grammar = seed.split(/\r?\n/).find((line) => line.includes("'n5-grammar-particles'"));
   const reading = seed.split(/\r?\n/).find((line) => line.includes("'n5-reading-check'"));
-  const mock = seed.split(/\r?\n/).find((line) => line.includes("'n5-mock-exam-01''));
+  const mock = seed.split(/\r?\n/).find((line) => line.includes("'n5-mock-exam-01'"));
 
   assert.ok(daily?.includes("u.slug='practice'") && daily.includes("l.slug='daily-practice'"));
   assert.ok(grammar?.includes("u.slug='grammar'") && grammar.includes("l.slug='particles'"));
