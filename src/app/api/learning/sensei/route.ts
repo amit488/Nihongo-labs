@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const apiKey = requireEnv('OPENAI_API_KEY');
     const admin = createAdminSupabase();
 
-    const [{ data: preferences }, { data: premium, error: premiumError }, { data: recentMistakes, error: mistakesError }, { data: quickMistakes, error: quickError }] = await Promise.all([
+    const [{ data: preferences }, { data: premium, error: premiumError }, { data: recentMistakes, error: mistakesError }, { data: quickMistakes, error: quickError }, { data: vocabularyStates, error: vocabularyError }] = await Promise.all([
       context.supabase.from('user_preferences').select('preferred_jlpt_level').eq('user_id', context.user.id).maybeSingle(),
       context.supabase.from('user_entitlements').select('id').eq('user_id', context.user.id)
         .eq('feature_key', 'premium_content').eq('status', 'active').limit(1).maybeSingle(),
@@ -110,10 +110,14 @@ export async function POST(request: NextRequest) {
       context.supabase.from('quick_revision_attempts').select('content_id,is_correct')
         .eq('user_id', context.user.id).eq('content_type', 'grammar')
         .order('created_at', { ascending: false }).limit(80),
+      context.supabase.from('vocabulary_review_state')
+        .select('due_at,repetitions,last_rating,vocabulary_entries!inner(word,kana,meaning,part_of_speech,example_sentence)')
+        .eq('user_id', context.user.id).order('due_at', { ascending: true }).limit(40),
     ]);
-    if (premiumError || mistakesError || quickError) throw new HttpError(503, 'Learning context is not ready. Apply the learning intelligence migration and check your Supabase policies.', premiumError?.message || mistakesError?.message || quickError?.message);
+    if (premiumError || mistakesError || quickError || vocabularyError) throw new HttpError(503, 'Learning context is not ready. Apply the learning intelligence migration and check your Supabase policies.', premiumError?.message || mistakesError?.message || quickError?.message || vocabularyError?.message);
     const level = input.level ?? preferences?.preferred_jlpt_level ?? 'N5';
-    const mistakeMap = new Map<string, { attempts: number; misses: number }>();\n    const mistakeLabels = new Map<string, string>();
+    const mistakeMap = new Map<string, { attempts: number; misses: number }>();
+    const mistakeLabels = new Map<string, string>();
     for (const row of recentMistakes ?? []) {
       const value = mistakeMap.get(row.skill_tag) ?? { attempts: 0, misses: 0 };
       value.attempts += 1;
@@ -145,6 +149,23 @@ export async function POST(request: NextRequest) {
       .sort((a,b)=>b[1].misses-a[1].misses).slice(0,6)
       .map(([tag,value])=>({tag,label:mistakeLabels.get(tag) ?? tag,attempts:value.attempts,misses:value.misses}));
 
+    const now = Date.now();
+    const vocabularyToReview = (vocabularyStates ?? []).flatMap((row) => {
+      const related = row.vocabulary_entries;
+      const word = Array.isArray(related) ? related[0] : related;
+      if (!word) return [];
+      const dueAt = Date.parse(row.due_at);
+      const due = Number.isFinite(dueAt) && dueAt <= now;
+      const lastRating = typeof row.last_rating === 'number' ? row.last_rating : null;
+      const atRisk = (lastRating !== null && lastRating <= 2) || (due && Number(row.repetitions) < 2);
+      if (!due && !atRisk) return [];
+      return [{
+        word: word.word, kana: word.kana, meaning: word.meaning,
+        partOfSpeech: word.part_of_speech, example: word.example_sentence,
+        due, atRisk, repetitions: Number(row.repetitions), lastRating,
+      }];
+    }).sort((a, b) => Number(b.atRisk) - Number(a.atRisk) || Number(b.due) - Number(a.due)).slice(0, 8);
+
     const timezone = await getUserTimeZone(admin, context.user.id);
     const usageDate = localDateKey(new Date(), timezone);
     const dailyLimit = premium?.id ? 50 : 8;
@@ -166,7 +187,9 @@ Do not invent official JLPT rules or claim that a word is definitively in a JLPT
 When a question is ambiguous, state the likely interpretation and ask one focused clarification in follow_up.
 The mini_quiz must test the exact concept in the answer; correct_answer must exactly match one option.
 If uncertain about a linguistic nuance, say so plainly instead of fabricating.
-Personalise practice using this learner context when relevant: ${JSON.stringify({weakTopics})}.
+Personalise practice using this learner context when relevant: ${JSON.stringify({jlptLevel: level, weakGrammarTopics: weakTopics, vocabularyToReview})}.
+When a learner asks about a saved word, use its saved meaning, part of speech and example as the starting point; distinguish that curriculum context from any general explanation. Connect explanations to weak grammar patterns only when relevant. Do not assume a word is unknown just because it is absent from this short context.
+For Japanese sentence analysis, parse particles and conjugations in order, explain kanji readings in context, and use consistent Hepburn romaji.
 Return only the required structured fields.`;
 
     const model = process.env.OPENAI_SENSEI_MODEL || 'gpt-6-luna';
@@ -196,7 +219,12 @@ Return only the required structured fields.`;
     if (!text) throw new HttpError(502, 'Sensei returned an empty answer. Please try again.');
     let raw: unknown;
     try { raw = JSON.parse(text); } catch { throw new HttpError(502, 'Sensei returned an unreadable answer. Please try again.'); }
-    const reply = replySchema.parse(raw);
+    const replyResult = replySchema.safeParse(raw);
+    if (!replyResult.success) throw new HttpError(502, 'Sensei returned an incomplete teaching response. Please try again.');
+    const reply = replyResult.data;
+    if (!reply.mini_quiz.options.some((option) => option.trim() === reply.mini_quiz.correct_answer.trim())) {
+      throw new HttpError(502, 'Sensei returned a quiz with an inconsistent answer key. Please try again.');
+    }
 
     const usage = (payload as { usage?: { input_tokens?: number; output_tokens?: number } }).usage;
     return NextResponse.json({
