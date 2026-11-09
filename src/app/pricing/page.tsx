@@ -1,54 +1,125 @@
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
-import { listPlans } from '@/lib/nihongo/server/services/billing';
 
-function amount(minor: number, currency: string) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(minor / 100);
-}
+const plans = [
+  { id: 'monthly', name: 'Monthly', price: 149, term: 'month', monthly: '₹149', billing: 'Billed ₹149 every month', note: 'Flexible monthly access', featured: false },
+  { id: 'half-year', name: '6 Months', price: 809, term: '6 months', monthly: '₹134.83', billing: 'Billed ₹809 once every 6 months', note: 'Save ₹85 compared with six monthly payments', featured: false },
+  { id: 'annual', name: 'Annual', price: 1599, term: 'year', monthly: '₹133.25', billing: 'Billed ₹1,599 once a year', note: 'Save ₹189 compared with twelve monthly payments', featured: true },
+];
+
+const included = [
+  { icon: '文', title: 'Grammar mistake intelligence', description: 'Understand why an answer is wrong, spot recurring patterns and focus on the grammar that needs more practice.' },
+  { icon: '先生', title: 'AI Japanese Sensei', description: 'Ask questions in context and get clear explanations, natural examples, and guidance suited to your JLPT level.' },
+  { icon: '↻', title: 'Adaptive revision', description: 'Bring due material and weaker topics back into your practice so revision follows your learning progress.' },
+  { icon: '語', title: 'Vocabulary intelligence', description: 'Learn words in context, strengthen recall and identify vocabulary that needs another review.' },
+  { icon: '字', title: 'Kanji and kana practice', description: 'Build confidence with Japanese writing systems through structured reference and focused practice.' },
+  { icon: '読', title: 'Reading and exam practice', description: 'Apply what you learn with reading activities, daily practice and JLPT-style mock examinations.' },
+];
+
+const faqs = [
+  { q: 'What is the difference between the three plans?', a: 'All three plans provide the same plan access. The difference is how long you pay for at a time: monthly, every six months, or once a year.' },
+  { q: 'How much does the 6-month plan cost per month?', a: 'The 6-month plan costs ₹809 upfront. That works out to approximately ₹134.83 per month over six months.' },
+  { q: 'How much does the annual plan cost per month?', a: 'The annual plan costs ₹1,599 upfront. That works out to ₹133.25 per month over twelve months.' },
+  { q: 'When will I be charged?', a: 'The monthly plan is billed monthly. The 6-month and annual plans are billed upfront for their full billing periods.' },
+  { q: 'Can I use NihongoLabs on my phone and computer?', a: 'Yes. NihongoLabs is designed to work across desktop, tablet and mobile browsers.' },
+  { q: 'Can I manage my membership after subscribing?', a: 'Yes. Sign in and open Membership in your learning workspace to view your subscription details and available management actions.' },
+];
 
 export default async function PricingPage() {
-  let plans: Awaited<ReturnType<typeof listPlans>> = [];
-  let unavailable = false;
+  let signedIn = false;
   try {
-    plans = await listPlans(await createServerSupabase());
+    const supabase = await createServerSupabase();
+    const { data } = await supabase.auth.getUser();
+    signedIn = Boolean(data.user);
   } catch {
-    unavailable = true;
+    // Pricing remains available even if authentication is temporarily unavailable.
   }
+  const primaryHref = signedIn ? '/learn/subscription' : '/signup';
+  const primaryLabel = signedIn ? 'Choose a plan' : 'Get started';
 
   return (
-    <main className="pricingPage">
-      <header className="pricingNav">
-        <Link className="pricingBrand" href="/"><span>日</span> Nihongo <b>Labs</b></Link>
-        <nav><Link href="/learn">Workspace</Link><Link href="/login">Sign in</Link><Link className="pricingNavCta" href="/signup">Start learning ↗</Link></nav>
+    <main className="plansPage">
+      <header className="plansNav">
+        <Link className="plansBrand" href="/"><span>日</span><strong>Nihongo<span>Labs</span></strong></Link>
+        <nav aria-label="Main navigation">
+          <Link href="/#features">Features</Link>
+          <Link href="/pricing" aria-current="page">Plans</Link>
+          {signedIn ? <Link href="/learn">My workspace</Link> : <Link href="/login">Sign in</Link>}
+          <Link className="plansNavCta" href={primaryHref}>{signedIn ? 'Open membership' : 'Start learning'} <span>↗</span></Link>
+        </nav>
       </header>
-      <section className="pricingHero">
-        <div className="pricingEyebrow">SIMPLE PLANS · STEADY PROGRESS</div>
-        <h1>A little practice.<br/><em>A lot of progress.</em></h1>
-        <p>Start free, build a daily habit, then unlock deeper revision and exam preparation when you&apos;re ready.</p>
+
+      <section className="plansHero">
+        <div className="plansEyebrow"><span /> SIMPLE, TRANSPARENT PRICING</div>
+        <h1>Your Japanese journey.<br /><em>Your pace. Your plan.</em></h1>
+        <p>One complete learning experience, with flexible ways to pay. Choose the billing period that works for you.</p>
+        <div className="plansHighlights"><span>✓ Structured JLPT learning</span><span>✓ AI-powered learning support</span><span>✓ Practice that adapts</span></div>
       </section>
-      {unavailable ? <div className="pricingAlert">Plan information is temporarily unavailable. Check your local Supabase connection and the subscription plan seed.</div> : null}
-      <section className="pricingGrid" aria-label="Subscription plans">
-        {plans.map((plan) => {
-          const free = plan.planKind === 'free' || plan.amountMinor === 0;
-          const featured = plan.code === 'plus_monthly';
-          return (
-            <article className={`pricingCard ${featured ? 'pricingFeatured' : ''}`} key={plan.id}>
-              {featured ? <div className="pricingPopular">MOST POPULAR</div> : null}
-              <div className="pricingCardLabel">{free ? 'START HERE' : plan.code === 'basic_monthly' ? 'FOR YOUR DAILY ROUTINE' : 'FOR CONSISTENT LEARNERS'}</div>
-              <h2>{plan.name}</h2>
-              <div className="pricingAmount">{amount(plan.amountMinor, plan.currency)}<small>{free ? ' / forever' : ` / ${plan.billingInterval}`}</small></div>
-              <p>{plan.description}</p>
-              <ul>{plan.features.map((feature) => <li key={feature.key}><span>✓</span>{feature.key.replaceAll('_', ' ')}</li>)}</ul>
-              <Link className={featured ? 'pricingPrimary' : 'pricingSecondary'} href={free ? '/signup' : '/signup'}>{free ? 'Create free account' : 'Choose plan'} <span>↗</span></Link>
-              {!free ? <small className="pricingFootnote">Secure checkout opens after sign-in.</small> : null}
+
+      <section className="plansSection" aria-labelledby="plans-heading">
+        <div className="plansSectionHeading">
+          <div><span className="plansEyebrow">PICK YOUR MEMBERSHIP</span><h2 id="plans-heading">Invest in your progress.</h2></div>
+          <p>Every plan includes the same learning features. Choose your preferred billing period.</p>
+        </div>
+        <div className="plansGrid">
+          {plans.map((plan) => (
+            <article className={`planCard ${plan.featured ? 'planFeatured' : ''}`} key={plan.id}>
+              {plan.featured ? <div className="planPopular">BEST VALUE</div> : null}
+              <div className="planCardKicker">{plan.id === 'monthly' ? 'FLEXIBLE ACCESS' : plan.id === 'half-year' ? 'LONGER COMMITMENT' : 'LOWEST MONTHLY COST'}</div>
+              <h3>{plan.name}</h3>
+              <div className="planPrice">₹{plan.price.toLocaleString('en-IN')}<small> / {plan.term}</small></div>
+              <div className="planMonthly">Equivalent to <strong>{plan.monthly}</strong> per month</div>
+              <p className="planBilling">{plan.billing}</p>
+              <p className="planSaving">{plan.note}</p>
+              <div className="planDivider" />
+              <div className="planIncludedTitle">Everything in NihongoLabs</div>
+              <ul className="planFeatureList">
+                <li>✓ Grammar and vocabulary practice</li>
+                <li>✓ AI Japanese Sensei</li>
+                <li>✓ Adaptive revision and learning insights</li>
+                <li>✓ Kanji, kana and reading practice</li>
+                <li>✓ JLPT-style mock examinations</li>
+              </ul>
+              <Link className={plan.featured ? 'planPrimary' : 'planSecondary'} href={primaryHref}>{primaryLabel}<span>→</span></Link>
+              <small className="planCheckoutNote">{signedIn ? 'Continue to membership and checkout.' : 'Sign in or create an account to continue.'}</small>
             </article>
-          );
-        })}
-        {!plans.length && !unavailable ? <div className="pricingAlert">No active plans are configured yet. Run the local starter plan seed to publish Free, Basic and Plus.</div> : null}
+          ))}
+        </div>
+        <p className="plansBillingNote">Monthly equivalents are shown for comparison only. The 6-month and annual plans are charged upfront for the full period.</p>
       </section>
-      <div className="pricingBottom"><span>All plans are managed through your account.</span><Link href="/learn/subscription">Already a member? Manage your plan →</Link></div>
+
+      <section className="includedSection" id="features">
+        <div className="includedIntro"><span className="plansEyebrow">ONE COMPLETE LEARNING TOOLKIT</span><h2>Everything you need to move forward.</h2><p>No confusing feature tiers. Your chosen plan gives you access to the NihongoLabs learning experience for its billing period.</p></div>
+        <div className="includedGrid">
+          {included.map((item) => <article className="includedCard" key={item.title}><span className="includedIcon">{item.icon}</span><h3>{item.title}</h3><p>{item.description}</p></article>)}
+        </div>
+      </section>
+
+      <section className="plansCta"><span className="plansEyebrow">YOUR NEXT STEP STARTS HERE</span><h2>Make Japanese part of your everyday.</h2><p>Small, consistent practice can take you a long way. Start building your routine with NihongoLabs.</p><Link href={primaryHref} className="planPrimary">{signedIn ? 'View membership plans' : 'Create your account'} <span>→</span></Link></section>
+
+      <section className="faqSection">
+        <div className="faqIntro"><span className="plansEyebrow">GOOD TO KNOW</span><h2>Frequently asked questions.</h2><p>Clear answers before you choose your plan.</p></div>
+        <div className="faqList">{faqs.map((item) => <details className="faqItem" key={item.q}><summary>{item.q}<span>+</span></summary><p>{item.a}</p></details>)}</div>
+      </section>
+
+      <footer className="plansFooter"><Link className="plansBrand" href="/"><span>日</span><strong>Nihongo<span>Labs</span></strong></Link><p>Learn with clarity. Practice with purpose.</p><div><Link href="/login">Sign in</Link><Link href="/learn">Workspace</Link><Link href="/learn/subscription">Membership</Link></div><small>© 2026 NihongoLabs</small></footer>
+
       <style>{`
-        .pricingPage{min-height:100vh;background:#f7f8f7;color:#202b30;padding:0 28px 70px}.pricingNav{max-width:1120px;margin:auto;height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e7e9e7}.pricingBrand{display:flex;align-items:center;gap:9px;text-decoration:none;color:#202b30;font-size:16px}.pricingBrand>span{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#b54c43;color:white}.pricingBrand b{font-weight:800}.pricingNav nav{display:flex;align-items:center;gap:25px}.pricingNav nav a{font-size:16px;text-decoration:none;color:#59676e}.pricingNav nav .pricingNavCta{background:#b54c43;color:white;padding:11px 15px;border-radius:7px}.pricingHero{max-width:800px;text-align:center;margin:78px auto 48px}.pricingEyebrow{font-size:15px;letter-spacing:1.7px;color:#b54c43;font-weight:800}.pricingHero h1{font-size:clamp(42px,6vw,66px);line-height:1.02;letter-spacing:-3px;margin:21px 0 17px;font-weight:650}.pricingHero h1 em{font-family:Georgia,serif;color:#b54c43;font-weight:400}.pricingHero p{font-size:18px;line-height:1.8;color:#748087;max-width:490px;margin:auto}.pricingGrid{max-width:1000px;margin:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;align-items:stretch}.pricingCard{background:white;border:1px solid #e6e9e7;border-radius:11px;padding:28px 25px 23px;position:relative;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(29,48,43,.035)}.pricingFeatured{border-color:#d9b4ad;box-shadow:0 18px 45px rgba(120,68,58,.09)}.pricingPopular{position:absolute;right:18px;top:0;background:#b54c43;color:white;font-size:15px;font-weight:800;letter-spacing:1px;padding:7px 10px;border-radius:0 0 5px 5px}.pricingCardLabel{font-size:15px;letter-spacing:1.3px;font-weight:800;color:#9aa3a6;margin-bottom:15px}.pricingCard h2{font-size:23px;letter-spacing:-.7px;margin:0 0 16px}.pricingAmount{font-size:35px;letter-spacing:-1.4px;font-weight:750}.pricingAmount small{font-size:15px;letter-spacing:0;color:#89949a;font-weight:500}.pricingCard>p{font-size:16px;line-height:1.7;color:#7b878e;min-height:57px}.pricingCard ul{padding:14px 0 20px;margin:0;list-style:none;border-top:1px solid #edf0ee;flex:1}.pricingCard li{font-size:15px;color:#56656b;display:flex;gap:9px;align-items:center;padding:7px 0;text-transform:capitalize}.pricingCard li span{color:#b54c43;font-weight:900}.pricingPrimary,.pricingSecondary{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-size:16px;font-weight:750;border-radius:6px;padding:13px 14px}.pricingPrimary{background:#b54c43;color:white}.pricingSecondary{background:#f4f6f4;color:#34434a}.pricingFootnote{text-align:center;color:#9aa3a6;font-size:15px;margin-top:10px}.pricingAlert{max-width:1000px;margin:0 auto 18px;background:#fff8ed;border:1px solid #f1dfc3;border-radius:7px;padding:13px 16px;color:#83643b;font-size:16px}.pricingBottom{max-width:1000px;margin:28px auto 0;display:flex;justify-content:space-between;color:#8a959a;font-size:15px}.pricingBottom a{color:#b54c43;text-decoration:none;font-weight:700}@media(max-width:780px){.pricingGrid{grid-template-columns:1fr;max-width:460px}.pricingHero{margin:60px auto 35px}.pricingCard>p{min-height:auto}.pricingBottom{max-width:460px;gap:15px;flex-wrap:wrap}.pricingNav{height:68px}.pricingNav nav{gap:14px}.pricingNav nav a:not(.pricingNavCta){display:none}}@media(max-width:420px){.pricingPage{padding:0 17px 45px}.pricingHero h1{letter-spacing:-2px}.pricingNav{padding:0 2px}}
+        .plansPage{--plans-ink:#232c37;--plans-muted:#74808b;--plans-accent:#b54c43;--plans-line:#e6e9ed;min-height:100vh;background:#f8f9fa;color:var(--plans-ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:0 30px 65px}
+        .plansPage *{box-sizing:border-box}.plansNav{height:78px;max-width:1160px;margin:auto;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--plans-line)}
+        .plansBrand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--plans-ink);font-size:18px}.plansBrand>span{width:36px;height:36px;border-radius:11px;background:var(--plans-ink);color:#f5c8a7;display:grid;place-items:center;font:22px Georgia,serif}.plansBrand strong{font-weight:800;letter-spacing:-.6px}.plansBrand strong span{color:var(--plans-accent)}
+        .plansNav nav{display:flex;align-items:center;gap:27px}.plansNav nav a{font-size:14px;color:#65717c;text-decoration:none}.plansNav nav a[aria-current="page"]{color:var(--plans-accent);font-weight:750}.plansNav nav .plansNavCta{padding:11px 16px;border-radius:8px;background:var(--plans-accent);color:white;font-weight:750}
+        .plansHero{max-width:850px;text-align:center;margin:82px auto 70px}.plansEyebrow{font-size:11px;letter-spacing:1.8px;font-weight:850;color:var(--plans-accent)}.plansEyebrow>span{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c7695e;margin:0 8px 1px 0}
+        .plansHero h1{font-size:clamp(43px,6vw,70px);line-height:1.03;letter-spacing:-3.6px;font-weight:700;margin:22px 0 20px}.plansHero h1 em{font-family:Georgia,serif;color:var(--plans-accent);font-weight:400}.plansHero>p{max-width:620px;margin:auto;color:var(--plans-muted);font-size:17px;line-height:1.8}
+        .plansHighlights{display:flex;justify-content:center;gap:23px;flex-wrap:wrap;margin-top:28px;color:#5e6a74;font-size:12px;font-weight:650}.plansHighlights span{white-space:nowrap}
+        .plansSection{max-width:1100px;margin:auto}.plansSectionHeading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:25px}.plansSectionHeading h2,.includedIntro h2,.faqIntro h2{font-size:clamp(27px,3vw,37px);letter-spacing:-1.5px;margin:9px 0 0}.plansSectionHeading>p{max-width:340px;color:var(--plans-muted);font-size:13px;line-height:1.7;margin:0 0 3px}
+        .plansGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:stretch}.planCard{position:relative;background:white;border:1px solid var(--plans-line);border-radius:15px;padding:27px 24px 23px;display:flex;flex-direction:column;box-shadow:0 9px 30px rgba(35,44,55,.035);min-width:0}.planFeatured{border:2px solid #c9796f;box-shadow:0 16px 42px rgba(181,76,67,.10)}.planPopular{position:absolute;right:18px;top:0;background:var(--plans-accent);color:white;font-size:9px;font-weight:850;letter-spacing:1px;padding:7px 10px;border-radius:0 0 6px 6px}.planCardKicker{font-size:9px;letter-spacing:1.45px;color:#9aa3ac;font-weight:850;margin-bottom:12px}.planCard h3{font-size:21px;letter-spacing:-.6px;margin:0 0 15px}.planPrice{font-size:38px;letter-spacing:-1.8px;font-weight:800;white-space:nowrap}.planPrice small{font-size:12px;letter-spacing:0;color:#7d8992;font-weight:550}.planMonthly{margin-top:5px;font-size:12px;color:#78848d}.planMonthly strong{color:var(--plans-ink);font-size:13px}.planBilling{margin:14px 0 5px;color:#53616b;font-size:12px;font-weight:700}.planSaving{min-height:34px;margin:0;color:#89939b;font-size:11px;line-height:1.5}.planDivider{height:1px;background:#edf0f2;margin:18px 0}.planIncludedTitle{font-size:11px;font-weight:800;margin-bottom:8px}.planFeatureList{list-style:none;padding:0;margin:0 0 22px;flex:1}.planFeatureList li{font-size:11px;line-height:1.5;color:#5f6b74;padding:6px 0}.planFeatureList li::first-letter{color:var(--plans-accent)}.planPrimary,.planSecondary{display:flex;align-items:center;justify-content:space-between;text-decoration:none;border-radius:8px;padding:13px 14px;font-size:12px;font-weight:800}.planPrimary{background:var(--plans-accent);color:white}.planSecondary{background:#f0f2f4;color:#35424d}.planCheckoutNote{display:block;text-align:center;color:#9aa3ac;font-size:10px;margin-top:10px}.plansBillingNote{font-size:11px;color:#89939b;text-align:center;margin:19px auto 0;line-height:1.6}
+        .includedSection{max-width:1100px;margin:105px auto 0}.includedIntro{max-width:650px;margin-bottom:30px}.includedIntro h2{margin-top:10px}.includedIntro>p,.faqIntro>p{color:var(--plans-muted);font-size:14px;line-height:1.8}.includedGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.includedCard{background:#fff;border:1px solid var(--plans-line);border-radius:12px;padding:22px 20px}.includedIcon{width:35px;height:35px;display:grid;place-items:center;border-radius:10px;background:#f8eeec;color:var(--plans-accent);font-size:17px;font-weight:800}.includedCard h3{font-size:14px;margin:15px 0 7px}.includedCard p{font-size:12px;line-height:1.7;color:var(--plans-muted);margin:0}
+        .plansCta{max-width:1100px;margin:95px auto 0;text-align:center;background:#232c37;color:#fff;border-radius:18px;padding:55px 25px}.plansCta h2{font-size:clamp(27px,4vw,40px);letter-spacing:-1.5px;margin:13px 0}.plansCta>p{max-width:500px;margin:0 auto 24px;color:#c0c8ce;font-size:13px;line-height:1.8}.plansCta .plansEyebrow{color:#e5a37a}.plansCta .planPrimary{display:inline-flex;gap:35px;min-width:190px;justify-content:space-between}
+        .faqSection{max-width:1000px;margin:100px auto 0;display:grid;grid-template-columns:.8fr 1.2fr;gap:65px}.faqIntro h2{margin-top:11px}.faqList{border-top:1px solid var(--plans-line)}.faqItem{border-bottom:1px solid var(--plans-line);padding:17px 0}.faqItem summary{display:flex;justify-content:space-between;gap:15px;cursor:pointer;list-style:none;font-size:13px;font-weight:750}.faqItem summary::-webkit-details-marker{display:none}.faqItem summary span{font-size:18px;color:var(--plans-accent)}.faqItem p{font-size:12px;line-height:1.8;color:var(--plans-muted);margin:12px 25px 0 0}
+        .plansFooter{max-width:1160px;margin:85px auto 0;border-top:1px solid var(--plans-line);padding-top:25px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}.plansFooter>p{font-size:11px;color:var(--plans-muted);margin-right:auto}.plansFooter>div{display:flex;gap:18px}.plansFooter>div a{font-size:11px;color:#68747e;text-decoration:none}.plansFooter>small{width:100%;font-size:10px;color:#9aa3ac}
+        @media(max-width:850px){.plansGrid{grid-template-columns:1fr;max-width:520px;margin:auto}.plansSectionHeading{display:block}.plansSectionHeading>p{margin-top:10px}.planCard{padding:26px}.includedGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.faqSection{grid-template-columns:1fr;gap:22px}.plansHero{margin:62px auto 55px}.plansHighlights{gap:12px 18px}}
+        @media(max-width:560px){.plansPage{padding:0 17px 45px}.plansNav{height:68px}.plansNav nav{gap:12px}.plansNav nav a:not(.plansNavCta){display:none}.plansHero h1{letter-spacing:-2.3px}.plansHero>p{font-size:15px}.includedGrid{grid-template-columns:1fr}.includedSection,.faqSection{margin-top:70px}.plansCta{margin-top:70px;padding:40px 20px}.plansFooter{margin-top:60px;gap:13px}.plansFooter>p{width:100%;margin:0}.plansFooter>div{margin-left:auto}}
       `}</style>
     </main>
   );
