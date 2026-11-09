@@ -221,6 +221,18 @@ Apply the learning-intelligence migration and the AI Sensei removal migration th
 The three paid checkout plans (Monthly ₹149, 6 Months ₹809 and Annual ₹1,599) are synchronized into `subscription_plans` by `20261109175000_align_learning_plans.sql`. Apply pending migrations locally before testing plan checkout. Razorpay recurring Plan IDs still need to be created/linked for each plan.
 
 
+### My Progress data sources
+
+The signed-in My Progress cards are backed by saved learner data:
+
+- **Grammar:** published N5 grammar points marked as understood in `user_grammar_progress`.
+- **Vocabulary:** N5 words marked learned in `user_vocabulary_progress`, plus words mastered through spaced repetition (`repetitions >= 3`).
+- **Kanji:** published N5 characters whose `kanji_review_state.status` is `known`.
+- **Reading and Kana:** average score across all graded attempts for the matching quiz category, with linked lesson progress as a fallback only when no graded attempts exist.
+- **Lessons:** completed N5 lessons with a published graded checkpoint. Passing a linked quiz completes its lesson; a failed graded attempt records it as in progress. The mixed-script Kana assessment updates both Hiragana and Katakana lesson records.
+
+The dashboard source correction is installed by `20261110110000_fix_my_progress_sources.sql`. The following migrations correct N5 quiz-to-lesson associations: `20261110120000_fix_grammar_quiz_lesson_link.sql` and `20261110130000_fix_n5_quiz_lesson_associations.sql`. Apply pending migrations with `npx supabase migration up --local`.
+
 ### Kana recognition challenge
 
 Kana is script-based rather than JLPT-level-based. The workspace has three separate tracks:
