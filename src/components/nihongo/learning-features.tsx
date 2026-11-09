@@ -1448,7 +1448,6 @@ export function LearningFeature(props: LearningFeatureProps) {
     case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} />;
     case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
-    case 'sensei': return <AiJapaneseSensei signedIn={props.signedIn} />;
     default: return null;
   }
 }
