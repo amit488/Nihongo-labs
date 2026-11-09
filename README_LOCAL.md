@@ -59,6 +59,8 @@ The `supabase/migrations/` directory is an ordered, append-only history. Keep ev
 
 The separate `nihongo-labs-backend/sql/` directory contains manual seed/setup scripts. Those are not automatically executed by `supabase migration up`; follow the local setup steps below before running them. The Kana question bank is now installed by a Supabase migration, not by the general N5 starter seed.
 
+The My Progress cards are wired to persisted learner activity: Grammar reads understood grammar points, Vocabulary combines words marked learned with spaced-repetition mastery, Reading and Kana use the full graded-attempt history, and Lessons counts published N5 lessons with linked graded checkpoints. The `20261110110000`, `20261110120000` and `20261110130000` migrations install those dashboard sources and correct the N5 quiz-to-lesson links. Apply them with `npx supabase migration up --local`. Quiz completion also uses the restricted `persist_lesson_progress` RPC from `nihongo-labs-backend/sql/011_backend_rpc.sql`, so make sure that manual RPC setup has been applied in local Supabase Studio.
+
 ## Local integration steps
 
 ### 1. Add source files to the existing repository
