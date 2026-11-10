@@ -5,6 +5,7 @@ import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 type EventRow = { skill_tag: string; is_correct: boolean; created_at: string };
 type QuickRow = { content_id: string; is_correct: boolean; created_at: string };
 type GrammarPoint = { id: string; title: string | null; pattern: string | null; learning_tags: string[] | null };
+type SentenceRow = { grammar_tags: string[] | null; is_correct: boolean; created_at: string };
 
 const LABELS: Record<string, string> = {
   'particle:wa-vs-ga': 'は vs が — topic and subject',
@@ -17,6 +18,33 @@ const LABELS: Record<string, string> = {
   'verb:negative': 'Negative verb forms',
   'adjective:conjugation': 'い-adjective and な-adjective conjugation',
   'grammar:general': 'General grammar foundations',
+  'grammar:conditional': 'Conditionals — と / ば / たら / なら',
+  'grammar:purpose': 'Purpose — ために / ように',
+  'grammar:reason': 'Giving reasons — から / ので',
+  'grammar:comparison': 'Comparisons — より / ほど',
+  'grammar:passive': 'Passive voice',
+  'grammar:causative': 'Causative form',
+  'grammar:potential': 'Potential form and ability',
+  'grammar:experience': 'Past experience — たことがある',
+  'grammar:obligation': 'Obligation and necessity',
+  'grammar:request': 'Requests and polite requests',
+  'grammar:permission': 'Permission and prohibition',
+  'grammar:appearance': 'Appearance — そう / よう',
+  'grammar:hearsay': 'Hearsay — そう / らしい',
+  'grammar:preparation': 'Preparation — ておく',
+  'grammar:habit': 'Habits and routines',
+  'grammar:sequence': 'Sequence of actions',
+  'grammar:time-order': 'Time order — 前に / 後で',
+  'grammar:nominalization': 'Nominalisation — こと / の',
+  'grammar:giving-receiving': 'Giving and receiving',
+  'grammar:recommendation': 'Advice — ほうがいい',
+  'grammar:concession': 'Concession — ても / でも',
+  'grammar:only': 'Only — だけ / しか',
+  'grammar:decision': 'Decisions — ことにする / なる',
+  'grammar:state-result': 'Resulting state — てある',
+  'grammar:too-much': 'Excess — すぎる',
+  'adjective:negative': 'Adjective negative forms',
+  'adjective:past': 'Adjective past forms',
 };
 
 export async function GET() {
@@ -25,7 +53,7 @@ export async function GET() {
     const context = await requireUser();
     if (!context.ok) throw new HttpError(401, context.error);
 
-    const [{ data, error }, { data: quickRows, error: quickError }] = await Promise.all([
+    const [{ data, error }, { data: quickRows, error: quickError }, { data: sentenceRows, error: sentenceError }] = await Promise.all([
       context.supabase.from('grammar_attempt_events')
         .select('skill_tag,is_correct,created_at')
         .eq('user_id', context.user.id)
@@ -37,8 +65,13 @@ export async function GET() {
         .eq('content_type', 'grammar')
         .order('created_at', { ascending: false })
         .limit(3000),
+      context.supabase.from('sentence_construction_attempts')
+        .select('grammar_tags,is_correct,created_at')
+        .eq('user_id', context.user.id)
+        .order('created_at', { ascending: false })
+        .limit(3000),
     ]);
-    if (error || quickError) throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence migration and site-wide Quick Revision migration first.', error?.message || quickError?.message);
+    if (error || quickError || sentenceError) throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence, Quick Revision and Sentence Construction migrations first.', error?.message || quickError?.message || sentenceError?.message);
 
     const grammarIds = [...new Set((quickRows ?? []).map((row) => row.content_id))];
     let points: GrammarPoint[] = [];
@@ -51,6 +84,12 @@ export async function GET() {
     const pointById = new Map(points.map((point) => [point.id, point]));
     const labelByTag = new Map<string, string>();
     const allRows: EventRow[] = [...((data ?? []) as EventRow[])];
+    const sentenceAttempts = (sentenceRows ?? []) as SentenceRow[];
+    for (const attempt of sentenceAttempts) {
+      for (const tag of [...new Set((attempt.grammar_tags ?? []).filter((value) => typeof value === 'string' && /^[a-z0-9:_-]{2,80}$/i.test(value)))]) {
+        allRows.push({ skill_tag: tag, is_correct: attempt.is_correct, created_at: attempt.created_at });
+      }
+    }
     for (const row of (quickRows ?? []) as QuickRow[]) {
       const point = pointById.get(row.content_id);
       const tags = (point?.learning_tags ?? []).filter((tag) => typeof tag === 'string' && /^[a-z0-9:_-]{2,80}$/i.test(tag));
@@ -94,9 +133,10 @@ export async function GET() {
 
     const taggedEvents = (data ?? []) as EventRow[];
     const quickEvents = (quickRows ?? []) as QuickRow[];
-    const totalAttempts = taggedEvents.length + quickEvents.length;
+    const totalAttempts = taggedEvents.length + quickEvents.length + sentenceAttempts.length;
     const totalCorrect = taggedEvents.filter((row) => row.is_correct).length
-      + quickEvents.filter((row) => row.is_correct).length;
+      + quickEvents.filter((row) => row.is_correct).length
+      + sentenceAttempts.filter((row) => row.is_correct).length;
     return NextResponse.json({
       totalAttempts,
       accuracy: totalAttempts ? Math.round(totalCorrect / totalAttempts * 100) : 0,
