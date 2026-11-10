@@ -45,7 +45,6 @@ export default function ReadingStudio({
   const [level, setLevel] = useState<ReadingLevel>(initialLevel);
   const [selectedId, setSelectedId] = useState(getPassagesForLevel(initialLevel)[0]?.id ?? '');
   const [showMeaning, setShowMeaning] = useState(false);
-  const [showFullRomaji, setShowFullRomaji] = useState(false);
   const [view, setView] = useState<'all' | 'learned'>('all');
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
   const [progressLoading, setProgressLoading] = useState(signedIn);
@@ -75,6 +74,9 @@ export default function ReadingStudio({
   const learnedCount = levelPassages.filter((item) => learnedIds.has(item.id)).length;
   const readingMinutes = passage ? estimateReadingMinutes(passage) : 0;
   const passageRomaji = passage ? sentenceRomaji(passage) : [];
+  const passageMeaning = passage
+    ? passage.paragraphs.map((paragraph) => paragraph.map((sentence) => sentence.meaning.trim()).filter(Boolean).join(' ')).filter(Boolean)
+    : [];
 
   useEffect(() => {
     if (!signedIn) return;
@@ -104,7 +106,6 @@ export default function ReadingStudio({
   function selectPassage(id: string) {
     setSelectedId(id);
     setShowMeaning(false);
-    setShowFullRomaji(false);
     setNotice('');
     clearSelection();
   }
@@ -115,7 +116,6 @@ export default function ReadingStudio({
     setLevel(nextLevel);
     setSelectedId(getPassagesForLevel(nextLevel)[0]?.id ?? '');
     setShowMeaning(false);
-    setShowFullRomaji(false);
     setView('all');
     setNotice('');
     setProgressLoading(signedIn);
@@ -242,7 +242,7 @@ export default function ReadingStudio({
       action={<div className={styles.headingActions}>
         <JlptLevelSwitch value={level} onChange={changeLevel} label="Reading JLPT level" />
         <button type="button" className={styles.romajiToggle} aria-pressed={romaji} onClick={() => { setRomaji(!romaji); clearSelection(); }}>
-          {romaji ? 'Full romaji on' : 'Full romaji off'}
+          {romaji ? 'Hide romaji' : 'Show romaji'}
         </button>
       </div>}
     />
@@ -298,7 +298,7 @@ export default function ReadingStudio({
           ))}
         </aside>
 
-        {passage ? <article className={styles.readerCard}>
+        {passage ? <article className={styles.readerCard} data-allow-copy="true">
           <div className={styles.readerTopline}>
             <span>{level} READER · {passage.context.toLocaleUpperCase()}</span>
             <span>{readingMinutes} min read</span>
@@ -312,14 +312,11 @@ export default function ReadingStudio({
           </div>
 
           <div className={styles.readerActions}>
-            <button type="button" className={styles.meaningButton} aria-expanded={showMeaning}
-              onClick={() => { setShowMeaning((value) => !value); clearSelection(); }}>
+            <button type="button" className={styles.meaningButton}
+              aria-controls={`reading-meaning-${passage.id}`} aria-expanded={showMeaning}
+              onClick={() => { clearSelection(); setShowMeaning((value) => !value); }}>
               {showMeaning ? 'Hide meaning' : 'Show meaning'}
             </button>
-            {romaji ? <button type="button" className={styles.secondaryAction} aria-expanded={showFullRomaji}
-              onClick={() => { setShowFullRomaji((value) => !value); clearSelection(); }}>
-              {showFullRomaji ? 'Hide full romaji' : 'Show full romaji'}
-            </button> : null}
             <span className={styles.readingCount}>{Array.from(getPassageText(passage)).length} Japanese characters</span>
           </div>
 
@@ -351,17 +348,18 @@ export default function ReadingStudio({
             document.body,
           ) : null}
 
-          {showFullRomaji && romaji ? <div className={styles.fullRomaji}>
+          {romaji ? <div className={styles.fullRomaji}>
             <div className={styles.supportingLabel}>FULL PASSAGE ROMAJI</div>
             {passageRomaji.map((line, index) => <p key={index}>{line}</p>)}
           </div> : null}
 
-          {showMeaning ? <div className={styles.meaningPanel}>
+          <section id={`reading-meaning-${passage.id}`} className={styles.meaningPanel}
+            aria-label={`English meaning for ${passage.title}`} hidden={!showMeaning}>
             <div className={styles.supportingLabel}>ENGLISH MEANING</div>
-            {passage.paragraphs.map((paragraph, index) => (
-              <p key={index}>{paragraph.map((sentence) => sentence.meaning).join(' ')}</p>
-            ))}
-          </div> : null}
+            {passageMeaning.length > 0
+              ? passageMeaning.map((meaning, index) => <p key={index}>{meaning}</p>)
+              : <p>English meaning is not available for this passage yet.</p>}
+          </section>
 
           <div className={styles.vocabularyPanel}>
             <div className={styles.vocabularyHeader}>

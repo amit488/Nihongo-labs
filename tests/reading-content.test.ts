@@ -79,3 +79,23 @@ testCase('kana romanisation reads sentence particles correctly', () => {
   assert.equal(kanaToRomaji('がっこうへ'), 'gakkō e');
   assert.equal(kanaToRomaji('ほんを'), 'hon o');
 });
+
+
+testCase('reading card is exempt from global selection and copy protection', () => {
+  const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
+  const globals = readFileSync(resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
+  const protection = readFileSync(resolve(process.cwd(), 'src/components/copy-protection.tsx'), 'utf8');
+  assert.match(component, /data-allow-copy="true"/);
+  assert.match(globals, /\[data-allow-copy="true"\] \*/);
+  assert.match(protection, /selectionIsInsideAllowedContent/);
+  assert.match(protection, /startRoot === endRoot/);
+});
+
+testCase('reading studio has one global romaji control and an explicit meaning panel toggle', () => {
+  const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
+  assert.match(component, /romajiToggle[\s\S]*Show romaji/);
+  assert.doesNotMatch(component, /showFullRomaji|Show full romaji|Hide full romaji/);
+  assert.match(component, /aria-controls=.*reading-meaning/);
+  assert.match(component, /hidden=\{!showMeaning\}/);
+  assert.match(component, /passageMeaning\.map/);
+});

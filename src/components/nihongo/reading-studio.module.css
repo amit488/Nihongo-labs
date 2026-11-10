@@ -49,7 +49,7 @@
 .selectionPopup small{max-width:100%;overflow:hidden;color:#cbd1d7;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .fullRomaji,.meaningPanel{margin-top:12px;padding:14px 16px;border:1px solid #e6e9ed;border-radius:9px;background:#fafbfc}
 .fullRomaji p,.meaningPanel p{margin:7px 0 0;color:#65717c;font-size:13px;line-height:1.75}
-.meaningPanel{border-color:#eadbd6;background:#fcf7f4}
+.meaningPanel{border-color:#eadbd6;background:#fcf7f4}.meaningPanel[hidden]{display:none}
 .vocabularyPanel{margin-top:18px;padding-top:16px;border-top:1px solid #edf0f2}
 .vocabularyHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:10px}
 .vocabularyHeader>div{display:flex;flex-direction:column;gap:3px}
