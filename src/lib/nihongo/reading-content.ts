@@ -1482,6 +1482,120 @@ export function kanaToRomaji(value: string): string {
     .replace(/ee/g, 'ē').replace(/ou/g, 'ō').replace(/oo/g, 'ō');
 }
 
+type ReadingCharacterSpan = { start: number; end: number };
+
+const smallKana = new Set(['ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', 'ゅ', 'ょ', 'ゎ']);
+
+function isKanaCharacter(value: string): boolean {
+  return /^[\\u3040-\\u309f\\u30a0-\\u30ff]$/u.test(value);
+}
+
+function splitReadingIntoMora(reading: string, start: number): ReadingCharacterSpan[] {
+  const spans: ReadingCharacterSpan[] = [];
+  let cursor = start;
+  for (const character of Array.from(reading)) {
+    const next = { start: cursor, end: cursor + character.length };
+    if (smallKana.has(character) && spans.length > 0) {
+      spans[spans.length - 1].end = next.end;
+    } else {
+      spans.push(next);
+    }
+    cursor = next.end;
+  }
+  return spans;
+}
+
+/**
+ * Converts only the selected part of one displayed Japanese token.
+ * Kana characters are anchored to their matching reading characters. Reading
+ * between those anchors belongs to the adjacent kanji run, so partial ranges
+ * never fall back to the full token's romaji.
+ */
+export function getSelectedRomajiForTextRange(
+  text: string,
+  reading: string,
+  fullTokenRomaji: string | undefined,
+  startOffset: number,
+  endOffset: number,
+): string {
+  const safeStart = Math.max(0, Math.min(text.length, Math.floor(startOffset)));
+  const safeEnd = Math.max(safeStart, Math.min(text.length, Math.floor(endOffset)));
+  if (safeStart === safeEnd || !reading) return '';
+  if (safeStart === 0 && safeEnd === text.length && fullTokenRomaji) return fullTokenRomaji;
+
+  const textCharacters = Array.from(text);
+  const readingCharacters = Array.from(toHiragana(reading));
+  const normalizedText = textCharacters.map((character) => toHiragana(character));
+  const selectedStart = Array.from(text.slice(0, safeStart)).length;
+  const selectedEnd = Array.from(text.slice(0, safeEnd)).length;
+  const characterSpans: Array<ReadingCharacterSpan | null> = textCharacters.map(() => null);
+
+  // Kana written in the visible text gives exact alignment anchors inside a
+  // token; this handles okurigana, particles, and katakana without guesses.
+  const anchors: Array<{ textIndex: number; readingIndex: number }> = [];
+  let readingCursor = 0;
+  normalizedText.forEach((character, textIndex) => {
+    if (!isKanaCharacter(character)) return;
+    const readingIndex = readingCharacters.indexOf(character, readingCursor);
+    if (readingIndex < 0) return;
+    anchors.push({ textIndex, readingIndex });
+    readingCursor = readingIndex + 1;
+  });
+
+  // Any reading between kana anchors belongs to the intervening kanji run.
+  // Divide that run by mora, not raw Unicode units, to keep digraphs together.
+  let previousTextIndex = -1;
+  let previousReadingIndex = -1;
+  const assignUnanchoredRun = (
+    textStart: number,
+    textEnd: number,
+    readingStart: number,
+    readingEnd: number,
+  ) => {
+    const textIndices = Array.from({ length: Math.max(0, textEnd - textStart) }, (_, index) => textStart + index)
+      .filter((index) => /[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Letter}\\p{Number}]/u.test(textCharacters[index]));
+    if (!textIndices.length || readingEnd <= readingStart) return;
+
+    const readingSlice = readingCharacters.slice(readingStart, readingEnd).join('');
+    const moraSpans = splitReadingIntoMora(readingSlice, readingStart);
+    let moraCursor = 0;
+    textIndices.forEach((textIndex, index) => {
+      const remainingCharacters = textIndices.length - index;
+      const remainingMora = moraSpans.length - moraCursor;
+      const moraCount = Math.ceil(remainingMora / remainingCharacters);
+      if (moraCount <= 0) return;
+      const first = moraSpans[moraCursor];
+      const last = moraSpans[moraCursor + moraCount - 1];
+      if (first && last) characterSpans[textIndex] = { start: first.start, end: last.end };
+      moraCursor += moraCount;
+    });
+  };
+
+  for (const anchor of [...anchors, { textIndex: textCharacters.length, readingIndex: readingCharacters.length }]) {
+    assignUnanchoredRun(
+      previousTextIndex + 1,
+      anchor.textIndex,
+      previousReadingIndex + 1,
+      anchor.readingIndex,
+    );
+    if (anchor.textIndex < textCharacters.length) {
+      characterSpans[anchor.textIndex] = { start: anchor.readingIndex, end: anchor.readingIndex + 1 };
+    }
+    previousTextIndex = anchor.textIndex;
+    previousReadingIndex = anchor.readingIndex;
+  }
+
+  const selectedSpans = characterSpans.slice(selectedStart, selectedEnd).filter(
+    (span): span is ReadingCharacterSpan => Boolean(span && span.end > span.start),
+  );
+  if (!selectedSpans.length) return '';
+
+  const readingStart = Math.min(...selectedSpans.map((span) => span.start));
+  const readingEnd = Math.max(...selectedSpans.map((span) => span.end));
+  const selectedReading = readingCharacters.slice(readingStart, readingEnd).join('');
+  return kanaToRomaji(selectedReading);
+}
+
 export function getPassageText(passage: ReadingPassage): string {
   return passage.paragraphs.flatMap((paragraph) =>
     paragraph.map((sentence) => sentence.tokens.map((token) => token.text).join('')),
