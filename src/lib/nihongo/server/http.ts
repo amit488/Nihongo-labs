@@ -10,7 +10,11 @@ export class HttpError extends Error {
 
 export function jsonError(error: unknown) {
   if (error instanceof HttpError) {
-    return NextResponse.json({ error: error.message, details: error.details ?? null }, { status: error.status });
+    const details = error.status >= 500 ? undefined : error.details ?? null;
+    return NextResponse.json(
+      { error: error.message, ...(details === undefined ? {} : { details }) },
+      { status: error.status },
+    );
   }
   if (error instanceof ZodError) {
     return NextResponse.json({ error: 'Invalid request.', details: error.flatten() }, { status: 400 });

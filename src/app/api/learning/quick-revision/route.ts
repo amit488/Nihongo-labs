@@ -152,28 +152,41 @@ async function getLearnedCandidates(userClient: SupabaseClient, userId: string):
   return [...vocabulary, ...kanji, ...grammar];
 }
 
-async function getOptions(userClient: SupabaseClient, candidate: Candidate): Promise<string[]> {
-  let rows: Array<{ id: string; answer: string }> = [];
-  if (candidate.contentType === 'vocabulary') {
-    const { data, error } = await userClient.from('vocabulary_entries')
-      .select('id,meaning').eq('jlpt_level', candidate.level)
-      .eq('publication_status', 'published').limit(500);
-    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
-    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
-  } else if (candidate.contentType === 'kanji') {
-    const { data, error } = await userClient.from('kanji_entries')
-      .select('id,meaning').eq('jlpt_level', candidate.level)
-      .eq('publication_status', 'published').limit(500);
-    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
-    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
-  } else {
-    const { data, error } = await userClient.from('grammar_points')
-      .select('id,pattern').eq('jlpt_level', candidate.level)
-      .eq('publication_status', 'published').limit(500);
-    if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
-    rows = (data ?? []).map((row) => ({ id: row.id, answer: row.pattern }));
-  }
+type OptionPoolRow = { id: string; answer: string };
+type OptionPoolCache = Map<string, Promise<OptionPoolRow[]>>;
 
+async function getOptions(
+  userClient: SupabaseClient,
+  candidate: Candidate,
+  cache: OptionPoolCache,
+): Promise<string[]> {
+  const cacheKey = candidate.contentType + ':' + candidate.level;
+  let poolPromise = cache.get(cacheKey);
+  if (!poolPromise) {
+    poolPromise = (async (): Promise<OptionPoolRow[]> => {
+      if (candidate.contentType === 'vocabulary') {
+        const { data, error } = await userClient.from('vocabulary_entries')
+          .select('id,meaning').eq('jlpt_level', candidate.level)
+          .eq('publication_status', 'published').limit(500);
+        if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+        return (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
+      }
+      if (candidate.contentType === 'kanji') {
+        const { data, error } = await userClient.from('kanji_entries')
+          .select('id,meaning').eq('jlpt_level', candidate.level)
+          .eq('publication_status', 'published').limit(500);
+        if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+        return (data ?? []).map((row) => ({ id: row.id, answer: row.meaning }));
+      }
+      const { data, error } = await userClient.from('grammar_points')
+        .select('id,pattern').eq('jlpt_level', candidate.level)
+        .eq('publication_status', 'published').limit(500);
+      if (error) throw new HttpError(500, 'Could not build revision answer choices.', error.message);
+      return (data ?? []).map((row) => ({ id: row.id, answer: row.pattern }));
+    })();
+    cache.set(cacheKey, poolPromise);
+  }
+  const rows = await poolPromise;
   const correct = candidate.answer;
   const distractors = [...new Set(rows
     .filter((row) => row.id !== candidate.contentId)
@@ -182,7 +195,6 @@ async function getOptions(userClient: SupabaseClient, candidate: Candidate): Pro
   const selected = shuffle(distractors).slice(0, 3);
   return shuffle([correct, ...selected]);
 }
-
 async function getStats(userClient: SupabaseClient, userId: string) {
   const { data, error } = await userClient.from('quick_revision_state')
     .select('content_type,content_id,total_attempts,correct_attempts,incorrect_attempts,correct_streak,last_is_correct,last_reviewed_at,next_review_at')
@@ -298,6 +310,7 @@ export async function GET(request: NextRequest) {
     // kanji and grammar. Existing SM-2 due/low-rating signals nudge at-risk
     // words forward, while Quick Revision's own recall schedule remains authoritative.
     const remaining = [...candidates];
+    const optionPoolCache: OptionPoolCache = new Map();
     for (let attempt = 0; attempt < Math.min(10, candidates.length); attempt += 1) {
       const selected = weightedPick(remaining.map((item) => {
         const recallWeight = selectionWeight(stateMap.get(`${item.contentType}:${item.contentId}`), now);
@@ -315,7 +328,7 @@ export async function GET(request: NextRequest) {
         item.contentType === selected.contentType && item.contentId === selected.contentId);
       if (selectedIndex >= 0) remaining.splice(selectedIndex, 1);
 
-      const options = await getOptions(context.supabase, selected);
+      const options = await getOptions(context.supabase, selected, optionPoolCache);
       if (options.length < 2) continue;
 
       return NextResponse.json({

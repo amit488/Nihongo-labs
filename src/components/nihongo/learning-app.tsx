@@ -144,11 +144,9 @@ export default function LearningApp({ section = [] }: Props) {
     if (!client) return;
     const load = async () => {
       const authPromise = client.auth.getUser();
-      const [authResult, dataSnapshot, grammarRows, flashcardRows] = await Promise.all([
+      const [authResult, dataSnapshot] = await Promise.all([
         authPromise,
         authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
-        getPublishedGrammar(),
-        getPublishedFlashcards(),
       ]);
       const user = authResult.data.user;
       if (!alive) return;
@@ -159,8 +157,6 @@ export default function LearningApp({ section = [] }: Props) {
       }
       setRomaji(dataSnapshot.showRomaji);
       setSnapshot(dataSnapshot);
-      if (grammarRows.length) setGrammarData(grammarRows);
-      if (flashcardRows.length) setFlashcardData(flashcardRows);
     };
     void load();
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
@@ -179,6 +175,22 @@ export default function LearningApp({ section = [] }: Props) {
     });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, [refreshLearnerSnapshot]);
+
+  const grammarContentLoaded = useRef(false);
+  const flashcardContentLoaded = useRef(false);
+
+  useEffect(() => {
+    if (active === 'grammar' && !grammarContentLoaded.current) {
+      grammarContentLoaded.current = true;
+      void getPublishedGrammar().then((rows) => {
+        if (rows.length) setGrammarData(rows);
+      });
+    }
+    if (active === 'flashcards' && !flashcardContentLoaded.current) {
+      flashcardContentLoaded.current = true;
+      void getPublishedFlashcards().then((rows) => setFlashcardData(rows));
+    }
+  }, [active]);
 
   useEffect(() => {
     if (!signedIn || !isStudySection) return;
