@@ -30,7 +30,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       setMessage(result.message);
       setVerificationPending(result.success && result.requiresEmailConfirmation === true);
       setAccountAlreadyExists(result.alreadyRegistered === true);
-      if (result.success && result.authenticated) router.push('/learn');
+      if (result.success && result.authenticated) router.push(result.redirectTo ?? '/learn');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
