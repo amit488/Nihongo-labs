@@ -54,12 +54,14 @@ function formatTag(tag: string) {
   return labels[tag] || tag.replace(/^(grammar|particle|verb|adjective):/, '').replaceAll('-', ' ');
 }
 
-export default function SentenceConstruction({ signedIn, romaji, onProgressSaved }: {
+export default function SentenceConstruction({ signedIn, romaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: {
   signedIn: boolean;
   romaji: boolean;
+  preferredLevel: JlptLevel;
+  onPreferredLevelChange: (level: JlptLevel) => Promise<void>;
   onProgressSaved: () => Promise<void>;
 }) {
-  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const items = useMemo(() => getSentenceConstructionItems(level), [level]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number[]>([]);
@@ -102,6 +104,7 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
+    void onPreferredLevelChange(next);
     setStats(emptyStats);
     setStartedAt(Date.now());
     setIndex(0);
