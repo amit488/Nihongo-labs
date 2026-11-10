@@ -335,6 +335,7 @@ quick_source as (
       select distinct tag
       from unnest(coalesce(g.learning_tags, array[]::text[])) as values_by_tag(tag)
       where tag ~* '^[a-z0-9:_-]{2,80}$'
+    ) as valid_tags
   from public.quick_revision_attempts q
   left join public.grammar_points g on g.id = q.content_id
   where q.user_id = (select user_id from caller)
