@@ -9,7 +9,7 @@ test('contact entry points are available on the landing page and signed-in works
   const landing = read('src/app/page.tsx');
   const workspace = read('src/components/nihongo/learning-app.tsx');
   assert.match(landing, /href="\/contact"/);
-  assert.match(landing, /Suggestions \\/ complaints/);
+  assert.ok(landing.includes('Suggestions / complaints'));
   assert.match(workspace, /href="\/contact"/);
   assert.match(workspace, /Contact us/);
   assert.match(workspace, /Send feedback/);
