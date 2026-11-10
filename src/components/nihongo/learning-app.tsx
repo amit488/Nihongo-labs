@@ -63,6 +63,7 @@ export default function LearningApp({ section = [] }: Props) {
   const studyTimerRef = useRef<HTMLSpanElement>(null);
   const [connected, setConnected] = useState(false);
   const authGenerationRef = useRef(0);
+  const [authViewKey, setAuthViewKey] = useState(0);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
     displayName: 'Learner', preferredJlptLevel: 'N5',
     grammarCount: 0, grammarUnderstood: 0,
@@ -180,6 +181,7 @@ export default function LearningApp({ section = [] }: Props) {
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
       authGenerationRef.current += 1;
+      setAuthViewKey((current) => current + 1);
       setConnected(true);
       setSignedIn(Boolean(session?.user));
       if (session?.user) {
@@ -668,6 +670,7 @@ export default function LearningApp({ section = [] }: Props) {
       return;
     }
     authGenerationRef.current += 1;
+    setAuthViewKey((current) => current + 1);
     setSignedIn(false);
     setSnapshot(createPreviewSnapshot());
     setRomaji(true);
@@ -699,10 +702,10 @@ export default function LearningApp({ section = [] }: Props) {
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authGenerationRef.current}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
           {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
-          {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authGenerationRef.current}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
+          {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
