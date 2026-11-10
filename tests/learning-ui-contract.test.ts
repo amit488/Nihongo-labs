@@ -50,7 +50,7 @@ test('global search is backed by published learning content and opens the matchi
   assert.match(searchApi, /from\('kanji_entries'\)/);
   assert.match(searchApi, /from\('lessons'\)/);
   assert.match(features, /filteredGrammarItems/);
-  assert.match(features, /setQuery\(search\)/);
+  assert.match(features, /useState\(search\)/);
 });
 
 test('JLPT progress switches to the selected level and uses its own tracked data', () => {
