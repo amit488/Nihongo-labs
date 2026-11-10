@@ -227,7 +227,16 @@ test('medium-priority optimization migration indexes existing substring searches
     'sentence_construction_attempts_user_created_idx',
   ]) assert.match(migration, new RegExp(indexName, 'i'), indexName);
   assert.match(migration, /using gin \([\s\S]*?gin_trgm_ops/i);
-  assert.ok(migration.includes("where tag ~* '^[a-z0-9:_-]{2,80}
+  assert.match(
+    migration,
+    /where tag ~\* '\^\[a-z0-9:_-\]\{2,80\}\$'\s*\) as valid_tags\s*from public\.quick_revision_attempts/i,
+    'grammar tag ARRAY subquery must close before the outer FROM',
+  );
+  assert.equal(
+    (migration.match(/create or replace function public\.get_grammar_intelligence/g) ?? []).length,
+    1,
+  );
+  assert.ok(migration.trimEnd().endsWith('commit;'), 'migration must not contain statements after COMMIT');
 });
 
 test('progress and intelligence routes use database-side aggregation', () => {
