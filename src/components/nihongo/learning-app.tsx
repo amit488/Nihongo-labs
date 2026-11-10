@@ -699,10 +699,10 @@ export default function LearningApp({ section = [] }: Props) {
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard key={snapshot.preferredJlptLevel} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authGenerationRef.current}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
           {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
-          {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
+          {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authGenerationRef.current}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
@@ -749,13 +749,8 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
   }, []);
 
   useEffect(() => {
-    // Never carry account-specific level statistics into the signed-out demo.
-    if (!signedIn) {
-      setLevelProgress(null);
-      return;
-    }
+    if (!signedIn) return;
     let active = true;
-    setLevelProgress(null);
     fetch(`/api/learning/level-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json() as DashboardLevelProgress & { error?: string };
@@ -872,12 +867,8 @@ type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; co
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
   useEffect(() => {
-    if (!signedIn) {
-      setSentenceProgress(null);
-      return;
-    }
+    if (!signedIn) return;
     let active = true;
-    setSentenceProgress(null);
     void Promise.all((['N5', 'N4'] as const).map(async (level) => {
       const response = await fetch('/api/learning/sentence-construction?level=' + level, { credentials: 'same-origin', cache: 'no-store' });
       const body = await response.json() as SentenceProgressSummary & { error?: string };
