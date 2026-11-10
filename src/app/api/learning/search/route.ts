@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         level: row.jlpt_level,
         title: row.word,
         detail: [row.kana, row.meaning].filter(Boolean).join(' · '),
-        href: `/learn/vocabulary?search=${encodeURIComponent(query)}`,
+        href: `/learn/vocabulary?search=${encodeURIComponent(query)}&focus=${encodeURIComponent(row.id)}&level=${encodeURIComponent(row.jlpt_level)}`,
       })),
       ...(grammar.data ?? []).map((row) => ({
         id: row.id,

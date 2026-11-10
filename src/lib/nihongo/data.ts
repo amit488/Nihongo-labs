@@ -175,6 +175,28 @@ export async function getPublishedVocabulary(
   }
 }
 
+export async function getPublishedVocabularyById(
+  id: string,
+  level: 'N5' | 'N4' = 'N5',
+): Promise<VocabularyItem | null> {
+  if (!id) return null;
+  const params = new URLSearchParams({ kind: 'vocabulary', level, id });
+  try {
+    const response = await apiGet<ContentResponse<VocabularyContentRow>>(
+      `/api/learning/content?${params.toString()}`,
+    );
+    const row = response.items?.[0];
+    if (!row) return null;
+    return {
+      id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
+      partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
+      exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
   try {
     const { items } = await apiGet<ContentResponse<KanjiContentRow>>(`/api/learning/content?kind=kanji&level=${level}&limit=250`);

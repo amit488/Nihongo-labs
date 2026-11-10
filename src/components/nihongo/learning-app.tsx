@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { QuickRevision, QuickRevisionStats } from './quick-revision';
@@ -50,7 +50,12 @@ function Icon({ children, className = '' }: { children: ReactNode; className?: s
 
 export default function LearningApp({ section = [] }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const active = section[0] || 'overview';
+  const focusedVocabularyId = active === 'vocabulary' ? searchParams.get('focus') || undefined : undefined;
+  const focusedVocabularyLevel = focusedVocabularyId
+    ? (searchParams.get('level') === 'N4' ? 'N4' : searchParams.get('level') === 'N5' ? 'N5' : undefined)
+    : undefined;
   const isStudySection = ['grammar', 'vocabulary', 'kanji', 'kana', 'practice', 'sentences', 'flashcards', 'reading', 'exams'].includes(active);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
@@ -647,7 +652,7 @@ export default function LearningApp({ section = [] }: Props) {
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard key={snapshot.preferredJlptLevel} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
-          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={snapshot.preferredJlptLevel} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>

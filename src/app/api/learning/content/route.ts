@@ -60,16 +60,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: data ?? [] }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
     }
     if (kind === 'vocabulary') {
+      const targetId = request.nextUrl.searchParams.get('id')?.trim() ?? '';
       let query = supabase.from('vocabulary_entries')
         .select('id,word,kana,romaji,meaning,part_of_speech,example_sentence,example_reading,example_translation,tags')
         .eq('jlpt_level', level).eq('publication_status', 'published')
-        .order('word', { ascending: true }).order('id', { ascending: true })
-        .range(offset, offset + limit);
-      if (search) query = query.or(`word.ilike.%${search}%,kana.ilike.%${search}%,meaning.ilike.%${search}%`);
+        .order('word', { ascending: true }).order('id', { ascending: true });
+      if (targetId) {
+        // Global search can point to a word beyond the first paginated slice.
+        // Resolve the published record directly instead of loading the catalogue.
+        query = query.eq('id', targetId);
+      } else {
+        query = query.range(offset, offset + limit);
+        if (search) query = query.or(`word.ilike.%${search}%,kana.ilike.%${search}%,meaning.ilike.%${search}%`);
+      }
       const { data, error } = await query;
       if (error) throw new HttpError(500, 'Could not load vocabulary.', error.message);
       const rows = data ?? [];
-      const hasMore = rows.length > limit;
+      const hasMore = !targetId && rows.length > limit;
       const items = hasMore ? rows.slice(0, limit) : rows;
       return NextResponse.json(
         { items, hasMore, nextOffset: offset + items.length },
