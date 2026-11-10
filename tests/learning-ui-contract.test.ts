@@ -42,7 +42,7 @@ test('heartbeat retries retain an immutable eight-day batch and preserve newer q
 test('global search is backed by published learning content and opens the matching study area', () => {
   const searchApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/search/route.ts'), 'utf8');
   const features = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-features.tsx'), 'utf8');
-  assert.match(dashboard, /api\\/learning\\/search/);
+  assert.ok(dashboard.includes('api/learning/search'));
   assert.match(dashboard, /searchResults\.map/);
   assert.match(dashboard, /metaKey \|\| event\.ctrlKey/);
   assert.match(searchApi, /from\('vocabulary_entries'\)/);
