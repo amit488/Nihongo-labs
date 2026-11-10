@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
 import SentenceConstruction from './sentence-construction';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getPublishedVocabularyById, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
+import ReadingStudio from './reading-studio';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getPublishedVocabularyById, type LearnerFlashcard } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel } from './learning-shared';
@@ -1338,93 +1339,6 @@ function Flashcards({ items, signedIn, romaji, setRomaji, preferredLevel, onPref
   </>;
 }
 
-function Reading({ romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
-  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
-  const [passages, setPassages] = useState<ReadingPassage[]>([]);
-  const [selected, setSelected] = useState(0);
-  const [translation, setTranslation] = useState(false);
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    void getReadingPassages(level).then((rows) => {
-      if (!active) return;
-      setPassages(rows);
-      const term = search.trim().toLocaleLowerCase();
-      const match = term ? rows.findIndex((row) => [row.title, row.text, row.translation]
-        .filter(Boolean).join(' ').toLocaleLowerCase().includes(term)) : -1;
-      setSelected(match >= 0 ? match : 0);
-      setLoading(false);
-    }).catch(() => {
-      if (!active) return;
-      setPassages([]);
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [level, search]);
-
-  function changeLevel(next: JlptLevel) {
-    if (next === level) return;
-    setLevel(next);
-    void onPreferredLevelChange(next);
-    setPassages([]);
-    setSelected(0);
-    setTranslation(false);
-    setShowQuiz(false);
-    setLoading(true);
-  }
-
-  const passage = passages[selected];
-  if (showQuiz) {
-    return <><SectionHeading eyebrow={`READING CHECK · JLPT ${level}`} title="Test your comprehension."
-      description="Your answers are submitted to the secure grading service."
-      action={<button className={styles.ghostButton} onClick={() => setShowQuiz(false)}>Back to passages</button>} />
-      <QuizRunner kind="reading" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={level} showLevelSwitch={false} onProgressSaved={onProgressSaved} />
-    </>;
-  }
-
-  return <>
-    <SectionHeading eyebrow={`READING ROOM · JLPT ${level}`} title="Read a little. Understand a lot."
-      description="Graded passages with optional Romaji, English meaning and vocabulary notes."
-      action={<div className={styles.headingActions}>
-        <JlptLevelSwitch value={level} onChange={changeLevel} label="Reading JLPT level" />
-        <button className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
-      </div>} />
-    {loading ? <div className={styles.panel} role="status">Loading {level} reading passages…</div>
-      : !passage ? <EmptyState title={`No published ${level} reading passages yet`} description="Published reading lessons for this level will appear here when they are added to the curriculum." />
-        : <div className={styles.readingLayout}>
-          <article className={styles.readingPanel}>
-            <div className={styles.readingTop}><span className={styles.readingLevel}>{level} READER · 3 MIN</span><span>Story {String(selected + 1).padStart(2, '0')}</span></div>
-            <div className={styles.filterPills}>{passages.map((row, index) => (
-              <button key={row.title} className={selected === index ? styles.filterActive : ''}
-                onClick={() => { setSelected(index); setTranslation(false); }}>{row.title}</button>
-            ))}</div>
-            <h2>{passage.title}</h2>
-            <div className={styles.readingJapanese}>{passage.text}</div>
-            {romaji && passage.romaji ? <div className={styles.readingRomaji}>{passage.romaji}</div> : null}
-            <button className={styles.translationToggle} onClick={() => setTranslation((value) => !value)}>
-              {translation ? 'Hide translation' : 'Show English translation'} <span>⌄</span>
-            </button>
-            {translation ? <div className={styles.translationBox}>{passage.translation}</div> : null}
-            <div className={styles.wordNotes}><div className={styles.eyebrow}>WORDS TO NOTICE</div>
-              {(passage.vocabulary ?? []).map((word) => <div key={`${word.word}-${word.reading}`}>
-                <span>{word.word}</span><small>{word.reading} · {word.meaning}{romaji && word.romaji ? ` · ${word.romaji}` : ''}</small>
-              </div>)}
-            </div>
-            <button type="button" className={styles.primaryButton} onClick={() => setShowQuiz(true)}>Start graded comprehension <span>→</span></button>
-          </article>
-          <aside className={styles.comprehensionPanel}>
-            <div className={styles.eyebrow}>READING PRACTICE</div><div className={styles.questionNumber}>{passages.length} PASSAGES</div>
-            <h3>Read the passage carefully, then answer comprehension questions in a graded practice set.</h3>
-            <p>Answers are checked server-side, and your result is saved to your learning history.</p>
-            <button className={styles.primaryButton} onClick={() => setShowQuiz(true)}>Start questions <span>→</span></button>
-          </aside>
-        </div>}
-  </>;
-}
-
-
 function Exams({ signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
   return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={preferredLevel} onLevelChange={(level) => { void onPreferredLevelChange(level); }} onProgressSaved={onProgressSaved} />;
 }
@@ -1526,7 +1440,7 @@ export function LearningFeature(props: LearningFeatureProps) {
     case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} />;
-    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'reading': return <ReadingStudio romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
