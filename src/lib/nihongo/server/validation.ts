@@ -40,6 +40,7 @@ export const settingsSchema = z.object({
   timezone: z.string().min(1).max(80).optional(),
   showRomaji: z.boolean().optional(),
   showFurigana: z.boolean().optional(),
+  preferredJlptLevel: z.enum(['N5', 'N4']).optional(),
   dailyStudyGoalMinutes: z.number().int().min(1).max(600).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'At least one setting is required.');
 
