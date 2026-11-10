@@ -545,7 +545,7 @@ function Vocabulary({
   const [hasMore, setHasMore] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const focusedCardRef = useRef<HTMLArticleElement | null>(null);
+  const focusedCardRef = useRef<HTMLElement | null>(null);
   const pageBusyRef = useRef(false);
   const nextOffsetRef = useRef(0);
   const hasMoreRef = useRef(false);
