@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
+import SentenceConstruction from './sentence-construction';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel } from './learning-shared';
 
-type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'subscription';
+type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'sentences' | 'subscription';
 export type LearningFeatureProps = {
   active: FeatureSection; grammarItems: GrammarItem[]; vocabularyItems: VocabularyItem[]; kanjiItems: KanjiItem[];
   flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
@@ -1479,6 +1480,7 @@ export function LearningFeature(props: LearningFeatureProps) {
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
     case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} onProgressSaved={props.onProgressSaved} />;
     case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
+    case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} onProgressSaved={props.onProgressSaved} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
     default: return null;
   }
