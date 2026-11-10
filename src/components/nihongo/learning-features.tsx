@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
 import SentenceConstruction from './sentence-construction';
-import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
+import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getPublishedVocabularyById, getReadingPassages, type LearnerFlashcard, type ReadingPassage } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
 import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel } from './learning-shared';
@@ -13,6 +13,7 @@ type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' |
 export type LearningFeatureProps = {
   active: FeatureSection; grammarItems: GrammarItem[]; vocabularyItems: VocabularyItem[]; kanjiItems: KanjiItem[];
   flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
+  focusedVocabularyId?: string; focusedVocabularyLevel?: JlptLevel;
   kanaMode: 'hiragana' | 'katakana'; setKanaMode: (value: 'hiragana' | 'katakana') => void;
   kanaQuiz: boolean; setKanaQuiz: (value: boolean) => void; onProgressSaved: () => Promise<void>;
   preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>;
@@ -515,18 +516,20 @@ type LearnedVocabularyItem = {
 const VOCABULARY_PAGE_SIZE = 80;
 
 function Vocabulary({
-  items: fallbackItems, romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved,
+  items: fallbackItems, romaji, setRomaji, signedIn, search, focusedVocabularyId, focusedVocabularyLevel, preferredLevel, onPreferredLevelChange, onProgressSaved,
 }: {
   items: VocabularyItem[];
   romaji: boolean;
   setRomaji: (value: boolean) => void;
   signedIn: boolean;
   search: string;
+  focusedVocabularyId?: string;
+  focusedVocabularyLevel?: JlptLevel;
   preferredLevel: JlptLevel;
   onPreferredLevelChange: (level: JlptLevel) => Promise<void>;
   onProgressSaved: () => Promise<void>;
 }) {
-  const [level, setLevel] = useState<VocabularyLevel>(preferredLevel);
+  const [level, setLevel] = useState<VocabularyLevel>(focusedVocabularyLevel ?? preferredLevel);
   const [view, setView] = useState<VocabularyView>('new');
   const [deckItems, setDeckItems] = useState<VocabularyItem[]>([]);
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
@@ -542,6 +545,7 @@ function Vocabulary({
   const [hasMore, setHasMore] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const focusedCardRef = useRef<HTMLElement | null>(null);
   const pageBusyRef = useRef(false);
   const nextOffsetRef = useRef(0);
   const hasMoreRef = useRef(false);
@@ -557,7 +561,24 @@ function Vocabulary({
     learnedIdsRef.current = learnedIds;
   }, [learnedIds]);
 
-  const queryKey = `${level}|${debouncedSearch}`;
+  const queryKey = `${level}|${debouncedSearch}|${focusedVocabularyId ?? ''}`;
+
+  useEffect(() => {
+    if (!focusedVocabularyId) return;
+    setView('new');
+    if (focusedVocabularyLevel) setLevel(focusedVocabularyLevel);
+  }, [focusedVocabularyId, focusedVocabularyLevel]);
+
+  useEffect(() => {
+    if (loading || !focusedVocabularyId || !deckItems.some((item) => item.id === focusedVocabularyId)) return;
+    const frame = window.requestAnimationFrame(() => {
+      focusedCardRef.current?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'center',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, focusedVocabularyId, deckItems]);
 
   function toggleExample(id: string) {
     setExpandedIds((current) => {
@@ -592,10 +613,13 @@ function Vocabulary({
       setHasMore(false);
       setLoadingMore(false);
 
-      const [page, progressResponse] = await Promise.all([
+      const [page, progressResponse, focusedItem] = await Promise.all([
         getPublishedVocabulary(level, 0, VOCABULARY_PAGE_SIZE, debouncedSearch),
         signedIn
           ? fetch(`/api/learning/vocabulary-progress?level=${level}&view=ids`, { credentials: 'same-origin', cache: 'no-store' }).catch(() => null)
+          : Promise.resolve(null),
+        focusedVocabularyId
+          ? getPublishedVocabularyById(focusedVocabularyId, level)
           : Promise.resolve(null),
       ]);
 
@@ -608,6 +632,12 @@ function Vocabulary({
       learnedIdsRef.current = ids;
       setLearnedIds(ids);
       let visible = page.items.filter((item) => !ids.has(item.id));
+      if (focusedVocabularyId && focusedItem && !visible.some((item) => item.id === focusedItem.id)) {
+        // Keep the searched word reachable even beyond page one or if it is learned.
+        visible = [focusedItem, ...visible];
+      }
+      if (focusedVocabularyId && focusedItem) setExpandedIds(new Set([focusedVocabularyId]));
+      if (focusedVocabularyId && !focusedItem) setNotice('The selected vocabulary card could not be loaded. Please search for it again.');
       let offset = page.nextOffset;
       let more = page.hasMore;
 
@@ -640,7 +670,7 @@ function Vocabulary({
       .finally(() => { if (active) setLoading(false); });
 
     return () => { active = false; };
-  }, [level, debouncedSearch, signedIn, fallbackItems, queryKey]);
+  }, [level, debouncedSearch, signedIn, fallbackItems, queryKey, focusedVocabularyId]);
 
   const loadMore = useCallback(async (requestedLimit = VOCABULARY_PAGE_SIZE) => {
     if (pageBusyRef.current || !hasMoreRef.current) return;
@@ -874,7 +904,11 @@ function Vocabulary({
       ) : null}
       <div className={styles.vocabGrid}>
         {deckItems.map((item) => (
-          <article key={item.id} className={`${styles.vocabCard} ${expandedIds.has(item.id) ? styles.vocabExpanded : ''}`}>
+          <article key={item.id}
+            ref={item.id === focusedVocabularyId ? focusedCardRef : undefined}
+            id={item.id === focusedVocabularyId ? `vocabulary-card-${item.id}` : undefined}
+            aria-current={item.id === focusedVocabularyId ? 'true' : undefined}
+            className={`${styles.vocabCard} ${expandedIds.has(item.id) ? styles.vocabExpanded : ''} ${item.id === focusedVocabularyId ? styles.vocabCardFocused : ''}`}>
             <button type="button" className={styles.vocabCardTop} onClick={() => toggleExample(item.id)}>
               <span className={styles.wordType}>{item.partOfSpeech}</span>
               <span className={styles.bookmark}>{expandedIds.has(item.id) ? '⌃' : '⌄'}</span>
@@ -904,11 +938,15 @@ function Vocabulary({
               <button type="button" className={styles.ghostButton} onClick={() => toggleExample(item.id)}>
                 {expandedIds.has(item.id) ? 'Close example' : 'View example'}
               </button>
-              <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
-                aria-label={`Mark ${item.word} as learned`} data-vocabulary-id={item.id}
-                onClick={(event) => { event.stopPropagation(); void markLearned(item.id); }}>
-                {savingId === item.id ? 'Saving…' : 'Mark learned ✓'}
-              </button>
+              {learnedIds.has(item.id) ? (
+                <button type="button" className={styles.vocabLearnButton} disabled>Already learned ✓</button>
+              ) : (
+                <button type="button" className={styles.vocabLearnButton} disabled={savingId === item.id}
+                  aria-label={`Mark ${item.word} as learned`} data-vocabulary-id={item.id}
+                  onClick={(event) => { event.stopPropagation(); void markLearned(item.id); }}>
+                  {savingId === item.id ? 'Saving…' : 'Mark learned ✓'}
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -1490,7 +1528,7 @@ export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
     case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
-    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} focusedVocabularyId={props.focusedVocabularyId} focusedVocabularyLevel={props.focusedVocabularyLevel} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} />;
