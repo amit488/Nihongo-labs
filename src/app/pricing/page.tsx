@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import styles from './pricing.module.css';
 import { pricingPlans } from '@/lib/nihongo/pricing-plans';
+import Brand from '@/components/nihongo/brand';
 
 const plans = pricingPlans;
 const included = [
@@ -81,10 +82,7 @@ export default async function PricingPage() {
   return (
     <main className={styles.page}>
       <header className={styles.nav}>
-        <Link href="/" className={styles.brand} aria-label="NihongoLabs home">
-          <span className={styles.brandMark}>日</span>
-          <span>Nihongo <b>Labs</b></span>
-        </Link>
+        <Brand href="/" />
         <nav className={styles.navLinks} aria-label="Main navigation">
           <Link href="/#method">How it works</Link>
           <Link href="/pricing" aria-current="page">Plans</Link>
@@ -229,10 +227,7 @@ export default async function PricingPage() {
 
       <footer className={styles.footer}>
         <div className={styles.footerTop}>
-          <Link href="/" className={styles.brand} aria-label="NihongoLabs home">
-            <span className={styles.brandMark}>日</span>
-            <span>Nihongo <b>Labs</b></span>
-          </Link>
+          <Brand href="/" />
           <p>Learn with intention. Grow every day.</p>
           <div className={styles.footerLinks}>
             <Link href="/login">Sign in</Link>

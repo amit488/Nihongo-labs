@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
+import Brand from './brand';
 import { resendSignupConfirmationAction, signInAction, signUpAction } from '@/app/actions/auth';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
@@ -54,10 +55,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
   return <div className={styles.authPage}>
     <div className={styles.authVisual}>
-      <Link href="/learn" className={styles.brand}>
-        <span className={styles.brandMark}>日</span>
-        <span><strong>nihongo<span>.</span></strong><small>LABS · JLPT LEARNING</small></span>
-      </Link>
+      <Brand href="/learn" className={styles.brand} />
       <div className={styles.visualCopy}>
         <div className={styles.visualEyebrow}>YOUR JAPANESE JOURNEY STARTS HERE</div>
         <div className={styles.visualKanji}>学</div>
@@ -67,7 +65,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       <div className={styles.visualFooter}>学ぶ · Practice makes progress <span>✳</span></div>
     </div>
     <div className={styles.authPanel}>
-      <div className={styles.authMobileBrand}><span className={styles.brandMark}>日</span><strong>nihongo<span>.</span></strong></div>
+      <Brand href="/learn" className={styles.authMobileBrand} />
       <div className={styles.authCard}>
         {verificationPending ? (
           <section className={styles.verificationPanel} aria-live="polite">

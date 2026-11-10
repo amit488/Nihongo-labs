@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { QuickRevision, QuickRevisionStats } from './quick-revision';
+import Brand from './brand';
 import LearningIntelligence from './learning-intelligence';
 import LearningPlans from './learning-plans';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
@@ -18,6 +19,7 @@ import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabular
 import type { GrammarItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
+type GlobalSearchResult = { id: string; kind: string; level: string; title: string; detail: string; href: string };
 const LazyLearningFeature = lazy(() => import('./learning-features').then((module) => ({ default: module.LearningFeature })));
 
 const navGroups = [
@@ -84,8 +86,52 @@ export default function LearningApp({ section = [] }: Props) {
     if (signedIn) void fetch('/api/learning/settings', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showRomaji: value }) }).catch(() => undefined);
   };
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [kanaMode, setKanaMode] = useState<'hiragana' | 'katakana'>('hiragana');
   const [kanaQuiz, setKanaQuiz] = useState(false);
+
+  useEffect(() => {
+    const query = search.trim();
+    if (!searchOpen || query.length < 2) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setSearchLoading(true);
+      setSearchError('');
+      fetch('/api/learning/search?q=' + encodeURIComponent(query), {
+        credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+      }).then(async (response) => {
+        const body = await response.json() as { items?: GlobalSearchResult[]; error?: string };
+        if (!response.ok) throw new Error(body.error || 'Search is unavailable right now.');
+        return body.items ?? [];
+      }).then(setSearchResults).catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setSearchResults([]);
+        setSearchError(error instanceof Error ? error.message : 'Search is unavailable right now.');
+      }).finally(() => {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      });
+    }, 220);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [search, searchOpen]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+        searchInputRef.current?.focus();
+      } else if (event.key === 'Escape') {
+        setSearchOpen(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -547,6 +593,28 @@ export default function LearningApp({ section = [] }: Props) {
   const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', sentences: 'Sentence construction lab', progress: 'Your progress', plans: 'Learning plans', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
 
+  const changePreferredLevel = useCallback(async (level: JlptLevel) => {
+    setSnapshot((current) => ({ ...current, preferredJlptLevel: level }));
+    if (!signedIn) return;
+    try {
+      const response = await fetch('/api/learning/settings', {
+        method: 'PATCH', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferredJlptLevel: level }),
+      });
+      if (!response.ok) throw new Error('Could not save your selected JLPT level.');
+    } catch {
+      await refreshLearnerSnapshot();
+      setActivityTrackingNotice('Your JLPT level preference could not be saved. Please try again.');
+    }
+  }, [signedIn, refreshLearnerSnapshot]);
+
+  function openSearchResult(result: GlobalSearchResult) {
+    router.push(result.href);
+    setSearchOpen(false);
+    searchInputRef.current?.blur();
+  }
+
   async function signOut() {
     await signOutAction();
     setSignedIn(false);
@@ -561,28 +629,28 @@ export default function LearningApp({ section = [] }: Props) {
   return (
     <div className={styles.appFrame}>
       <aside className={styles.sidebar}>
-        <Link href="/learn" className={styles.brand}><span className={styles.brandMark}>日</span><span><strong>Nihongo<span>.</span></strong><small>LABS · JLPT LEARNING</small></span></Link>
-        <div className={styles.levelCard}><div className={styles.levelKicker}>YOUR LEARNING PATH</div><div className={styles.levelTitle}>JLPT N5 <span>01 / 05</span></div><ProgressBar value={snapshot.overallPercentage} tone="orange"/><div className={styles.levelFoot}><span>Beginner</span><span>{snapshot.overallPercentage}% complete</span></div></div>
+        <Brand href="/learn" tone="dark" className={styles.sidebarBrand} />
+        <div className={styles.levelCard}><div className={styles.levelKicker}>YOUR CURRENT FOCUS</div><div className={styles.levelTitle}>JLPT {snapshot.preferredJlptLevel} <span>SELECTED</span></div><div className={styles.levelFoot}><span>Learn at your pace</span><span>✳</span></div></div>
         <nav className={styles.navigation} aria-label="Learning navigation">
           {navGroups.map((group) => <div className={styles.navGroup} key={group.label}><div className={styles.navLabel}>{group.label}</div>{group.items.map((item) => {
             const selected = item.key === 'overview' ? active === 'overview' : active === item.key;
             return <Link key={item.key} href={item.href} className={`${styles.navLink} ${selected ? styles.navActive : ''}`}><Icon>{item.icon}</Icon><span>{item.title}</span>{item.key === 'flashcards' && snapshot.due.flashcards > 0 && <em>{snapshot.due.flashcards}</em>}</Link>;
           })}</div>)}
         </nav>
-        <div className={styles.sidebarBottom}><div className={styles.helpCard}><div className={styles.helpIcon}>?</div><strong>Need a little help?</strong><p>Explore the N5 study guide and learning tips.</p><Link href="/learn/reading">Open study guide <span>↗</span></Link></div><div className={styles.sidebarUser}><div className={styles.avatar}>{name.slice(0,1).toUpperCase()}</div><div className={styles.userMeta}><strong>{name}</strong><span>{signedIn ? (snapshot.premiumActive ? 'Premium member' : 'Free learner') : 'Preview learner'}</span></div><button type="button" aria-label="Account" onClick={() => router.push(signedIn ? '/learn/subscription' : '/login')}>···</button></div></div>
+        <div className={styles.sidebarBottom}><div className={styles.helpCard}><div className={styles.helpIcon}>?</div><strong>Need a little help?</strong><p>Explore the learning guide and practical study tips.</p><Link href="/learn/reading">Open study guide <span>↗</span></Link></div><div className={styles.sidebarUser}><div className={styles.avatar}>{name.slice(0,1).toUpperCase()}</div><div className={styles.userMeta}><strong>{name}</strong><span>{signedIn ? (snapshot.premiumActive ? 'Premium member' : 'Free learner') : 'Preview learner'}</span></div><button type="button" aria-label="Account" onClick={() => router.push(signedIn ? '/learn/subscription' : '/login')}>···</button></div></div>
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><label className={styles.searchBox}><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard key={snapshot.preferredJlptLevel} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
-          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={snapshot.preferredJlptLevel} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
-        <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>JLPT N5 · Learning workspace</span></footer>
+        <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
       <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'sentences' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
     </div>
@@ -593,19 +661,23 @@ type DashboardLevelProgress = {
   level: JlptLevel;
   vocabulary: { completed: number; total: number };
   kanji: { completed: number; total: number };
+  grammar: { completed: number; total: number };
+  lessons: { completed: number; total: number };
+  readiness: number;
 };
 
-function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, onContinue }: {
+function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, onLevelChange, onContinue }: {
   name: string;
   signedIn: boolean;
   snapshot: LearnerSnapshot;
   streak: number;
   activityTrackingNotice: string;
   onContinue: () => void;
+  onLevelChange: (level: JlptLevel) => Promise<void>;
 }) {
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [greeting, setGreeting] = useState('こんにちは');
-  const [level, setLevel] = useState<JlptLevel>('N5');
+  const [level, setLevel] = useState<JlptLevel>(snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5');
   const [levelProgress, setLevelProgress] = useState<DashboardLevelProgress | null>(null);
 
   useEffect(() => {
@@ -636,10 +708,10 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
     return () => { active = false; };
   }, [level, signedIn]);
 
-  const ready = Number(snapshot.overallPercentage ?? 0);
   const words = Number(snapshot.vocabularyCount ?? 0);
   const kanjiCount = Number(snapshot.kanjiCount ?? 0);
   const currentProgress = levelProgress?.level === level ? levelProgress : null;
+  const ready = currentProgress?.readiness ?? 0;
   const vocabularyCompleted = currentProgress?.vocabulary.completed ?? 0;
   const vocabularyTotal = currentProgress?.vocabulary.total ?? (level === 'N5' ? words : 0);
   const kanjiCompleted = currentProgress?.kanji.completed ?? 0;
@@ -663,8 +735,8 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
         <h1>{greeting}、{name}さん。 <span>ようこそ！</span></h1>
         <p>A little practice every day adds up. Ready to keep your momentum?</p>
       </div>
-      <div className={styles.jlptCountdown} aria-label={`JLPT ${snapshot.preferredJlptLevel} examination countdown`}>
-        <span className={styles.jlptCountdownKicker}>NEXT JLPT · {snapshot.preferredJlptLevel}</span>
+      <div className={styles.jlptCountdown} aria-label={`JLPT ${level} examination countdown`}>
+        <span className={styles.jlptCountdownKicker}>NEXT JLPT · {level}</span>
         <strong>{daysRemaining === null ? '—' : daysRemaining === 0 ? 'Today' : daysRemaining > 0 ? daysRemaining : '—'}</strong>
         <span className={styles.jlptCountdownCopy}>{daysRemaining === 0 ? 'Exam day' : daysRemaining !== null && daysRemaining > 0 ? 'days remaining' : 'Date passed'}</span>
         <small className={styles.jlptCountdownDate}>6 December 2026</small>
@@ -676,19 +748,19 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
         <h2>Small steps.<br/><em>Fluent moments.</em></h2>
         <p>Pick up where you left off and make today count. Your next lesson is ready when you are.</p>
         <button type="button" className={styles.primaryButton} onClick={onContinue}>Continue learning <span>→</span></button>
-        <div className={styles.heroMeta}><span>◷ Daily practice</span><span>•</span><span>JLPT N5 · Beginner</span></div>
+        <div className={styles.heroMeta}><span>◷ Daily practice</span><span>•</span><span>JLPT {level} · Your pace</span></div>
       </div>
       <div className={styles.heroArt}><div className={styles.sunDisc} /><div className={styles.heroKanji}>学</div><div className={styles.heroArtNote}>MANABU <span>·</span> TO LEARN</div></div>
     </section>
     <div className={styles.sectionTop}>
       <div><div className={styles.eyebrow}>YOUR LEARNING PULSE</div><h2>Progress at a glance</h2></div>
       <div className={styles.dashboardLevelControl}>
-        <JlptLevelSwitch value={level} onChange={setLevel} label="Dashboard JLPT level" />
+        <JlptLevelSwitch value={level} onChange={(nextLevel) => { setLevel(nextLevel); void onLevelChange(nextLevel); }} label="Dashboard JLPT level" />
         <Link href="/learn/progress" className={styles.textLink}>View full report <span>→</span></Link>
       </div>
     </div>
     <section className={styles.statsGrid}>
-      <StatCard icon="◉" label="N5 readiness" value={`${ready}%`} note="Based on tracked learning" progress={ready} tone="green" />
+      <StatCard icon="◉" label={`${level} learning progress`} value={`${ready}%`} note="Grammar, words, kanji and lessons" progress={ready} tone="green" />
       <StatCard icon="語" label={`${level} words learned`} value={`${vocabularyCompleted} / ${vocabularyTotal}`} note="Words marked as learned" progress={vocabularyPercent} tone="orange" />
       <StatCard icon="字" label={`${level} kanji known`} value={`${kanjiCompleted} / ${kanjiTotal}`} note="Characters marked as known" progress={kanjiPercent} tone="blue" />
       <StatCard icon="✳" label="Current streak" value={`${streak} days`} note="Days with learning activity" progress={Math.min(100, streak / 30 * 100)} tone="purple" />
@@ -724,7 +796,7 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
     <section className={styles.focusGrid}>
       <FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/>
       <FocusCard number="02" title="Everyday essentials" description="Revise useful words about daily routines." meta="Vocabulary · 6 min" tag="REVIEW" href="/learn/vocabulary" tone="orange"/>
-      <FocusCard number="03" title="A short N5 story" description="Read a beginner passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/>
+      <FocusCard number="03" title="A short Japanese story" description="Read a graded passage and check your understanding." meta="Reading · 6 min" tag="NEW" href="/learn/reading" tone="blue"/>
     </section>
   </>;
 }
