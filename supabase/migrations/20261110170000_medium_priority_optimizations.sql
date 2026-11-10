@@ -52,6 +52,15 @@ create index if not exists courses_subtitle_trgm_idx
 create index if not exists courses_description_trgm_idx
   on public.courses using gin (description extensions.gin_trgm_ops)
   where publication_status = 'published';
+create index if not exists quizzes_slug_trgm_idx
+  on public.quizzes using gin (slug extensions.gin_trgm_ops)
+  where publication_status = 'published';
+
+-- These two histories are grouped by user/type/date in the SQL intelligence RPCs.
+create index if not exists quick_revision_attempts_user_type_created_idx
+  on public.quick_revision_attempts(user_id, content_type, created_at desc);
+create index if not exists sentence_construction_attempts_user_created_idx
+  on public.sentence_construction_attempts(user_id, created_at desc);
 
 -- The API previously loaded catalog IDs and progress rows into Node.js merely
 -- to count them. This function returns the same response shape using SQL counts.
@@ -325,7 +334,7 @@ quick_source as (
     array(
       select distinct tag
       from unnest(coalesce(g.learning_tags, array[]::text[])) as values_by_tag(tag)
-      where tag ~ '^[a-z0-9:_-]{2,80}$'
+      where tag ~* '^[a-z0-9:_-]{2,80}
     ) as valid_tags
   from public.quick_revision_attempts q
   left join public.grammar_points g on g.id = q.content_id
@@ -358,6 +367,194 @@ sentence_events as (
     select distinct tag
     from unnest(coalesce(s.grammar_tags, array[]::text[])) as values_by_tag(tag)
     where tag ~ '^[a-z0-9:_-]{2,80}$'
+  ) as tags(skill_tag)
+  where s.user_id = (select user_id from caller)
+),
+topic_events as (
+  select * from tagged_events
+  union all
+  select * from quick_events
+  union all
+  select * from sentence_events
+),
+topic_aggregates as (
+  select
+    e.skill_tag as tag,
+    count(*)::integer as attempts,
+    count(*) filter (where not e.is_correct)::integer as misses,
+    round(
+      count(*) filter (where e.is_correct)::numeric * 100 / nullif(count(*), 0)
+    )::integer as accuracy,
+    max(e.created_at) filter (where not e.is_correct) as latest_miss,
+    (array_agg(e.is_correct order by e.created_at desc))[1] as latest_is_correct,
+    max(e.label_override) filter (where e.label_override is not null) as label_override
+  from topic_events e
+  group by e.skill_tag
+),
+topic_results as (
+  select
+    a.*,
+    (
+      a.misses >= 2
+      or (a.attempts >= 2 and a.accuracy < 70)
+      or (not a.latest_is_correct and a.attempts >= 1)
+    ) as weak
+  from topic_aggregates a
+),
+totals as (
+  select
+    (
+      (select count(*) from public.grammar_attempt_events e where e.user_id = (select user_id from caller))
+      + (select count(*) from public.quick_revision_attempts q where q.user_id = (select user_id from caller) and q.content_type = 'grammar')
+      + (select count(*) from public.sentence_construction_attempts s where s.user_id = (select user_id from caller))
+    )::integer as attempts,
+    (
+      (select count(*) from public.grammar_attempt_events e where e.user_id = (select user_id from caller) and e.is_correct)
+      + (select count(*) from public.quick_revision_attempts q where q.user_id = (select user_id from caller) and q.content_type = 'grammar' and q.is_correct)
+      + (select count(*) from public.sentence_construction_attempts s where s.user_id = (select user_id from caller) and s.is_correct)
+    )::integer as correct
+),
+topic_payload as (
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'tag', r.tag,
+    'attempts', r.attempts,
+    'misses', r.misses,
+    'accuracy', r.accuracy,
+    'latestMiss', r.latest_miss,
+    'weak', r.weak,
+    'labelOverride', r.label_override
+  ) order by r.weak desc, r.misses desc, r.accuracy asc), '[]'::jsonb) as topics
+  from (
+    select * from topic_results
+    order by weak desc, misses desc, accuracy asc
+    limit 10
+  ) r
+)
+select jsonb_build_object(
+  'totalAttempts', t.attempts,
+  'accuracy', case when t.attempts > 0 then round(t.correct::numeric * 100 / t.attempts)::integer else 0 end,
+  'weakTopicCount', (select count(*)::integer from topic_results where weak),
+  'topics', p.topics,
+  'hasTaggedHistory', t.attempts > 0
+)
+from totals t cross join topic_payload p;
+$$;
+
+revoke all on function public.get_grammar_intelligence() from public, anon;
+grant execute on function public.get_grammar_intelligence() to authenticated;
+
+commit;
+
+    ) as valid_tags
+  from public.quick_revision_attempts q
+  left join public.grammar_points g on g.id = q.content_id
+  where q.user_id = (select user_id from caller)
+    and q.content_type = 'grammar'
+),
+quick_events as (
+  select
+    tags.skill_tag,
+    q.is_correct,
+    q.created_at,
+    case when q.title is not null or q.pattern is not null
+      then coalesce(q.title, q.pattern, 'Grammar point') else null end as label_override
+  from quick_source q
+  cross join lateral unnest(
+    case
+      when cardinality(q.valid_tags) > 0 then q.valid_tags
+      else array['grammar-point:' || q.content_id::text]
+    end
+  ) as tags(skill_tag)
+),
+sentence_events as (
+  select
+    tags.skill_tag,
+    s.is_correct,
+    s.created_at,
+    null::text as label_override
+  from public.sentence_construction_attempts s
+  cross join lateral (
+    select distinct tag
+    from unnest(coalesce(s.grammar_tags, array[]::text[])) as values_by_tag(tag)
+    where tag ~* '^[a-z0-9:_-]{2,80}
+  ) as tags(skill_tag)
+  where s.user_id = (select user_id from caller)
+),
+topic_events as (
+  select * from tagged_events
+  union all
+  select * from quick_events
+  union all
+  select * from sentence_events
+),
+topic_aggregates as (
+  select
+    e.skill_tag as tag,
+    count(*)::integer as attempts,
+    count(*) filter (where not e.is_correct)::integer as misses,
+    round(
+      count(*) filter (where e.is_correct)::numeric * 100 / nullif(count(*), 0)
+    )::integer as accuracy,
+    max(e.created_at) filter (where not e.is_correct) as latest_miss,
+    (array_agg(e.is_correct order by e.created_at desc))[1] as latest_is_correct,
+    max(e.label_override) filter (where e.label_override is not null) as label_override
+  from topic_events e
+  group by e.skill_tag
+),
+topic_results as (
+  select
+    a.*,
+    (
+      a.misses >= 2
+      or (a.attempts >= 2 and a.accuracy < 70)
+      or (not a.latest_is_correct and a.attempts >= 1)
+    ) as weak
+  from topic_aggregates a
+),
+totals as (
+  select
+    (
+      (select count(*) from public.grammar_attempt_events e where e.user_id = (select user_id from caller))
+      + (select count(*) from public.quick_revision_attempts q where q.user_id = (select user_id from caller) and q.content_type = 'grammar')
+      + (select count(*) from public.sentence_construction_attempts s where s.user_id = (select user_id from caller))
+    )::integer as attempts,
+    (
+      (select count(*) from public.grammar_attempt_events e where e.user_id = (select user_id from caller) and e.is_correct)
+      + (select count(*) from public.quick_revision_attempts q where q.user_id = (select user_id from caller) and q.content_type = 'grammar' and q.is_correct)
+      + (select count(*) from public.sentence_construction_attempts s where s.user_id = (select user_id from caller) and s.is_correct)
+    )::integer as correct
+),
+topic_payload as (
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'tag', r.tag,
+    'attempts', r.attempts,
+    'misses', r.misses,
+    'accuracy', r.accuracy,
+    'latestMiss', r.latest_miss,
+    'weak', r.weak,
+    'labelOverride', r.label_override
+  ) order by r.weak desc, r.misses desc, r.accuracy asc), '[]'::jsonb) as topics
+  from (
+    select * from topic_results
+    order by weak desc, misses desc, accuracy asc
+    limit 10
+  ) r
+)
+select jsonb_build_object(
+  'totalAttempts', t.attempts,
+  'accuracy', case when t.attempts > 0 then round(t.correct::numeric * 100 / t.attempts)::integer else 0 end,
+  'weakTopicCount', (select count(*)::integer from topic_results where weak),
+  'topics', p.topics,
+  'hasTaggedHistory', t.attempts > 0
+)
+from totals t cross join topic_payload p;
+$$;
+
+revoke all on function public.get_grammar_intelligence() from public, anon;
+grant execute on function public.get_grammar_intelligence() to authenticated;
+
+commit;
+
   ) as tags(skill_tag)
   where s.user_id = (select user_id from caller)
 ),

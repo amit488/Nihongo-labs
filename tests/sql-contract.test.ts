@@ -222,6 +222,9 @@ test('medium-priority optimization migration indexes existing substring searches
     'courses_title_trgm_idx',
     'courses_subtitle_trgm_idx',
     'courses_description_trgm_idx',
+    'quizzes_slug_trgm_idx',
+    'quick_revision_attempts_user_type_created_idx',
+    'sentence_construction_attempts_user_created_idx',
   ]) assert.match(migration, new RegExp(indexName, 'i'), indexName);
   assert.match(migration, /using gin \([\s\S]*?gin_trgm_ops/i);
 });
@@ -239,9 +242,8 @@ test('progress and intelligence routes use database-side aggregation', () => {
   assert.match(kanjiRoute, /kanji_review_state[\s\S]*?kanji_entries!inner/i);
   assert.doesNotMatch(kanjiRoute, /const ids = \(kanjiRows/);
   for (const functionName of ['get_level_progress', 'get_vocabulary_intelligence', 'get_grammar_intelligence']) {
-    assert.ok(migration.includes('create or replace function public.' + functionName), functionName);
+    assert.match(migration, new RegExp('create or replace function public\\.' + functionName + '[\\s\\S]*?security invoker', 'i'), functionName);
   }
-  assert.match(migration, /security invoker/i);
   assert.match(migration, /grant execute on function public\.get_level_progress\(text\) to authenticated/i);
   assert.match(migration, /grant execute on function public\.get_vocabulary_intelligence\(text\) to authenticated/i);
   assert.match(migration, /grant execute on function public\.get_grammar_intelligence\(\) to authenticated/i);
