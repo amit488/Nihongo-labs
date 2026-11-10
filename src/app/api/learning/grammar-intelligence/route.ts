@@ -71,7 +71,8 @@ export async function GET() {
         .order('created_at', { ascending: false })
         .limit(3000),
     ]);
-    if (error || quickError || sentenceError) throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence, Quick Revision and Sentence Construction migrations first.', error?.message || quickError?.message || sentenceError?.message);
+    const sentenceTableMissing = Boolean(sentenceError && ['42P01', 'PGRST205'].includes(sentenceError.code ?? ''));
+    if (error || quickError || (sentenceError && !sentenceTableMissing)) throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence and Quick Revision migrations first.', error?.message || quickError?.message || sentenceError?.message);
 
     const grammarIds = [...new Set((quickRows ?? []).map((row) => row.content_id))];
     let points: GrammarPoint[] = [];
@@ -84,7 +85,7 @@ export async function GET() {
     const pointById = new Map(points.map((point) => [point.id, point]));
     const labelByTag = new Map<string, string>();
     const allRows: EventRow[] = [...((data ?? []) as EventRow[])];
-    const sentenceAttempts = (sentenceRows ?? []) as SentenceRow[];
+    const sentenceAttempts = sentenceTableMissing ? [] : (sentenceRows ?? []) as SentenceRow[];
     for (const attempt of sentenceAttempts) {
       for (const tag of [...new Set((attempt.grammar_tags ?? []).filter((value) => typeof value === 'string' && /^[a-z0-9:_-]{2,80}$/i.test(value)))]) {
         allRows.push({ skill_tag: tag, is_correct: attempt.is_correct, created_at: attempt.created_at });
