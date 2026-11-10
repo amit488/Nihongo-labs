@@ -57,14 +57,13 @@ test('JLPT progress switches to the selected level and uses its own tracked data
   const levelApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/level-progress/route.ts'), 'utf8');
   const settingsApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/settings/route.ts'), 'utf8');
   const validation = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/server/validation.ts'), 'utf8');
+  const optimizationSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261110170000_medium_priority_optimizations.sql'), 'utf8');
   assert.match(dashboard, /\$\{level\} learning progress/);
   assert.doesNotMatch(dashboard, /label="N5 readiness"/);
   assert.match(dashboard, /preferredJlptLevel: level/);
-  assert.match(levelApi, /from\('user_grammar_progress'\)/);
-  assert.match(levelApi, /from\('user_vocabulary_progress'\)/);
-  assert.match(levelApi, /from\('kanji_review_state'\)/);
-  assert.match(levelApi, /from\('lesson_progress'\)/);
-  assert.match(levelApi, /const readiness = categories\.length/);
+  assert.match(levelApi, /rpc\('get_level_progress', \{ _level: level \}\)/);
+  assert.match(optimizationSql, /create or replace function public\.get_level_progress\(_level text\)[\s\S]*?vocabulary_entries[\s\S]*?user_vocabulary_progress[\s\S]*?kanji_review_state[\s\S]*?user_grammar_progress[\s\S]*?lesson_progress/i);
+  assert.match(optimizationSql, /'readiness',[\s\S]*?categories\.completed::numeric[\s\S]*?categories\.total/i);
   assert.match(settingsApi, /preferencePatch\.preferred_jlpt_level/);
   assert.match(validation, /preferredJlptLevel: z\.enum\(\['N5', 'N4'\]\)/);
 });

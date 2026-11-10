@@ -884,8 +884,34 @@ preference_row as (
   from local_context u left join public.user_preferences p on p.user_id = u.user_id
 ),
 published_lessons as (
-  select l.id, cu.slug as unit_slug from public.lessons l
-  join public.course_units cu on cu.id = l.unit_id where l.publication_status = 'published'
+  -- Only lessons with a real graded checkpoint are included in this progress
+  -- card. Kana's two script lessons share the mixed-script assessment.
+  select l.id, cu.slug as unit_slug
+  from public.lessons l
+  join public.course_units cu on cu.id = l.unit_id
+  join public.courses c on c.id = cu.course_id
+  where l.publication_status = 'published'
+    and c.slug = 'nihongo-n5-foundations'
+    and (
+      exists (
+        select 1 from public.quizzes q
+        where q.lesson_id = l.id
+          and q.publication_status = 'published'
+      )
+      or (
+        cu.slug = 'kana'
+        and l.slug = 'katakana'
+        and exists (
+          select 1
+          from public.lessons hiragana
+          join public.quizzes q on q.lesson_id = hiragana.id
+          where hiragana.unit_id = cu.id
+            and hiragana.slug = 'hiragana'
+            and hiragana.publication_status = 'published'
+            and q.publication_status = 'published'
+        )
+      )
+    )
 ),
 lesson_progress_rows as (
   select lp.lesson_id, lp.status from public.lesson_progress lp
@@ -902,15 +928,37 @@ unit_summary as (
   from published_lessons l left join lesson_progress_rows lp on lp.lesson_id = l.id group by l.unit_slug
 ),
 grammar_summary as (
-  select count(*)::integer as grammar_total from public.grammar_points g
+  select count(*)::integer as grammar_total,
+    count(gp.grammar_id)::integer as grammar_understood
+  from public.grammar_points g
+  left join public.user_grammar_progress gp
+    on gp.grammar_id = g.id and gp.user_id = (select user_id from local_context)
   where g.jlpt_level = 'N5' and g.publication_status = 'published'
+),
+vocabulary_progress_union as (
+  select p.vocabulary_id
+  from public.user_vocabulary_progress p
+  join public.vocabulary_entries v on v.id = p.vocabulary_id
+  where p.user_id = (select user_id from local_context)
+    and v.jlpt_level = 'N5' and v.publication_status = 'published'
+  union
+  select s.vocabulary_id
+  from public.vocabulary_review_state s
+  join public.vocabulary_entries v on v.id = s.vocabulary_id
+  where s.user_id = (select user_id from local_context)
+    and s.repetitions >= 3
+    and v.jlpt_level = 'N5' and v.publication_status = 'published'
 ),
 vocabulary_summary as (
   select count(*)::integer as vocabulary_total,
-    count(vs.vocabulary_id) filter (where vs.repetitions >= 3)::integer as vocabulary_mastered,
-    count(vs.vocabulary_id) filter (where vs.due_at <= now())::integer as vocabulary_due
+    (select count(*)::integer from vocabulary_progress_union) as vocabulary_mastered,
+    (select count(*)::integer
+      from public.vocabulary_review_state vs
+      join public.vocabulary_entries v on v.id = vs.vocabulary_id
+      where vs.user_id = (select user_id from local_context)
+        and vs.due_at <= now()
+        and v.jlpt_level = 'N5' and v.publication_status = 'published') as vocabulary_due
   from public.vocabulary_entries v
-  left join public.vocabulary_review_state vs on vs.vocabulary_id = v.id and vs.user_id = (select user_id from local_context)
   where v.jlpt_level = 'N5' and v.publication_status = 'published'
 ),
 kanji_summary as (
@@ -959,36 +1007,66 @@ attempt_summary as (
     avg(a.score_percentage) filter (where position('reading' in lower(coalesce(a.quiz_slug, '') || ' ' || coalesce(a.quiz_title, ''))) > 0) as reading_score
   from attempt_rows a
 ),
+mastery_attempt_summary as (
+  -- Mastery scores use the complete graded history. The recent-attempt feed below
+  -- remains capped at ten, but old Kana/Reading attempts must not disappear
+  -- simply because the learner completes newer quizzes in other categories.
+  select
+    avg(a.score_percentage) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) ~ '(grammar|particle|conjugation)'
+    ) as grammar_score,
+    avg(a.score_percentage) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) like '%kana%'
+    ) as kana_score,
+    avg(a.score_percentage) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) like '%reading%'
+    ) as reading_score,
+    count(*) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) ~ '(grammar|particle|conjugation)'
+    )::integer as grammar_attempts,
+    count(*) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) like '%kana%'
+    )::integer as kana_attempts,
+    count(*) filter (
+      where lower(coalesce(q.slug, '') || ' ' || coalesce(q.title, '')) like '%reading%'
+    )::integer as reading_attempts
+  from public.quiz_attempts a
+  left join public.quizzes q on q.id = a.quiz_id
+  where a.user_id = (select user_id from local_context)
+    and a.status = 'graded'
+),
 flashcard_settings_row as (
   select s.daily_new_limit, s.daily_review_limit, s.show_romaji, s.show_furigana
   from public.user_flashcard_settings s where s.user_id = (select user_id from local_context) limit 1
 ),
 base_metrics as (
-  select g.grammar_total, v.vocabulary_total, v.vocabulary_mastered, v.vocabulary_due, k.kanji_total, k.kanji_mastered,
-    f.flashcards_tracked, f.flashcards_mastered, f.flashcards_due, l.lessons_total, l.lessons_completed,
+  select g.grammar_total, g.grammar_understood,
+    v.vocabulary_total, v.vocabulary_mastered, v.vocabulary_due,
+    k.kanji_total, k.kanji_mastered,
+    f.flashcards_tracked, f.flashcards_mastered, f.flashcards_due,
+    l.lessons_total, l.lessons_completed,
     case when l.lessons_total > 0 then round(l.lessons_completed::numeric / l.lessons_total * 100)::integer else 0 end as lesson_percentage,
+    case when g.grammar_total > 0 then least(100, round(g.grammar_understood::numeric / g.grammar_total * 100))::integer else 0 end as grammar_percentage,
     case when v.vocabulary_total > 0 then least(100, round(v.vocabulary_mastered::numeric / v.vocabulary_total * 100))::integer else 0 end as vocabulary_percentage,
     case when k.kanji_total > 0 then least(100, round(k.kanji_mastered::numeric / k.kanji_total * 100))::integer else 0 end as kanji_percentage,
-    coalesce(us.grammar_percentage, 0) as grammar_unit_percentage,
     coalesce(us.kana_percentage, 0) as kana_unit_percentage,
     coalesce(us.reading_percentage, 0) as reading_unit_percentage
   from grammar_summary g cross join vocabulary_summary v cross join kanji_summary k
   cross join flashcard_summary f cross join lesson_summary l
   cross join lateral (
     select
-      coalesce(round(max(case when unit_slug = 'grammar' and lessons_total > 0 then lessons_completed::numeric / lessons_total * 100 end)), 0)::integer as grammar_percentage,
       coalesce(round(max(case when unit_slug = 'kana' and lessons_total > 0 then lessons_completed::numeric / lessons_total * 100 end)), 0)::integer as kana_percentage,
       coalesce(round(max(case when unit_slug = 'reading' and lessons_total > 0 then lessons_completed::numeric / lessons_total * 100 end)), 0)::integer as reading_percentage
     from unit_summary
   ) us
 ),
 mastery_metrics as (
-  select coalesce(round(a.grammar_score)::integer, b.grammar_unit_percentage) as grammar,
+  select b.grammar_percentage as grammar,
     b.vocabulary_percentage as vocabulary, b.kanji_percentage as kanji,
     coalesce(round(a.kana_score)::integer, b.kana_unit_percentage) as kana,
     coalesce(round(a.reading_score)::integer, b.reading_unit_percentage) as reading,
     b.lesson_percentage as overall_lessons
-  from base_metrics b cross join attempt_summary a
+  from base_metrics b cross join mastery_attempt_summary a
 ),
 streak_anchor as (
   select case when exists(select 1 from recent_activity_rows a where a.activity_date = u.local_today)
@@ -1013,9 +1091,14 @@ select jsonb_build_object(
     'preferred_jlpt_level', (select preferred_jlpt_level from preference_row), 'show_romaji', (select show_romaji from preference_row),
     'show_furigana', (select show_furigana from preference_row)),
   'progress', jsonb_build_object('overallPercentage', f.overall_percentage, 'lessonsCompleted', f.lessons_completed,
-    'lessonsTotal', f.lessons_total, 'lessonPercentage', f.lesson_percentage, 'grammarTotal', f.grammar_total,
-    'vocabularyTotal', f.vocabulary_total, 'vocabularyMastered', f.vocabulary_mastered, 'kanjiTotal', f.kanji_total,
-    'kanjiMastered', f.kanji_mastered, 'flashcardsTracked', f.flashcards_tracked, 'flashcardsMastered', f.flashcards_mastered,
+    'lessonsTotal', f.lessons_total, 'lessonPercentage', f.lesson_percentage,
+    'grammarTotal', f.grammar_total, 'grammarUnderstood', f.grammar_understood,
+    'vocabularyTotal', f.vocabulary_total, 'vocabularyMastered', f.vocabulary_mastered,
+    'kanjiTotal', f.kanji_total, 'kanjiMastered', f.kanji_mastered,
+    'grammarAttempts', (select grammar_attempts from mastery_attempt_summary),
+    'kanaAttempts', (select kana_attempts from mastery_attempt_summary),
+    'readingAttempts', (select reading_attempts from mastery_attempt_summary),
+    'flashcardsTracked', f.flashcards_tracked, 'flashcardsMastered', f.flashcards_mastered,
     'mastery', jsonb_build_object('grammar', f.grammar, 'vocabulary', f.vocabulary, 'kanji', f.kanji,
       'kana', f.kana, 'reading', f.reading, 'overallLessons', f.overall_lessons)),
   'streak', (select streak from streak_count),
