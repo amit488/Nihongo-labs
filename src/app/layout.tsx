@@ -3,8 +3,8 @@ import './globals.css';
 import CopyProtection from '@/components/copy-protection';
 
 export const metadata: Metadata = {
-  title: { default: 'Nihongo Labs — Learn Japanese with clarity', template: '%s | Nihongo Labs' },
-  description: 'A calm, structured workspace for JLPT N5 Japanese grammar, vocabulary, kanji, reading and practice.',
+  title: { default: 'Nihongo Labs | Learn Japanese', template: '%s | Nihongo Labs' },
+  description: 'A calm, structured workspace for Japanese grammar, vocabulary, kanji, reading and practice.',
   applicationName: 'Nihongo Labs',
   appleWebApp: { capable: true, title: 'Nihongo Labs', statusBarStyle: 'default' },
 };
