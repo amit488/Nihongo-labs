@@ -38,6 +38,22 @@ function sentenceRomaji(passage: ReadingPassage): string[] {
   );
 }
 
+/** Return true only when the selected character range overlaps token text. */
+function rangeOverlapsNodeContents(selectionRange: Range, node: HTMLElement): boolean {
+  try {
+    const nodeRange = document.createRange();
+    nodeRange.selectNodeContents(node);
+
+    // Strict comparisons exclude a neighboring token when the selection ends
+    // exactly at its start (or begins exactly at its end).
+    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.START_TO_END, nodeRange) < 0;
+    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.END_TO_START, nodeRange) > 0;
+    return startsBeforeTokenEnds && endsAfterTokenStarts;
+  } catch {
+    return false;
+  }
+}
+
 export default function ReadingStudio({
   signedIn, romaji, setRomaji, search, preferredLevel, onPreferredLevelChange, onProgressSaved,
 }: ReadingStudioProps) {
@@ -146,14 +162,14 @@ export default function ReadingStudio({
         const range = selection.getRangeAt(0);
         const startsInsideReader = root.contains(range.startContainer);
         const endsInsideReader = root.contains(range.endContainer);
-        if (!startsInsideReader && !endsInsideReader) {
+        if (!startsInsideReader || !endsInsideReader) {
           setPopup(null);
           return;
         }
 
         const selectedTokens = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-token="true"]'))
           .filter((node) => {
-            try { return range.intersectsNode(node) && Boolean(node.dataset.romaji); }
+            try { return rangeOverlapsNodeContents(range, node) && Boolean(node.dataset.romaji); }
             catch { return false; }
           });
         const selectedRomaji = selectedTokens
