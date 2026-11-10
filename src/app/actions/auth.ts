@@ -12,6 +12,7 @@ export type AuthActionResult = {
   authenticated?: boolean;
   requiresEmailConfirmation?: boolean;
   alreadyRegistered?: boolean;
+  redirectTo?: string;
 };
 
 function getEmailRedirectUrl() {
@@ -85,14 +86,24 @@ export async function signInAction(formData: FormData): Promise<AuthActionResult
   const parsed = credentials.safeParse({ email: formData.get('email'), password: formData.get('password') });
   if (!parsed.success) return { success: false, message: 'Enter a valid email and password.' };
   const supabase = await createServerSupabase();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     if (/email not confirmed/i.test(error.message)) {
       return { success: false, message: 'Please verify your email address using the link we sent before signing in.' };
     }
     return { success: false, message: error.message };
   }
-  return { success: true, authenticated: true, message: 'Signed in successfully.' };
+  const { data: roleRows, error: roleError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', data.user.id);
+  const administrator = !roleError && (roleRows ?? []).some((row) => row.role === 'super_admin' || row.role === 'admin');
+  return {
+    success: true,
+    authenticated: true,
+    redirectTo: administrator ? '/admin' : '/learn',
+    message: 'Signed in successfully.',
+  };
 }
 
 export async function signOutAction(): Promise<AuthActionResult> {
