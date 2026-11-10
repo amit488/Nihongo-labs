@@ -1487,7 +1487,7 @@ type ReadingCharacterSpan = { start: number; end: number };
 const smallKana = new Set(['ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', 'ゅ', 'ょ', 'ゎ']);
 
 function isKanaCharacter(value: string): boolean {
-  return /^[\\u3040-\\u309f\\u30a0-\\u30ff]$/u.test(value);
+  return /^[\u3040-\u309f\u30a0-\u30ff]$/u.test(value);
 }
 
 function splitReadingIntoMora(reading: string, start: number): ReadingCharacterSpan[] {
@@ -1553,7 +1553,7 @@ export function getSelectedRomajiForTextRange(
     readingEnd: number,
   ) => {
     const textIndices = Array.from({ length: Math.max(0, textEnd - textStart) }, (_, index) => textStart + index)
-      .filter((index) => /[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Letter}\\p{Number}]/u.test(textCharacters[index]));
+      .filter((index) => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Letter}\p{Number}]/u.test(textCharacters[index]));
     if (!textIndices.length || readingEnd <= readingStart) return;
 
     const readingSlice = readingCharacters.slice(readingStart, readingEnd).join('');
