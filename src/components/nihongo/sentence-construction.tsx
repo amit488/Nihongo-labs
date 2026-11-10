@@ -176,7 +176,6 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
 
   if (!current) return null;
   const built = selected.map((tokenIndex) => current.tokens[tokenIndex]);
-  const remaining = tileOrder.filter((tokenIndex) => !selected.includes(tokenIndex));
 
   return <div className={styles.sentenceWorkspace}>
     <SectionHeading
