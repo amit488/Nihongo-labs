@@ -121,15 +121,14 @@ export async function GET() {
     const monthlyRefundedMinor = paymentRows.reduce((sum, row) => sum + Number(row.refunded_amount_minor ?? 0), 0);
     const distinctActiveLearners = new Set(activityRows.map((row) => String(row.user_id))).size;
     const recentUsers = recentUsersResult.data ?? [];
-    const userIds = recentUsers.map((row) => String(row.id));
-    const { data: authData, error: authError } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
-    if (authError) throw authError;
-    const authUsers = new Map((authData.users ?? []).map((user) => [user.id, user]));
-    const users = recentUsers.map((row) => ({
-      id: row.id,
-      name: row.display_name || 'Learner',
-      email: authUsers.get(String(row.id))?.email ?? '—',
-      createdAt: row.created_at,
+    const users = await Promise.all(recentUsers.map(async (row) => {
+      const { data: authResult } = await admin.auth.admin.getUserById(String(row.id));
+      return {
+        id: row.id,
+        name: row.display_name || 'Learner',
+        email: authResult.user?.email ?? '—',
+        createdAt: row.created_at,
+      };
     }));
 
     const recentPaymentUsers = Array.from(new Set((recentPaymentsResult.data ?? []).map((row) => row.user_id).filter(Boolean)));
