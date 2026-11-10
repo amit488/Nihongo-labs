@@ -320,6 +320,14 @@ export default function ReadingStudio({
             <span className={styles.readingCount}>{Array.from(getPassageText(passage)).length} Japanese characters</span>
           </div>
 
+          <section id={`reading-meaning-${passage.id}`} className={styles.meaningPanel}
+            aria-label={`English meaning for ${passage.title}`} hidden={!showMeaning}>
+            <div className={styles.supportingLabel}>ENGLISH MEANING</div>
+            {passageMeaning.length > 0
+              ? passageMeaning.map((meaning, index) => <p key={index}>{meaning}</p>)
+              : <p>English meaning is not available for this passage yet.</p>}
+          </section>
+
           <div className={styles.readerTextSurface}>
             <div className={styles.readerText} ref={readerTextRef}>
               {passage.paragraphs.map((paragraph, paragraphIndex) => (
@@ -353,13 +361,7 @@ export default function ReadingStudio({
             {passageRomaji.map((line, index) => <p key={index}>{line}</p>)}
           </div> : null}
 
-          <section id={`reading-meaning-${passage.id}`} className={styles.meaningPanel}
-            aria-label={`English meaning for ${passage.title}`} hidden={!showMeaning}>
-            <div className={styles.supportingLabel}>ENGLISH MEANING</div>
-            {passageMeaning.length > 0
-              ? passageMeaning.map((meaning, index) => <p key={index}>{meaning}</p>)
-              : <p>English meaning is not available for this passage yet.</p>}
-          </section>
+
 
           <div className={styles.vocabularyPanel}>
             <div className={styles.vocabularyHeader}>
