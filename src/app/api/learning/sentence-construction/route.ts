@@ -5,7 +5,7 @@ import { HttpError, assertSameOrigin, jsonError, readJson } from '@/lib/nihongo/
 import { requireUser } from '@/lib/nihongo/server/supabase';
 
 const attemptSchema = z.object({
-  sentenceId: z.string().regex(/^n[45]-\\d{3}$/),
+  sentenceId: z.string().regex(/^n[45]-\d{3}$/),
   level: z.enum(['N5', 'N4']),
   submittedTokens: z.array(z.string().min(1).max(40)).min(1).max(30),
   timeTakenMs: z.number().int().min(0).max(900_000),
