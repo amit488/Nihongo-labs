@@ -11,7 +11,7 @@ export async function GET() {
     if (!context.ok) throw new HttpError(401, context.error);
     const [profile, preferences, flashcards] = await Promise.all([
       context.supabase.from('profiles').select('display_name,timezone,locale,bio').eq('id', context.user.id).maybeSingle(),
-      context.supabase.from('user_preferences').select('daily_study_goal_minutes,show_romaji,show_furigana,email_learning_reminders,theme').eq('user_id', context.user.id).maybeSingle(),
+      context.supabase.from('user_preferences').select('daily_study_goal_minutes,preferred_jlpt_level,show_romaji,show_furigana,email_learning_reminders,theme').eq('user_id', context.user.id).maybeSingle(),
       context.supabase.from('user_flashcard_settings').select('daily_new_limit,daily_review_limit,desired_retention,show_romaji,show_furigana,autoplay_audio').eq('user_id', context.user.id).maybeSingle(),
     ]);
     const error = profile.error || preferences.error || flashcards.error;
@@ -35,6 +35,7 @@ export async function PATCH(request: NextRequest) {
     if (input.timezone !== undefined) profilePatch.timezone = input.timezone;
     const preferencePatch: Record<string, unknown> = {};
     if (input.dailyStudyGoalMinutes !== undefined) preferencePatch.daily_study_goal_minutes = input.dailyStudyGoalMinutes;
+    if (input.preferredJlptLevel !== undefined) preferencePatch.preferred_jlpt_level = input.preferredJlptLevel;
     if (input.showRomaji !== undefined) preferencePatch.show_romaji = input.showRomaji;
     if (input.showFurigana !== undefined) preferencePatch.show_furigana = input.showFurigana;
     const flashcardPatch: Record<string, unknown> = {};
