@@ -488,8 +488,8 @@
   font-size: 16px;
   font-weight: 800;
 }
-.includedCard h3 { margin: 1px 0 7px; color: #303a45; font-size: 12px; line-height: 1.45; }
-.includedCard p { margin: 0; color: #78858e; font-size: 11px; line-height: 1.7; }
+.includedCard h3 { margin: 1px 0 7px; color: #303a45; font-size: var(--type-size-card-title); font-weight: 700; line-height: var(--type-line-tight); }
+.includedCard p { margin: 0; color: #78858e; font-size: var(--type-size-secondary); line-height: var(--type-line-body); }
 .ctaPanel {
   position: relative;
   isolation: isolate;
