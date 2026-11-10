@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import Brand from '@/components/nihongo/brand';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
-import styles from './contact-page.module.css';
+import styles from '@/app/contact/contact-page.module.css';
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
@@ -24,10 +24,11 @@ export default function ContactForm() {
     if (!client) return;
     void client.auth.getUser().then(({ data }) => {
       if (!active || !data.user) return;
-      const metadata = data.user.user_metadata ?? {};
+      const user = data.user;
+      const metadata = user.user_metadata ?? {};
       const suggestedName = metadata.full_name || metadata.name || '';
       setName((current) => current || String(suggestedName));
-      setEmail((current) => current || data.user.email || '');
+      setEmail((current) => current || user.email || '');
     }).catch(() => {
       // The form remains available to signed-out visitors if profile prefill fails.
     });
