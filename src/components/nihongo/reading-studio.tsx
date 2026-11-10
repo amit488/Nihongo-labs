@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { estimateReadingMinutes, getPassageText, getPassagesForLevel, kanaToRomaji, type ReadingLevel, type ReadingPassage } from '@/lib/nihongo/reading-content';
 import { EmptyState, JlptLevelSwitch, SectionHeading, type JlptLevel } from './learning-shared';
@@ -123,44 +124,81 @@ export default function ReadingStudio({
     void onPreferredLevelChange(next);
   }
 
-  function showSelectedReading() {
-    if (!romaji) {
-      clearSelection();
-      return;
-    }
-    const selection = window.getSelection();
-    const selectedText = selection?.toString().trim();
-    const root = readerTextRef.current;
-    if (!selection || !selectedText || selection.rangeCount === 0 || !root) {
-      clearSelection();
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    if (!root.contains(range.commonAncestorContainer)) {
-      clearSelection();
-      return;
+  useEffect(() => {
+    let animationFrame = 0;
+
+    function clearPopup() {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      setPopup(null);
     }
 
-    const selectedTokens = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-token="true"]'))
-      .filter((node) => {
-        try { return range.intersectsNode(node) && Boolean(node.dataset.romaji); }
-        catch { return false; }
+    function updatePopupAfterSelection() {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const root = readerTextRef.current;
+        const selection = document.getSelection();
+        const selectedText = selection?.toString().trim() ?? '';
+        if (!root || !selection || !selectedText || selection.rangeCount === 0 || selection.isCollapsed) {
+          setPopup(null);
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const startsInsideReader = root.contains(range.startContainer);
+        const endsInsideReader = root.contains(range.endContainer);
+        if (!startsInsideReader && !endsInsideReader) {
+          setPopup(null);
+          return;
+        }
+
+        const selectedTokens = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-token="true"]'))
+          .filter((node) => {
+            try { return range.intersectsNode(node) && Boolean(node.dataset.romaji); }
+            catch { return false; }
+          });
+        const selectedRomaji = selectedTokens
+          .map((node) => node.dataset.romaji || '')
+          .filter(Boolean)
+          .join(' · ');
+        if (!selectedRomaji) {
+          setPopup(null);
+          return;
+        }
+
+        // Use the first visual line of the selected range. The popup is portalled
+        // to document.body, so these viewport coordinates remain correct even
+        // when the reading panel is inside a scrollable or clipped layout.
+        const firstRect = Array.from(range.getClientRects()).find((rect) => rect.width > 0 && rect.height > 0)
+          ?? range.getBoundingClientRect();
+        if (!firstRect.width && !firstRect.height) {
+          setPopup(null);
+          return;
+        }
+        const halfPopupWidth = Math.min(170, Math.max(90, window.innerWidth / 2 - 12));
+        const left = Math.max(halfPopupWidth + 12, Math.min(window.innerWidth - halfPopupWidth - 12, firstRect.left + firstRect.width / 2));
+        const placement = firstRect.top >= 72 ? 'above' : 'below';
+        const top = placement === 'above' ? firstRect.top - 10 : firstRect.bottom + 10;
+        setPopup({ text: selectedText, romaji: selectedRomaji, left, top, placement });
       });
-    const selectedRomaji = selectedTokens
-      .map((node) => node.dataset.romaji || '')
-      .filter(Boolean)
-      .join(' ');
-    if (!selectedRomaji) {
-      clearSelection();
-      return;
     }
 
-    const rect = range.getBoundingClientRect();
-    const left = Math.max(110, Math.min(window.innerWidth - 110, rect.left + rect.width / 2));
-    const placement = rect.top > 84 ? 'above' : 'below';
-    const top = placement === 'above' ? rect.top - 9 : rect.bottom + 10;
-    setPopup({ text: selectedText, romaji: selectedRomaji, left, top, placement });
-  }
+    // Listen on document, not just the reading element: users often finish a
+    // drag just outside the text panel, which otherwise misses the mouseup.
+    document.addEventListener('mouseup', updatePopupAfterSelection);
+    document.addEventListener('keyup', updatePopupAfterSelection);
+    document.addEventListener('touchend', updatePopupAfterSelection, { passive: true });
+    window.addEventListener('scroll', clearPopup, true);
+    window.addEventListener('resize', clearPopup);
+
+    return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      document.removeEventListener('mouseup', updatePopupAfterSelection);
+      document.removeEventListener('keyup', updatePopupAfterSelection);
+      document.removeEventListener('touchend', updatePopupAfterSelection);
+      window.removeEventListener('scroll', clearPopup, true);
+      window.removeEventListener('resize', clearPopup);
+    };
+  }, [passage?.id]);
 
   async function toggleLearned() {
     if (!passage || !signedIn || savingId) {
@@ -204,7 +242,7 @@ export default function ReadingStudio({
       action={<div className={styles.headingActions}>
         <JlptLevelSwitch value={level} onChange={changeLevel} label="Reading JLPT level" />
         <button type="button" className={styles.romajiToggle} aria-pressed={romaji} onClick={() => { setRomaji(!romaji); clearSelection(); }}>
-          {romaji ? 'Romaji hints on' : 'Romaji hints off'}
+          {romaji ? 'Full romaji on' : 'Full romaji off'}
         </button>
       </div>}
     />
@@ -213,7 +251,7 @@ export default function ReadingStudio({
       <div><strong>{levelPassages.length}</strong><span>{level} readings</span></div>
       <div><strong>{learnedCount}</strong><span>learned</span></div>
       <div><strong>{Math.max(0, levelPassages.length - learnedCount)}</strong><span>to explore</span></div>
-      <div className={styles.librarySummaryNote}>Select text to see its reading. Full romaji stays hidden until requested.</div>
+      <div className={styles.librarySummaryNote}>Select any Japanese text to see its reading. Full-passage romaji is optional.</div>
     </div>
 
     <div className={styles.libraryToolbar}>
@@ -286,7 +324,7 @@ export default function ReadingStudio({
           </div>
 
           <div className={styles.readerTextSurface}>
-            <div className={styles.readerText} ref={readerTextRef} onMouseUp={showSelectedReading} onTouchEnd={showSelectedReading} onKeyUp={showSelectedReading}>
+            <div className={styles.readerText} ref={readerTextRef}>
               {passage.paragraphs.map((paragraph, paragraphIndex) => (
                 <p className={styles.readerParagraph} key={paragraphIndex}>
                   {paragraph.map((sentence, sentenceIndex) => (
@@ -301,13 +339,17 @@ export default function ReadingStudio({
                 </p>
               ))}
             </div>
-            {popup && romaji ? <div className={styles.selectionPopup} role="status"
+
+          </div>
+          {popup && typeof document !== 'undefined' ? createPortal(
+            <div className={styles.selectionPopup} role="status" aria-live="polite"
               style={{ left: popup.left, top: popup.top, transform: popup.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)' }}>
               <span className={styles.popupLabel}>ROMAJI</span>
               <strong>{popup.romaji}</strong>
               <small>{popup.text}</small>
-            </div> : null}
-          </div>
+            </div>,
+            document.body,
+          ) : null}
 
           {showFullRomaji && romaji ? <div className={styles.fullRomaji}>
             <div className={styles.supportingLabel}>FULL PASSAGE ROMAJI</div>

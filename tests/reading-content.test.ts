@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import testCase from 'node:test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   estimateReadingMinutes,
   getPassageText,
@@ -22,7 +24,8 @@ testCase('every reading has a unique id, context, kanji-rich passage and transla
     assert.ok(passage.context.length > 0);
     assert.ok(passage.title.length > 0);
     assert.ok(passage.paragraphs.length >= 2);
-    assert.ok(getPassageText(passage).length > 50);
+    assert.ok(getPassageText(passage).length > 350);
+    assert.ok(estimateReadingMinutes(passage) >= 6, `${passage.id} should take at least six minutes`);
     assert.match(getPassageText(passage), /[\u4e00-\u9fff]/u);
     assert.ok(passage.paragraphs.flat().every((sentence) => sentence.meaning.length > 0));
     assert.ok(passage.vocabulary.length >= 3);
@@ -46,4 +49,14 @@ testCase('reading time is calculated and always at least one minute', () => {
   for (const passage of readingPassages) {
     assert.ok(estimateReadingMinutes(passage) >= 1);
   }
+});
+
+
+testCase('selection popup is triggered at document level and is independent of full-romaji preference', () => {
+  const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
+  assert.match(component, /document\.addEventListener\('mouseup', updatePopupAfterSelection\)/);
+  assert.match(component, /window\.requestAnimationFrame/);
+  assert.match(component, /createPortal\(/);
+  assert.doesNotMatch(component, /if \(!romaji\)\s*\{\s*clearSelection\(\)/);
+  assert.match(component, /range\.getClientRects\(\)/);
 });

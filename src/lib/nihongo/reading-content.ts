@@ -522,6 +522,543 @@ export const readingPassages: ReadingPassage[] = [
   },
 ];
 
+
+const line = (meaning: string, ...parts: Array<[string, string]>): ReadingSentence =>
+  s(meaning, ...parts.map(([text, reading]) => t(text, reading)));
+
+const passageExpansions: Record<string, ReadingSentence[][]> = {
+  'n5-morning-routine': [
+    [
+      line('Before leaving, I look at the weather and choose my clothes.', ['出かける前に','でかけるまえに'], ['天気を見て','てんきをみて'], ['服を選びます。','ふくをえらびます']),
+      line('When it rains, I put an umbrella in my bag.', ['雨が降る日は','あめがふるひは'], ['かばんに','かばんに'], ['傘を入れます。','かさをいれます']),
+    ],
+    [
+      line('At the station, I buy a small bottle of water.', ['駅で','えきで'], ['小さい水を','ちいさいみずを'], ['一本買います。','いっぽんかいます']),
+      line('The train comes at seven thirty, so I wait on the platform.', ['電車は七時半に','でんしゃはしちじはんに'], ['来ますから','きますから'], ['ホームで待ちます。','ほーむでまちます']),
+    ],
+    [
+      line('I sit near the window and review yesterday’s words.', ['窓の近くに座って','まどのちかくにすわって'], ['昨日の言葉を','きのうのことばを'], ['復習します。','ふくしゅうします']),
+      line('I write new words in a small notebook during the ride.', ['電車の中で','でんしゃのなかで'], ['新しい言葉を','あたらしいことばを'], ['ノートに書きます。','のーとにかきます']),
+    ],
+    [
+      line('After class, I talk with a friend about the homework.', ['授業の後で','じゅぎょうのあとで'], ['友達と','ともだちと'], ['宿題について話します。','しゅくだいについてはなします']),
+      line('We decide to study together at the library tomorrow.', ['明日は図書館で','あしたはとしょかんで'], ['一緒に','いっしょに'], ['勉強することにしました。','べんきょうすることにしました']),
+    ],
+  ],
+  'n5-convenience-store': [
+    [
+      line('The shop is bright, clean and open all day.', ['その店は','そのみせは'], ['明るくて','あかるくて'], ['一日中開いています。','いちにちじゅうあいています']),
+      line('There are drinks, sandwiches, fruit and hot food near the door.', ['入口の近くに','いりぐちのちかくに'], ['飲み物や果物が','のみものやくだものが'], ['たくさんあります。','たくさんあります']),
+    ],
+    [
+      line('I look at the prices before choosing what to buy.', ['買う物を','かうものを'], ['決める前に','きめるまえに'], ['値段を見ます。','ねだんをみます']),
+      line('Today, a new kind of rice ball is on sale.', ['今日は','きょうは'], ['新しいおにぎりが','あたらしいおにぎりが'], ['安くなっています。','やすくなっています']),
+    ],
+    [
+      line('I take one rice ball, a banana and a bottle of tea.', ['おにぎりを一つ','おにぎりをひとつ'], ['バナナと','ばななと'], ['お茶を買います。','おちゃをかいます']),
+      line('At the counter, the staff asks whether I need a bag.', ['レジで店員さんは','れじでてんいんさんは'], ['袋がいるか','ふくろがいるか'], ['聞きました。','ききました']),
+    ],
+    [
+      line('I say that I brought my own bag and pay with cash.', ['自分の袋があると','じぶんのふくろがあると'], ['言って','いって'], ['現金で払いました。','げんきんではらいました']),
+      line('I put the receipt away and walk to the bus stop.', ['レシートをしまって','れしーとをしまって'], ['バス停まで','ばすていまで'], ['歩いて行きます。','あるいていきます']),
+    ],
+  ],
+  'n5-school-library': [
+    [
+      line('On the first floor, there are picture books for children.', ['一階には','いっかいには'], ['子どものための','こどものための'], ['絵本があります。','えほんがあります']),
+      line('The second floor is quiet and has many study desks.', ['二階は','にかいは'], ['静かで','しずかで'], ['勉強する机が多いです。','べんきょうするつくえがおおいです']),
+    ],
+    [
+      line('I choose a book with a simple story and clear pictures.', ['私は','わたしは'], ['絵がきれいで','えがきれいで'], ['読みやすい本を選びます。','よみやすいほんをえらびます']),
+      line('When I find a new word, I check it in a dictionary.', ['知らない言葉を','しらないことばを'], ['見つけた時は','みつけたときは'], ['辞書で調べます。','じしょでしらべます']),
+    ],
+    [
+      line('A librarian helps me find a book about Japanese food.', ['司書さんが','ししょさんが'], ['日本の食べ物の本を','にほんのたべもののほんを'], ['探してくれました。','さがしてくれました']),
+      line('I borrow the book and write the return date on my calendar.', ['その本を借りて','そのほんをかりて'], ['返す日を','かえすひを'], ['カレンダーに書きます。','かれんだーにかきます']),
+    ],
+    [
+      line('Before I leave, I put the chair back in its place.', ['帰る前に','かえるまえに'], ['使った椅子を','つかったいすを'], ['元の場所に戻します。','もとのばしょにもどします']),
+      line('The library closes at six, so I leave before that time.', ['図書館は六時に','としょかんはろくじに'], ['閉まりますから','しまりますから'], ['その前に帰ります。','そのまえにかえります']),
+    ],
+  ],
+  'n5-train-ride': [
+    [
+      line('At each station, the doors open on the left side.', ['駅に着くと','えきにつくと'], ['左側のドアが','ひだりがわのどあが'], ['開きます。','ひらきます']),
+      line('People get off first, and then the waiting passengers get on.', ['先に','さきに'], ['降りる人が出て','おりるひとがでて'], ['それから乗ります。','それからのります']),
+    ],
+    [
+      line('A small screen shows the next station and the time.', ['車内の画面に','しゃないのがめんに'], ['次の駅と','つぎのえきと'], ['時間が出ています。','じかんがでています']),
+      line('I look at the map so that I do not miss my stop.', ['降りる駅を','おりるえきを'], ['間違えないように','まちがえないように'], ['地図を見ます。','ちずをみます']),
+    ],
+    [
+      line('An older woman gets on with a heavy shopping bag.', ['お年寄りの女性が','おとしよりのじょせいが'], ['重い買い物袋を','おもいかいものぶくろを'], ['持って乗ってきました。','もってのってきました']),
+      line('I stand up and offer her my seat.', ['私は立って','わたしはたって'], ['その女性に','そのじょせいに'], ['席をゆずりました。','せきをゆずりました']),
+    ],
+    [
+      line('She smiles and thanks me before sitting down.', ['女性は','じょせいは'], ['笑って','わらって'], ['ありがとうと言いました。','ありがとうといいました']),
+      line('When my station arrives, I check my bag and get off.', ['駅に着いたら','えきについたら'], ['かばんを確かめて','かばんをたしかめて'], ['電車を降ります。','でんしゃをおります']),
+    ],
+  ],
+  'n5-park-weekend': [
+    [
+      line('The park has a pond, a playground and a long walking path.', ['公園には','こうえんには'], ['池や遊び場や','いけやあそびばや'], ['長い道があります。','ながいみちがあります']),
+      line('Many families come here when the weather is good.', ['天気がいい日は','てんきがいいひは'], ['たくさんの家族が','たくさんのかぞくが'], ['ここへ来ます。','ここへきます']),
+    ],
+    [
+      line('My friend brings a ball, and we play near the grass.', ['友達は','ともだちは'], ['ボールを持ってきて','ぼーるをもってきて'], ['芝生の近くで遊びます。','しばふのちかくであそびます']),
+      line('After playing, we buy cold drinks from a small shop.', ['遊んだ後で','あそんだあとで'], ['小さい店で','ちいさいみせで'], ['冷たい飲み物を買います。','つめたいのみものをかいます']),
+    ],
+    [
+      line('A little dog runs after a bird, but the bird flies away.', ['小さい犬が','ちいさいいぬが'], ['鳥を追いかけますが','とりをおいかけますが'], ['鳥は飛んで行きました。','とりはとんでいきました']),
+      line('We sit on a bench and watch the children play.', ['ベンチに座って','べんちにすわって'], ['子どもたちが','こどもたちが'], ['遊ぶのを見ます。','あそぶのをみます']),
+    ],
+    [
+      line('The sun begins to go down, and the air becomes cool.', ['夕方になると','ゆうがたになると'], ['日が少しずつ','ひがすこしずつ'], ['沈んで涼しくなります。','しずんですずしくなります']),
+      line('We promise to come back next Sunday.', ['私たちは','わたしたちは'], ['来週の日曜日も','らいしゅうのにちようびも'], ['また来ると約束しました。','またくるとやくそくしました']),
+    ],
+  ],
+  'n5-family-dinner': [
+    [
+      line('Before dinner, my younger brother helps wash the vegetables.', ['晩ご飯の前に','ばんごはんのまえに'], ['弟が野菜を','おとうとがやさいを'], ['洗うのを手伝います。','あらうのをてつだいます']),
+      line('My mother explains how to cut the carrots safely.', ['母は','ははは'], ['にんじんの切り方を','にんじんのきりかたを'], ['ゆっくり教えます。','ゆっくりおしえます']),
+    ],
+    [
+      line('The smell of food comes from the kitchen.', ['台所から','だいどころから'], ['おいしい料理の','おいしいりょうりの'], ['においがします。','においがします']),
+      line('My father returns home and puts his bag by the door.', ['父が家に帰ると','ちちがいえにかえると'], ['かばんを','かばんを'], ['入口の横に置きます。','いりぐちのよこにおきます']),
+    ],
+    [
+      line('We talk about school, work and the plans for tomorrow.', ['食事をしながら','しょくじをしながら'], ['学校や仕事や','がっこうやしごとや'], ['明日の予定を話します。','あしたのよていをはなします']),
+      line('My brother tells a funny story, and everyone laughs.', ['弟がおもしろい話をすると','おとうとがおもしろいはなしをすると'], ['みんな','みんな'], ['大きな声で笑います。','おおきなこえでわらいます']),
+    ],
+    [
+      line('After eating, we put the dishes in the sink together.', ['食べ終わったら','たべおわったら'], ['みんなで皿を','みんなでさらを'], ['流しに運びます。','ながしにはこびます']),
+      line('I wash the plates while my brother dries them.', ['私は皿を洗い','わたしはさらをあらい'], ['弟は','おとうとは'], ['皿をふきます。','さらをふきます']),
+    ],
+  ],
+  'n5-weather-rain': [
+    [
+      line('The weather report says that rain will continue until evening.', ['天気予報では','てんきよほうでは'], ['夕方まで','ゆうがたまで'], ['雨が続くそうです。','あめがつづくそうです']),
+      line('I change my plan and decide to stay inside.', ['それで','それで'], ['外へ行く予定を','そとへいくよていを'], ['変えることにしました。','かえることにしました']),
+    ],
+    [
+      line('I make a warm cup of tea and open my book.', ['温かいお茶を','あたたかいおちゃを'], ['一杯作って','いっぱいつくって'], ['本を開きます。','ほんをひらきます']),
+      line('The sound of rain on the window is quiet and pleasant.', ['窓に当たる雨の音は','まどにあたるあめのおとは'], ['静かで','しずかで'], ['気持ちがいいです。','きもちがいいです']),
+    ],
+    [
+      line('Later, the rain becomes weaker and the clouds begin to move.', ['しばらくすると','しばらくすると'], ['雨が弱くなり','あめがよわくなり'], ['雲が動き始めます。','くもがうごきはじめます']),
+      line('A little sunlight comes through the clouds.', ['雲の間から','くものあいだから'], ['少しだけ','すこしだけ'], ['太陽の光が見えます。','たいようのひかりがみえます']),
+    ],
+    [
+      line('I take my umbrella and go outside for a short walk.', ['傘を持って','かさをもって'], ['近くの道を','ちかくのみちを'], ['少し歩きます。','すこしあるきます']),
+      line('The trees look green, and the air smells clean.', ['木の葉は','このはは'], ['いつもより','いつもより'], ['緑に見えて空気もきれいです。','みどりにみえてくうきもきれいです']),
+    ],
+  ],
+  'n5-clothes-shopping': [
+    [
+      line('The shop has many jackets in different colours and sizes.', ['店には','みせには'], ['色や大きさが','いろやおおきさが'], ['違う上着があります。','ちがううわぎがあります']),
+      line('I ask a shop assistant where the changing room is.', ['店員さんに','てんいんさんに'], ['試着する部屋は','しちゃくするへやは'], ['どこか聞きました。','どこかききました']),
+    ],
+    [
+      line('The blue jacket looks good, but the sleeves are too long.', ['青い上着は','あおいうわぎは'], ['よく見えますが','よくみえますが'], ['そでは長すぎます。','そではながすぎます']),
+      line('I try a smaller size and check it in the mirror.', ['小さいサイズを','ちいさいさいずを'], ['着てみて','きてみて'], ['鏡で確かめます。','かがみでたしかめます']),
+    ],
+    [
+      line('My sister says that the black one matches my trousers.', ['妹は','いもうとは'], ['黒い上着が','くろいうわぎが'], ['ズボンに合うと言います。','ずぼんにあうといいます']),
+      line('I look at the price tag and decide to buy it.', ['値札を見て','ねふだをみて'], ['その上着を','そのうわぎを'], ['買うことにしました。','かうことにしました']),
+    ],
+    [
+      line('At home, I hang the jacket carefully in my room.', ['家に帰ってから','いえにかえってから'], ['上着を','うわぎを'], ['部屋にかけます。','へやにかけます']),
+      line('I am happy because I found something comfortable.', ['着やすい服が','きやすいふくが'], ['見つかって','みつかって'], ['うれしいです。','うれしいです']),
+    ],
+  ],
+  'n5-friends-cafe': [
+    [
+      line('The café is busy, but we find a table near the window.', ['カフェは','かふぇは'], ['人が多いですが','ひとがおおいですが'], ['窓の近くに席を見つけました。','まどのちかくにせきをみつけました']),
+      line('There is a menu on the table with pictures of the drinks.', ['テーブルの上に','てーぶるのうえに'], ['飲み物の写真が','のみもののしゃしんが'], ['あるメニューがあります。','あるめにゅーがあります']),
+    ],
+    [
+      line('My friend tells me about a new class at school.', ['友達は','ともだちは'], ['学校の新しい授業に','がっこうのあたらしいじゅぎょうに'], ['ついて話します。','ついてはなします']),
+      line('I listen carefully and ask a few questions.', ['私は','わたしは'], ['よく聞いて','よくきいて'], ['いくつか質問します。','いくつかしつもんします']),
+    ],
+    [
+      line('We share a small cake because it is large for one person.', ['ケーキは','けーきは'], ['一人には大きいので','ひとりにはおおきいので'], ['二人で分けます。','ふたりでわけます']),
+      line('The café plays soft music, and the room feels peaceful.', ['カフェでは','かふぇでは'], ['静かな音楽が','しずかなおんがくが'], ['流れていて落ち着きます。','ながれていておちつきます']),
+    ],
+    [
+      line('Before we leave, we make a plan to meet again next week.', ['帰る前に','かえるまえに'], ['来週も会う','らいしゅうもあう'], ['約束をしました。','やくそくをしました']),
+      line('We thank the staff and walk back to the station.', ['店員さんに','てんいんさんに'], ['ありがとうと言って','ありがとうといって'], ['駅まで歩きます。','えきまであるきます']),
+    ],
+  ],
+  'n5-post-office': [
+    [
+      line('At the post office, I take a number and wait in line.', ['郵便局に入って','ゆうびんきょくにはいって'], ['番号を取って','ばんごうをとって'], ['順番を待ちます。','じゅんばんをまちます']),
+      line('There are forms for letters and small packages near the desk.', ['窓口の近くに','まどぐちのちかくに'], ['手紙や荷物の','てがみやにもつの'], ['用紙があります。','ようしがあります']),
+    ],
+    [
+      line('The staff member asks whether the letter is important.', ['局員さんは','きょくいんさんは'], ['この手紙が','このてがみが'], ['大切な物か聞きます。','たいせつなものかききます']),
+      line('I choose a service that will deliver it quickly.', ['早く届く','はやくとどく'], ['送り方を','おくりかたを'], ['選びました。','えらびました']),
+    ],
+    [
+      line('I write the address carefully so that it is easy to read.', ['住所を','じゅうしょを'], ['読みやすいように','よみやすいように'], ['ていねいに書きます。','ていねいにかきます']),
+      line('The staff checks the stamp and gives me a receipt.', ['局員さんは','きょくいんさんは'], ['切手を確かめて','きってをたしかめて'], ['レシートをくれます。','れしーとをくれます']),
+    ],
+    [
+      line('I send a short message to my friend to say the letter is on its way.', ['手紙を送った後','てがみをおくったあと'], ['友達に','ともだちに'], ['知らせを送りました。','しらせをおくりました']),
+      line('I hope the letter arrives safely in a few days.', ['何日か後に','なんにちかあとに'], ['手紙が無事に','てがみがぶじに'], ['届くといいです。','とどくといいです']),
+    ],
+  ],
+  'n5-at-the-clinic': [
+    [
+      line('At the clinic, I write my name and address on a form.', ['病院に着くと','びょういんにつくと'], ['名前と住所を','なまえとじゅうしょを'], ['紙に書きます。','かみにかきます']),
+      line('The nurse asks me to wait until the doctor is ready.', ['看護師さんは','かんごしさんは'], ['医者の準備が','いしゃのじゅんびが'], ['できるまで待ってくださいと言います。','できるまでまってくださいといいます']),
+    ],
+    [
+      line('I explain where my head hurts and when it began.', ['頭のどこが','あたまのどこが'], ['いつから痛いか','いつからいたいか'], ['説明します。','せつめいします']),
+      line('The doctor listens and checks my temperature.', ['医者は','いしゃは'], ['話を聞いて','はなしをきいて'], ['熱を調べます。','ねつをしらべます']),
+    ],
+    [
+      line('The doctor says that I should sleep early tonight.', ['今夜は','こんやは'], ['早く寝たほうが','はやくねたほうが'], ['いいと言われました。','いいといわれました']),
+      line('I receive some medicine and ask how to take it.', ['薬をもらって','くすりをもらって'], ['飲み方を','のみかたを'], ['聞きました。','ききました']),
+    ],
+    [
+      line('On the way home, I buy water and something easy to eat.', ['帰りに','かえりに'], ['水と','みずと'], ['食べやすい物を買います。','たべやすいものをかいます']),
+      line('I plan to rest and return to school when I feel better.', ['ゆっくり休んで','ゆっくりやすんで'], ['元気になったら','げんきになったら'], ['学校へ行きます。','がっこうへいきます']),
+    ],
+  ],
+  'n5-photography-hobby': [
+    [
+      line('I learned how to use the camera by watching a short video.', ['短い動画を見て','みじかいどうがをみて'], ['カメラの使い方を','かめらのつかいかたを'], ['勉強しました。','べんきょうしました']),
+      line('I practise taking pictures at different times of the day.', ['一日の中で','いちにちのなかで'], ['時間を変えて','じかんをかえて'], ['写真を撮ります。','しゃしんをとります']),
+    ],
+    [
+      line('In the morning, the light is soft and the colours look clear.', ['朝は','あさは'], ['光がやわらかく','ひかりがやわらかく'], ['色がきれいに見えます。','いろがきれいにみえます']),
+      line('At noon, I look for shade so that the picture is not too bright.', ['昼は','ひるは'], ['写真が明るすぎないように','しゃしんがあかるすぎないように'], ['日かげを探します。','ひかげをさがします']),
+    ],
+    [
+      line('My friend shows me how to hold the camera steadily.', ['友達は','ともだちは'], ['カメラを安定して','かめらをあんていして'], ['持つ方法を教えます。','もつほうほうをおしえます']),
+      line('I take several pictures and choose the best one later.', ['何枚か写真を撮って','なんまいかしゃしんをとって'], ['後で','あとで'], ['一番いい物を選びます。','いちばんいいものをえらびます']),
+    ],
+    [
+      line('I keep the pictures in a folder and write the date on it.', ['写真をフォルダーに入れて','しゃしんをふぉるだーにいれて'], ['日付を','ひづけを'], ['書いておきます。','かいておきます']),
+      line('This hobby helps me notice small things around me.', ['この趣味で','このしゅみで'], ['まわりの小さなことに','まわりのちいさなことに'], ['気が付くようになりました。','きがつくようになりました']),
+    ],
+  ],
+
+  'n4-new-apartment': [
+    [
+      line('On the first evening, I unpacked the boxes and arranged the furniture.', ['最初の晩に','さいしょのばんに'], ['箱を開けて','はこをあけて'], ['家具を並べました。','かぐをならべました']),
+      line('I put the desk beside the window because I like studying in natural light.', ['自然の光で','しぜんのひかりで'], ['勉強するのが好きなので','べんきょうするのがすきなので'], ['机を窓の横に置きました。','つくえをまどのよこにおきました']),
+    ],
+    [
+      line('The apartment building has a shared room where residents can leave deliveries.', ['建物には','たてものには'], ['住んでいる人が','すんでいるひとが'], ['荷物を受け取る場所があります。','にもつをうけとるばしょがあります']),
+      line('I asked the manager how to separate rubbish and where to put it.', ['管理人に','かんりにんに'], ['ごみの分け方と','ごみのわけかたと'], ['出す場所を聞きました。','だすばしょをききました']),
+    ],
+    [
+      line('The neighbour next door introduced herself and welcomed me to the building.', ['隣の部屋の人が','となりのへやのひとが'], ['自己紹介をして','じこしょうかいをして'], ['この建物へようこそと言いました。','このたてものへようこそといいました']),
+      line('She told me which supermarket has fresh vegetables at a good price.', ['その人は','そのひとは'], ['野菜が新鮮で','やさいがしんせんで'], ['安いスーパーを教えてくれました。','やすいすーぱーをおしえてくれました']),
+    ],
+    [
+      line('During the weekend, I walked around the area to find useful places.', ['週末に','しゅうまつに'], ['近所の便利な場所を','きんじょのべんりなばしょを'], ['探して歩きました。','さがしてあるきました']),
+      line('I found a pharmacy, a small park and a café near the station.', ['駅の近くに','えきのちかくに'], ['薬局や小さな公園や','やっきょくやちいさなこうえんや'], ['カフェがありました。','かふぇがありました']),
+    ],
+    [
+      line('I still have a few boxes to open, but the room is beginning to feel like home.', ['まだ開けていない箱が','まだあけていないはこが'], ['少しありますが','すこしありますが'], ['部屋は家らしくなってきました。','へやはいえらしくなってきました']),
+      line('I want to learn the neighbourhood well and greet the people who live here.', ['この町のことを','このまちのことを'], ['よく知って','よくしって'], ['住んでいる人にあいさつしたいです。','すんでいるひとにあいさつしたいです']),
+    ],
+  ],
+  'n4-part-time-job': [
+    [
+      line('On my first day, the manager showed me the kitchen and explained the rules.', ['初めての日に','はじめてのひに'], ['店長は','てんちょうは'], ['台所と仕事の規則を説明しました。','だいどころとしごとのきそくをせつめいしました']),
+      line('I learned where to keep the cups, plates and cleaning tools.', ['コップや皿や','こっぷやさらや'], ['掃除の道具を','そうじのどうぐを'], ['どこに置くか習いました。','どこにおくかならいました']),
+    ],
+    [
+      line('When customers enter, we greet them clearly and show them to a table.', ['お客さんが入ってきたら','おきゃくさんがはいってきたら'], ['はっきりあいさつして','はっきりあいさつして'], ['席まで案内します。','せきまであんないします']),
+      line('If I do not understand an order, I ask a senior worker to confirm it.', ['注文が分からない時は','ちゅうもんがわからないときは'], ['先輩に','せんぱいに'], ['もう一度確かめてもらいます。','もういちどたしかめてもらいます']),
+    ],
+    [
+      line('The busiest time is around lunch, when many office workers come in.', ['一番忙しい時間は','いちばんいそがしいじかんは'], ['昼ごろで','ひるごろで'], ['会社の人がたくさん来ます。','かいしゃのひとがたくさんきます']),
+      line('We work together so that every customer receives the correct meal.', ['お客さんに','おきゃくさんに'], ['正しい料理を','ただしいりょうりを'], ['出せるように協力します。','だせるようにきょうりょくします']),
+    ],
+    [
+      line('After closing, we clean the tables and check the remaining supplies.', ['店を閉めた後','みせをしめたあと'], ['テーブルを掃除して','てーぶるをそうじして'], ['残っている物を調べます。','のこっているものをしらべます']),
+      line('The manager gives us a short meeting to talk about the day.', ['店長は','てんちょうは'], ['その日の仕事について','そのひのしごとについて'], ['短い会議をします。','みじかいかいぎをします']),
+    ],
+    [
+      line('I sometimes make mistakes, but I write them down and practise again.', ['時々間違えますが','ときどきまちがえますが'], ['間違えたことを','まちがえたことを'], ['書いてもう一度練習します。','かいてもういちどれんしゅうします']),
+      line('I am becoming more confident because the other workers help me.', ['ほかの人が','ほかのひとが'], ['助けてくれるので','たすけてくれるので'], ['少し自信が出てきました。','すこしじしんがでてきました']),
+    ],
+  ],
+  'n4-hotel-reservation': [
+    [
+      line('I chose the hotel because it is close to the station and the city centre.', ['駅と町の中心に','えきとまちのちゅうしんに'], ['近いので','ちかいので'], ['このホテルを選びました。','このほてるをえらびました']),
+      line('Before travelling, I checked the cancellation rules and breakfast hours.', ['旅行の前に','りょこうのまえに'], ['キャンセルの規則と','きゃんせるのきそくと'], ['朝食の時間を確認しました。','ちょうしょくのじかんをかくにんしました']),
+    ],
+    [
+      line('At check-in, the receptionist asked me to show my identification.', ['チェックインの時','ちぇっくいんのとき'], ['受付の人は','うけつけのひとは'], ['身分証明書を見せてくださいと言いました。','みぶんしょうめいしょをみせてくださいといいました']),
+      line('I confirmed the number of nights and the type of room I had booked.', ['泊まる日数と','とまるにっすうと'], ['予約した部屋の種類を','よやくしたへやのしゅるいを'], ['もう一度確かめました。','もういちどたしかめました']),
+    ],
+    [
+      line('The receptionist explained where the lift and emergency stairs were.', ['受付の人は','うけつけのひとは'], ['エレベーターと','えれべーたーと'], ['非常階段の場所を説明しました。','ひじょうかいだんのばしょをせつめいしました']),
+      line('They also told me that the restaurant would be busy after seven.', ['レストランは','れすとらんは'], ['七時を過ぎると','しちじをすぎると'], ['混むそうです。','こむそうです']),
+    ],
+    [
+      line('After leaving my luggage in the room, I asked about nearby places to eat.', ['部屋に荷物を置いてから','へやににもつをおいてから'], ['近くで食事ができる場所を','ちかくでしょくじができるばしょを'], ['聞きました。','ききました']),
+      line('The staff recommended a small restaurant that serves local dishes.', ['スタッフは','すたっふは'], ['地元の料理を出す','じもとのりょうりをだす'], ['小さな店をすすめてくれました。','ちいさなみせをすすめてくれました']),
+    ],
+    [
+      line('The room was quiet, and I could see the city lights from the window.', ['部屋は静かで','へやはしずかで'], ['窓から','まどから'], ['町の明かりが見えました。','まちのあかりがみえました']),
+      line('I wrote down the next day’s plans before going to sleep.', ['寝る前に','ねるまえに'], ['次の日の予定を','つぎのひのよていを'], ['ノートに書きました。','のーとにかきました']),
+    ],
+  ],
+  'n4-lost-property': [
+    [
+      line('I checked my pockets and suitcase, but the umbrella was not there.', ['ポケットとスーツケースを','ぽけっととすーつけーすを'], ['調べましたが','しらべましたが'], ['傘は見つかりませんでした。','かさはみつかりませんでした']),
+      line('I remembered that I had changed trains at the central station.', ['中央駅で','ちゅうおうえきで'], ['電車を乗り換えた','でんしゃをのりかえた'], ['ことを思い出しました。','ことをおもいだしました']),
+    ],
+    [
+      line('At the station office, a worker asked me for the train and time.', ['駅の事務室で','えきのじむしつで'], ['係の人は','かかりのひとは'], ['電車と時間を聞きました。','でんしゃとじかんをききました']),
+      line('I described the colour, size and handle of the umbrella.', ['傘の色と大きさと','かさのいろとおおきさと'], ['持つところの形を','もつところのかたちを'], ['説明しました。','せつめいしました']),
+    ],
+    [
+      line('The worker searched the lost-property list on a computer.', ['係の人は','かかりのひとは'], ['コンピューターで','こんぴゅーたーで'], ['忘れ物のリストを調べました。','わすれもののりすとをしらべました']),
+      line('There were several umbrellas, so I had to give more details.', ['傘がいくつかあったので','かさがいくつかあったので'], ['もう少し詳しく','もうすこしくわしく'], ['話す必要がありました。','はなすひつようがありました']),
+    ],
+    [
+      line('Luckily, one umbrella had the same small mark near its handle.', ['幸い','さいわい'], ['持つところの近くに','もつところのちかくに'], ['同じ印がありました。','おなじしるしがありました']),
+      line('I showed my identification and received it from the office.', ['身分証明書を見せて','みぶんしょうめいしょをみせて'], ['事務室で','じむしつで'], ['傘を受け取りました。','かさをうけとりました']),
+    ],
+    [
+      line('I thanked the worker and decided to write my name on it next time.', ['係の人にお礼を言って','かかりのひとにおれいをいって'], ['次からは','つぎからは'], ['名前を書こうと思いました。','なまえをかこうとおもいました']),
+      line('I was relieved that a small problem had been solved so easily.', ['小さな問題が','ちいさなもんだいが'], ['無事に解決して','ぶじにかいけつして'], ['安心しました。','あんしんしました']),
+    ],
+  ],
+  'n4-local-festival': [
+    [
+      line('A few days before the festival, volunteers decorate the street with lanterns.', ['祭りの数日前に','まつりのすうじつまえに'], ['ボランティアが','ぼらんてぃあが'], ['通りにちょうちんを飾ります。','とおりにちょうちんをかざります']),
+      line('Local shops prepare special food and drinks for visitors.', ['近くの店は','ちかくのみせは'], ['来る人のために','くるひとのために'], ['特別な食べ物を用意します。','とくべつなたべものをよういします']),
+    ],
+    [
+      line('In the afternoon, families gather near the shrine entrance.', ['午後になると','ごごになると'], ['家族が','かぞくが'], ['神社の入口に集まります。','じんじゃのいりぐちにあつまります']),
+      line('Children enjoy games while adults meet their neighbours.', ['子どもたちはゲームを楽しみ','こどもたちはげーむをたのしみ'], ['大人は','おとなは'], ['近所の人と話します。','きんじょのひととはなします']),
+    ],
+    [
+      line('A group of musicians plays traditional music near the main road.', ['音楽をする人たちが','おんがくをするひとたちが'], ['大きな道の近くで','おおきなみちのちかくで'], ['伝統的な音楽を演奏します。','でんとうてきなおんがくをえんそうします']),
+      line('The sound can be heard from far away, and more people come.', ['その音は','そのおとは'], ['遠くまで聞こえて','とおくまできこえて'], ['人がもっと集まります。','ひとがもっとあつまります']),
+    ],
+    [
+      line('Before the fireworks begin, people find a safe place to stand.', ['花火が始まる前に','はなびがはじまるまえに'], ['人々は','ひとびとは'], ['安全な場所を探します。','あんぜんなばしょをさがします']),
+      line('The sky becomes bright for a short time when the fireworks open.', ['花火が上がると','はなびがあがると'], ['空は','そらは'], ['少しの間明るくなります。','すこしのあいだあかるくなります']),
+    ],
+    [
+      line('After the festival, volunteers collect rubbish and put the chairs away.', ['祭りの後で','まつりのあとで'], ['ボランティアは','ぼらんてぃあは'], ['ごみを集めて椅子を片付けます。','ごみをあつめていすをかたづけます']),
+      line('Everyone is tired, but they are already looking forward to next year.', ['みんな疲れていますが','みんなつかれていますが'], ['来年の祭りを','らいねんのまつりを'], ['もう楽しみにしています。','もうたのしみにしています']),
+    ],
+  ],
+  'n4-cooking-curry': [
+    [
+      line('Before cooking, we checked the recipe and prepared all the ingredients.', ['料理を始める前に','りょうりをはじめるまえに'], ['レシピを確認して','れしぴをかくにんして'], ['材料を全部用意しました。','ざいりょうをぜんぶよういしました']),
+      line('My brother washed the vegetables while I prepared the meat.', ['兄が野菜を洗い','あにがやさいをあらい'], ['私は','わたしは'], ['肉の準備をしました。','にくのじゅんびをしました']),
+    ],
+    [
+      line('We cut the vegetables into pieces that were almost the same size.', ['野菜は','やさいは'], ['大きさが同じくらいに','おおきさがおなじくらいに'], ['なるように切りました。','なるようにきりました']),
+      line('This helps everything cook at nearly the same speed.', ['そうすると','そうすると'], ['全部の材料に','ぜんぶのざいりょうに'], ['同じくらい火が通ります。','おなじくらいひがとおります']),
+    ],
+    [
+      line('When the onions became soft, we added the meat to the pot.', ['玉ねぎが柔らかくなった時','たまねぎがやわらかくなったとき'], ['鍋に','なべに'], ['肉を入れました。','にくをいれました']),
+      line('We stirred it slowly so that nothing would burn.', ['何も焦げないように','なにもこげないように'], ['ゆっくり','ゆっくり'], ['かき混ぜました。','かきまぜました']),
+    ],
+    [
+      line('After adding water, we waited until the vegetables were soft.', ['水を入れてから','みずをいれてから'], ['野菜が柔らかく','やさいがやわらかく'], ['なるまで待ちました。','なるまでまちました']),
+      line('My brother tasted the sauce and said it needed a little salt.', ['兄がソースを味見すると','あにがそーすをあじみすると'], ['塩が少し','しおがすこし'], ['足りないと言いました。','たりないといいました']),
+    ],
+    [
+      line('We ate the curry with rice and a simple salad.', ['カレーを','かれーを'], ['ご飯と','ごはんと'], ['簡単なサラダと一緒に食べました。','かんたんなさらだといっしょにたべました']),
+      line('The meal tasted better because we had made it together.', ['一緒に作ったので','いっしょにつくったので'], ['いつもより','いつもより'], ['おいしく感じました。','おいしくかんじました']),
+    ],
+  ],
+  'n4-school-project': [
+    [
+      line('Our teacher explained the goal and the date of the presentation.', ['先生は','せんせいは'], ['発表の目的と','はっぴょうのもくてきと'], ['日にちを説明しました。','ひにちをせつめいしました']),
+      line('Each group had to choose a subject that everyone found interesting.', ['それぞれのグループは','それぞれのぐるーぷは'], ['みんなが興味を持つ','みんながきょうみをもつ'], ['テーマを選ぶ必要がありました。','てーまをえらぶひつようがありました']),
+    ],
+    [
+      line('We chose local festivals because they show many parts of Japanese culture.', ['日本の文化の','にほんのぶんかの'], ['いろいろなところが分かるので','いろいろなところがわかるので'], ['地元の祭りを選びました。','じもとのまつりをえらびました']),
+      line('I visited the library to find books and reliable information.', ['図書館へ行って','としょかんへいって'], ['本と','ほんと'], ['正しい情報を探しました。','ただしいじょうほうをさがしました']),
+    ],
+    [
+      line('Another student interviewed a family who helps organise the festival.', ['別の学生は','べつのがくせいは'], ['祭りの準備をする','まつりのじゅんびをする'], ['家族に話を聞きました。','かぞくにはなしをききました']),
+      line('We compared our notes and removed information that was repeated.', ['みんなのノートを比べて','みんなののーとをくらべて'], ['同じ内容を','おなじないようを'], ['整理しました。','せいりしました']),
+    ],
+    [
+      line('I made slides with photographs and short explanations.', ['私は','わたしは'], ['写真と短い説明を','しゃしんとみじかいせつめいを'], ['使ってスライドを作りました。','つかってすらいどをつくりました']),
+      line('We practised speaking slowly so that the class could understand us.', ['クラスのみんなに','くらすのみんなに'], ['分かってもらえるように','わかってもらえるように'], ['ゆっくり話す練習をしました。','ゆっくりはなすれんしゅうをしました']),
+    ],
+    [
+      line('On presentation day, I was nervous but remembered the main points.', ['発表の日は','はっぴょうのひは'], ['緊張しましたが','きんちょうしましたが'], ['大切な点を思い出しました。','たいせつなてんをおもいだしました']),
+      line('The teacher praised our teamwork and suggested one improvement.', ['先生は','せんせいは'], ['チームワークをほめて','ちーむわーくをほめて'], ['一つアドバイスをくれました。','ひとつあどばいすをくれました']),
+    ],
+  ],
+  'n4-neighbourhood-cleanup': [
+    [
+      line('The local group sends a message before each clean-up day.', ['地域のグループは','ちいきのぐるーぷは'], ['掃除の日の前に','そうじのひのまえに'], ['連絡を送ります。','れんらくをおくります']),
+      line('The message explains where to meet and what tools to bring.', ['集合する場所と','しゅうごうするばしょと'], ['持ってくる道具を','もってくるどうぐを'], ['説明しています。','せつめいしています']),
+    ],
+    [
+      line('When I arrive, the leader gives everyone gloves and rubbish bags.', ['着くと','つくと'], ['リーダーは','りーだーは'], ['みんなに手袋と袋を渡します。','みんなにてぶくろとふくろをわたします']),
+      line('We make small groups so that each street can be cleaned.', ['道をきれいにするために','みちをきれいにするために'], ['小さなグループに','ちいさなぐるーぷに'], ['分かれます。','わかれます']),
+    ],
+    [
+      line('Some people pick up rubbish while others sweep the sidewalks.', ['ごみを拾う人もいれば','ごみをひろうひともいれば'], ['歩道を掃く人も','ほどうをはくひとも'], ['います。','います']),
+      line('We separate bottles and cans before putting them into the bags.', ['袋に入れる前に','ふくろにいれるまえに'], ['びんと缶を','びんとかんを'], ['分けておきます。','わけておきます']),
+    ],
+    [
+      line('A shop owner brings water for the volunteers because the day is hot.', ['その日は暑かったので','そのひはあつかったので'], ['店の人が','みせのひとが'], ['ボランティアに水をくれました。','ぼらんてぃあにみずをくれました']),
+      line('I spoke with a neighbour whom I had never met before.', ['今まで会ったことのない','いままであったことのない'], ['近所の人と','きんじょのひとと'], ['話をしました。','はなしをしました']),
+    ],
+    [
+      line('The streets looked cleaner, and everyone felt pleased with the result.', ['道がきれいになって','みちがきれいになって'], ['みんな','みんな'], ['結果に満足しました。','けっかにまんぞくしました']),
+      line('We decided to continue the activity every month.', ['この活動を','このかつどうを'], ['毎月','まいつき'], ['続けることにしました。','つづけることにしました']),
+    ],
+  ],
+  'n4-medical-appointment': [
+    [
+      line('The receptionist asked for my name, date of birth and health card.', ['受付の人は','うけつけのひとは'], ['名前と生年月日と','なまえとせいねんがっぴと'], ['保険証を確認しました。','ほけんしょうをかくにんしました']),
+      line('I explained that the pain was stronger in the morning.', ['痛みは','いたみは'], ['朝になると','あさになると'], ['強くなると説明しました。','つよくなるとせつめいしました']),
+    ],
+    [
+      line('The doctor asked whether I had taken any medicine already.', ['医者は','いしゃは'], ['もう薬を飲んだか','もうくすりをのんだか'], ['どうか聞きました。','どうかききました']),
+      line('I described the medicine and the time when I had taken it.', ['飲んだ薬と','のんだくすりと'], ['飲んだ時間を','のんだじかんを'], ['説明しました。','せつめいしました']),
+    ],
+    [
+      line('After checking my throat, the doctor explained what might be causing the pain.', ['喉を調べた後','のどをしらべたあと'], ['医者は','いしゃは'], ['痛みの原因を説明しました。','いたみのげんいんをせつめいしました']),
+      line('The doctor recommended drinking water and getting enough sleep.', ['水を飲んで','みずをのんで'], ['十分に','じゅうぶんに'], ['寝るようにすすめられました。','ねるようにすすめられました']),
+    ],
+    [
+      line('I asked which symptoms would mean that I should return to the clinic.', ['どんな症状が出たら','どんなしょうじょうがでたら'], ['もう一度','もういちど'], ['来たほうがいいか聞きました。','きたほうがいいかききました']),
+      line('The doctor wrote the instructions on a piece of paper.', ['医者は','いしゃは'], ['説明を','せつめいを'], ['紙に書いてくれました。','かみにかいてくれました']),
+    ],
+    [
+      line('At the pharmacy, I waited while the medicine was prepared.', ['薬局で','やっきょくで'], ['薬が用意される間','くすりがよういされるあいだ'], ['待ちました。','まちました']),
+      line('I checked the label carefully before leaving the pharmacy.', ['薬局を出る前に','やっきょくをでるまえに'], ['薬の説明を','くすりのせつめいを'], ['よく読みました。','よくよみました']),
+    ],
+  ],
+  'n4-invitation-email': [
+    [
+      line('The email included the date, time and address of the restaurant.', ['メールには','めーるには'], ['日付と時間と','ひづけとじかんと'], ['レストランの住所が書いてありました。','れすとらんのじゅうしょがかいてありました']),
+      line('My friend asked everyone to reply by Wednesday.', ['友達は','ともだちは'], ['水曜日までに','すいようびまでに'], ['返事をしてほしいと言いました。','へんじをしてほしいといいました']),
+    ],
+    [
+      line('I checked my calendar to make sure I did not have another plan.', ['ほかの予定がないか','ほかのよていがないか'], ['カレンダーを','かれんだーを'], ['確認しました。','かくにんしました']),
+      line('Then I wrote a short reply and thanked my friend for inviting me.', ['それから','それから'], ['短い返事を書いて','みじかいへんじをかいて'], ['誘ってくれたことにお礼を言いました。','さそってくれたことにおれいをいいました']),
+    ],
+    [
+      line('I asked whether I should arrive early to help prepare the room.', ['部屋の準備を','へやのじゅんびを'], ['手伝うために','てつだうために'], ['早く行ったほうがいいか聞きました。','はやくいったほうがいいかききました']),
+      line('My friend said that arriving ten minutes early would be enough.', ['友達は','ともだちは'], ['十分前に来れば','じゅっぷんまえにくれば'], ['大丈夫だと答えました。','だいじょうぶだとこたえました']),
+    ],
+    [
+      line('On the day, I bought a small present and wrapped it at home.', ['当日は','とうじつは'], ['小さなプレゼントを買って','ちいさなぷれぜんとをかって'], ['家で包みました。','いえでつつみました']),
+      line('I checked the train time and left home with plenty of time.', ['電車の時間を確かめて','でんしゃのじかんをたしかめて'], ['余裕を持って','よゆうをもって'], ['家を出ました。','いえをでました']),
+    ],
+    [
+      line('Everyone enjoyed the food, shared stories and took photographs.', ['みんなで','みんなで'], ['料理を楽しんで','りょうりをたのしんで'], ['話をしたり写真を撮ったりしました。','はなしをしたりしゃしんをとったりしました']),
+      line('I was glad that I had accepted the invitation.', ['誘いを受けて','さそいをうけて'], ['本当に','ほんとうに'], ['よかったと思いました。','よかったとおもいました']),
+    ],
+  ],
+  'n4-train-delay': [
+    [
+      line('At first, passengers did not know why the train had stopped.', ['初めは','はじめは'], ['電車が止まった理由が','でんしゃがとまったりゆうが'], ['分かりませんでした。','わかりませんでした']),
+      line('A few minutes later, the conductor made an announcement.', ['数分後に','すうふんごに'], ['車掌が','しゃしょうが'], ['車内放送をしました。','しゃないほうそうをしました']),
+    ],
+    [
+      line('Some passengers checked the railway website for more information.', ['何人かの乗客は','なんにんかのじょうきゃくは'], ['鉄道会社のサイトで','てつどうがいしゃのさいとで'], ['詳しい情報を調べました。','くわしいじょうほうをしらべました']),
+      line('Others called their workplaces to say that they would be late.', ['ほかの人は','ほかのひとは'], ['遅れると','おくれると'], ['職場に電話しました。','しょくばにでんわしました']),
+    ],
+    [
+      line('The railway company offered an alternative route using another line.', ['鉄道会社は','てつどうがいしゃは'], ['別の線を使う','べつのせんをつかう'], ['方法を案内しました。','ほうほうをあんないしました']),
+      line('I compared the routes and decided to change trains at the next station.', ['道順を比べて','みちじゅんをくらべて'], ['次の駅で','つぎのえきで'], ['乗り換えることにしました。','のりかえることにしました']),
+    ],
+    [
+      line('The new route was crowded, but it continued to move normally.', ['新しい路線は','あたらしいろせんは'], ['混んでいましたが','こんでいましたが'], ['普通に動いていました。','ふつうにうごいていました']),
+      line('I sent another message to explain the change in my arrival time.', ['到着する時間が変わるので','とうちゃくするじかんがかわるので'], ['もう一度','もういちど'], ['連絡を送りました。','れんらくをおくりました']),
+    ],
+    [
+      line('Although I arrived late, my colleagues understood the situation.', ['遅れて着きましたが','おくれてつきましたが'], ['同僚は','どうりょうは'], ['事情を分かってくれました。','じじょうをわかってくれました']),
+      line('I now check service information before leaving on busy mornings.', ['それからは','それからは'], ['忙しい朝に出かける前に','いそがしいあさにでかけるまえに'], ['運行情報を調べています。','うんこうじょうほうをしらべています']),
+    ],
+  ],
+  'n4-recycling-rules': [
+    [
+      line('The city guide explains that each type of rubbish has a different collection day.', ['市の案内には','しのあんないには'], ['ごみの種類によって','ごみのしゅるいによって'], ['集める日が違うと書いてあります。','あつめるひがちがうとかいてあります']),
+      line('Large items must be collected separately after an application.', ['大きな物は','おおきなものは'], ['申し込んだ後で','もうしこんだあとで'], ['別に集めてもらいます。','べつにあつめてもらいます']),
+    ],
+    [
+      line('I wash plastic containers and remove the labels when necessary.', ['プラスチックの容器は','ぷらすちっくのようきは'], ['洗って','あらって'], ['必要ならラベルを取ります。','ひつようなららべるをとります']),
+      line('Glass bottles and metal cans go into different collection boxes.', ['びんと缶は','びんとかんは'], ['違う回収箱に','ちがうかいしゅうばこに'], ['入れます。','いれます']),
+    ],
+    [
+      line('At first, I found the rules confusing because there were many details.', ['初めは','はじめは'], ['細かい決まりが多くて','こまかいきまりがおおくて'], ['少し難しいと思いました。','すこしむずかしいとおもいました']),
+      line('I put a simple list on the refrigerator to remember the schedule.', ['予定を忘れないように','よていをわすれないように'], ['冷蔵庫に','れいぞうこに'], ['簡単な表を貼りました。','かんたんなひょうをはりました']),
+    ],
+    [
+      line('My neighbour explained what to do with old batteries and small electronics.', ['近所の人は','きんじょのひとは'], ['古い電池や','ふるいでんちや'], ['小さな電気製品の出し方を教えました。','ちいさなでんきせいひんのだしかたをおしえました']),
+      line('These items should not be placed in the usual rubbish bag.', ['そのような物は','そのようなものは'], ['普通のごみ袋に','ふつうのごみぶくろに'], ['入れてはいけません。','いれてはいけません']),
+    ],
+    [
+      line('Following the rules takes a little effort, but it keeps the area clean.', ['決まりを守るには','きまりをまもるには'], ['少し手間がかかりますが','すこしてまがかかりますが'], ['町をきれいにできます。','まちをきれいにできます']),
+      line('I feel better knowing that useful materials can be recycled.', ['使える材料が','つかえるざいりょうが'], ['もう一度使われると','もういちどつかわれると'], ['思うとうれしいです。','おもうとうれしいです']),
+    ],
+  ],
+  'n4-weekend-trip': [
+    [
+      line('We began by asking everyone how much they wanted to spend.', ['最初に','さいしょに'], ['みんなが','みんなが'], ['いくら使いたいか聞きました。','いくらつかいたいかききました']),
+      line('After comparing our budgets, we chose a destination that suited everyone.', ['予算を比べた後','よさんをくらべたあと'], ['みんなに合う','みんなにあう'], ['行き先を選びました。','いきさきをえらびました']),
+    ],
+    [
+      line('One friend searched for train tickets while another looked for hotels.', ['一人は','ひとりは'], ['電車の切符を調べ','でんしゃのきっぷをしらべ'], ['もう一人はホテルを探しました。','もうひとりはほてるをさがしました']),
+      line('I made a list of places that we could visit in two days.', ['私は','わたしは'], ['二日間で行ける場所を','ふつかかんでいけるばしょを'], ['リストにしました。','りすとにしました']),
+    ],
+    [
+      line('We checked the opening hours so that we would not arrive too late.', ['遅く着かないように','おそくつかないように'], ['観光地の','かんこうちの'], ['営業時間を確認しました。','えいぎょうじかんをかくにんしました']),
+      line('We also looked at the weather and prepared clothes for rain.', ['天気も調べて','てんきもしらべて'], ['雨に備えて','あめにそなえて'], ['服を用意しました。','ふくをよういしました']),
+    ],
+    [
+      line('On the day of departure, everyone arrived at the station on time.', ['出発の日','しゅっぱつのひ'], ['みんな','みんな'], ['時間どおりに駅へ来ました。','じかんどおりにえきへきました']),
+      line('We bought snacks for the journey and checked our tickets again.', ['旅行のために','りょこうのために'], ['お菓子を買って','おかしをかって'], ['切符をもう一度確認しました。','きっぷをもういちどかくにんしました']),
+    ],
+    [
+      line('The trip was relaxing because we had planned the important details.', ['大切なことを','たいせつなことを'], ['前もって決めていたので','まえもってきめていたので'], ['旅行をゆっくり楽しめました。','りょこうをゆっくりたのしめました']),
+      line('On the way home, we talked about where to go next time.', ['帰りの電車で','かえりのでんしゃで'], ['次はどこへ行くか','つぎはどこへいくか'], ['みんなで話しました。','みんなではなしました']),
+    ],
+  ],
+  'n4-library-volunteer': [
+    [
+      line('The library manager explains the day’s tasks before the doors open.', ['図書館の担当者は','としょかんのたんとうしゃは'], ['開館する前に','かいかんするまえに'], ['その日の仕事を説明します。','そのひのしごとをせつめいします']),
+      line('Some volunteers arrange books while others prepare the children’s room.', ['本を並べる人もいれば','ほんをならべるひともいれば'], ['子どもの部屋を','こどものへやを'], ['準備する人もいます。','じゅんびするひともいます']),
+    ],
+    [
+      line('I check the returned books and look for their correct shelf numbers.', ['返された本を調べて','かえされたほんをしらべて'], ['正しい棚の番号を','ただしいたなのばんごうを'], ['探します。','さがします']),
+      line('If a book is damaged, I tell the manager before putting it away.', ['本が壊れていたら','ほんがこわれていたら'], ['棚に戻す前に','たなにもどすまえに'], ['担当者に知らせます。','たんとうしゃにしらせます']),
+    ],
+    [
+      line('A family arrives with two young children who want to read together.', ['小さな子どもが二人いる','ちいさなこどもがふたりいる'], ['家族が来て','かぞくがきて'], ['一緒に本を読みたいと言いました。','いっしょにほんをよみたいといいました']),
+      line('I show them picture books and help them choose a story.', ['絵本を見せて','えほんをみせて'], ['好きな話を','すきなはなしを'], ['選ぶのを手伝いました。','えらぶのをてつだいました']),
+    ],
+    [
+      line('The children asked what a few difficult words meant.', ['子どもたちは','こどもたちは'], ['難しい言葉の意味を','むずかしいことばのいみを'], ['いくつか質問しました。','いくつかしつもんしました']),
+      line('I explained them with simple examples from everyday life.', ['毎日の生活の','まいにちのせいかつの'], ['簡単な例を使って','かんたんなれいをつかって'], ['説明しました。','せつめいしました']),
+    ],
+    [
+      line('At the end of the day, we counted the books and tidied the room.', ['一日の終わりに','いちにちのおわりに'], ['本の数を数えて','ほんのかずをかぞえて'], ['部屋を片付けました。','へやをかたづけました']),
+      line('Volunteering takes time, but I enjoy helping people discover books.', ['ボランティアには','ぼらんてぃあには'], ['時間がかかりますが','じかんがかかりますが'], ['本を紹介するのが好きです。','ほんをしょうかいするのがすきです']),
+    ],
+  ],
+};
+
+for (const passage of readingPassages) {
+  const expansion = passageExpansions[passage.id];
+  if (expansion) passage.paragraphs.push(...expansion);
+}
+
 const kanaMap: Record<string, string> = {
   あ:'a',い:'i',う:'u',え:'e',お:'o',か:'ka',き:'ki',く:'ku',け:'ke',こ:'ko',
   さ:'sa',し:'shi',す:'su',せ:'se',そ:'so',た:'ta',ち:'chi',つ:'tsu',て:'te',と:'to',
@@ -591,7 +1128,7 @@ export function getPassageText(passage: ReadingPassage): string {
 
 export function estimateReadingMinutes(passage: ReadingPassage): number {
   const characters = Array.from(getPassageText(passage)).length;
-  const charactersPerMinute = passage.level === 'N5' ? 90 : 125;
+  const charactersPerMinute = passage.level === 'N5' ? 70 : 85;
   return Math.max(1, Math.ceil(characters / charactersPerMinute + 0.5));
 }
 
