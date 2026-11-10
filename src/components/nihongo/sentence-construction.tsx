@@ -198,8 +198,8 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
         <div><strong>{visibleStats.solvedSentences}</strong><span>solved correctly</span></div>
         <div><strong>{visibleStats.accuracy}%</strong><span>your accuracy</span></div>
       </div>
-      <div className={styles.sentenceProgressTrack} role="progressbar" aria-label={`${level} sentence construction set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={stats.solvedSentences}>
-        <span style={{ width: `${Math.min(100, stats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
+      <div className={styles.sentenceProgressTrack} role="progressbar" aria-label={`${level} sentence construction set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={visibleStats.solvedSentences}>
+        <span style={{ width: `${Math.min(100, visibleStats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
       </div>
       <div className={styles.sentenceProgressFoot}><span>{visibleStats.solvedSentences} of {items.length} solved</span><span>{visibleStats.totalAttempts} saved attempts</span></div>
     </section>
