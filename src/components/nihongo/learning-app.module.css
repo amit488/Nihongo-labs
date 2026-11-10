@@ -114,3 +114,73 @@
 .kanjiGroupHeading h3{margin:0;color:var(--ink);font:600 18px var(--workspace-heading-family);letter-spacing:-.2px}
 .kanjiGroupHeading p{margin:4px 0 0;color:var(--muted);font-size:var(--workspace-font-meta);line-height:1.5}
 .kanjiGroupHeading span{flex:none;color:var(--muted);font-size:var(--workspace-font-micro);white-space:nowrap;padding-bottom:2px}
+
+
+/* Sentence Construction Lab — warm Nihongo Labs study surface. */
+.sentenceWorkspace{display:grid;gap:18px;min-width:0}
+.sentenceHero{padding:22px 24px 18px;border:1px solid #ead8d4;border-radius:17px;background:linear-gradient(120deg,#fffaf8 0%,#fff 66%,#f8efec 100%);box-shadow:var(--shadow)}
+.sentenceHeroTop{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.sentenceEyebrow{display:block;color:#b6534b;font-size:var(--workspace-font-micro);font-weight:850;letter-spacing:1.1px}
+.sentenceHeroTop h2{margin:7px 0 5px;color:var(--ink);font:500 25px var(--workspace-heading-family);letter-spacing:-.4px}
+.sentenceHeroTop p{margin:0;color:var(--muted);font-size:var(--workspace-font-secondary)}
+.sentenceMark{width:72px;height:72px;display:grid;place-items:center;flex:none;border:1px solid #e7c8c2;border-radius:20px;background:#faeeeb;color:#b6534b;font:500 42px var(--workspace-heading-family)}
+.sentenceStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 14px}
+.sentenceStats>div{display:flex;align-items:baseline;gap:9px;padding:11px 13px;border:1px solid #eee5e2;border-radius:10px;background:#fff}
+.sentenceStats strong{color:var(--ink);font:600 21px var(--workspace-heading-family)}
+.sentenceStats span{color:var(--muted);font-size:var(--workspace-font-meta)}
+.sentenceProgressTrack,.sentenceProgressBar{height:7px;overflow:hidden;border-radius:99px;background:#eee8e5}
+.sentenceProgressTrack span,.sentenceProgressBar span{display:block;height:100%;border-radius:inherit;background:#c36b61;transition:width .2s ease}
+.sentenceProgressFoot{display:flex;justify-content:space-between;gap:10px;margin-top:7px;color:var(--muted);font-size:var(--workspace-font-micro)}
+.sentenceCard{padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.sentenceQuestionTop{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.sentenceQuestionTop h3{margin:5px 0 0;color:var(--ink);font:500 20px var(--workspace-heading-family)}
+.sentenceLevelPill{flex:none;padding:6px 9px;border:1px solid #eed9d4;border-radius:7px;background:#fff7f5;color:#ad5b52;font-size:var(--workspace-font-micro);font-weight:800;letter-spacing:.5px}
+.sentencePrompt{display:grid;gap:7px;padding:17px 18px;margin-bottom:18px;border:1px solid #eee3df;border-radius:12px;background:#fffaf8}
+.sentencePrompt>span,.sentenceAnswerLabel,.sentenceTilesLabel>span{color:var(--muted);font-size:var(--workspace-font-micro);font-weight:800;letter-spacing:.85px}
+.sentencePrompt strong{color:var(--ink);font:500 22px var(--workspace-heading-family);line-height:1.45}
+.sentencePrompt small{color:#a45149;font-size:17px}
+.sentenceAnswerLabel{margin-bottom:8px}
+.sentenceAnswer{min-height:70px;display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:8px;padding:12px;border:1px dashed #d9c5c0;border-radius:11px;background:#fffdfc}
+.sentencePlaceholder{color:#9aa3aa;font-size:var(--workspace-font-secondary)}
+.sentenceAnswerTile,.sentenceTile{display:inline-flex;align-items:center;gap:7px;border:1px solid #e5c9c3;border-radius:9px;background:#fbefec;color:#79443e;padding:9px 12px;font:600 17px var(--workspace-heading-family);cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+.sentenceAnswerTile:hover:not(:disabled),.sentenceTile:hover:not(:disabled){transform:translateY(-1px);border-color:#c77a70}
+.sentenceAnswerTile span{color:#b6534b;font:700 13px var(--workspace-font-family)}
+.sentenceTilesLabel{display:flex;justify-content:space-between;gap:12px;margin:17px 0 9px}
+.sentenceTilesLabel small{color:var(--muted);font-size:var(--workspace-font-micro)}
+.sentenceTiles{display:flex;flex-wrap:wrap;gap:8px;min-height:42px}
+.sentenceTile{background:#fff;border-color:#dfe4e8;color:var(--ink);font-size:17px}
+.sentenceTile:disabled{opacity:.42;cursor:default;background:#f5f6f7;border-color:#e5e8eb}
+.sentenceTileUsed{opacity:.35}
+.sentenceUtilityRow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:13px;border-top:1px solid #edf0f2}
+.sentenceUtilityRow>div{display:flex;gap:7px;flex-wrap:wrap}
+.sentenceHint{display:grid;gap:5px;margin-top:13px;padding:12px 14px;border-left:3px solid #c36b61;border-radius:8px;background:#fff7f4}
+.sentenceHint strong{color:#9d5048;font-size:var(--workspace-font-secondary)}
+.sentenceHint p,.sentenceHint small{margin:0;color:var(--muted);font-size:var(--workspace-font-meta);line-height:1.55}
+.sentenceFeedbackCorrect,.sentenceFeedbackWrong{display:grid;gap:7px;margin-top:15px;padding:14px 16px;border:1px solid #cfe1d4;border-radius:10px;background:#f4faf5}
+.sentenceFeedbackCorrect strong{color:#36734e}
+.sentenceFeedbackWrong{border-color:#efd3ce;background:#fff6f4}
+.sentenceFeedbackWrong strong{color:#a34f46}
+.sentenceFeedbackCorrect p,.sentenceFeedbackWrong p{margin:0;color:var(--ink);font:500 23px var(--workspace-heading-family)}
+.sentenceFeedbackCorrect small,.sentenceFeedbackWrong small{color:var(--muted);font-size:var(--workspace-font-secondary)}
+.sentenceFeedbackCorrect>span,.sentenceFeedbackWrong>span{color:#56616b;font-size:var(--workspace-font-secondary);line-height:1.55}
+.sentenceNotice{margin:12px 0 0;color:#a45149;font-size:var(--workspace-font-meta)}
+.sentenceFooter{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}
+.sentenceFooter>span{color:var(--muted);font-size:var(--workspace-font-meta)}
+.sentenceBottomRow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sentenceInfoCard{padding:17px 18px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+.sentenceInfoCard strong{display:block;margin:7px 0 4px;color:var(--ink);font:500 18px var(--workspace-heading-family)}
+.sentenceInfoCard p{margin:0;color:var(--muted);font-size:var(--workspace-font-meta);line-height:1.55}
+.sentenceProgressPanel{display:grid;gap:15px;margin:18px 0;padding:20px;border:1px solid #ead8d4;border-radius:15px;background:#fffaf8}
+.sentenceProgressHeading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.sentenceProgressHeading h2{margin:5px 0;color:var(--ink);font:500 21px var(--workspace-heading-family)}
+.sentenceProgressHeading p{margin:0;color:var(--muted);font-size:var(--workspace-font-meta);line-height:1.5}
+.sentenceProgressHeading .textLink{white-space:nowrap}
+.sentenceProgressLevels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sentenceProgressLevel{display:grid;gap:9px;padding:14px;border:1px solid #eee2df;border-radius:11px;background:#fff}
+.sentenceProgressLevel>div:first-child,.sentenceProgressLevel footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sentenceProgressLevel>div:first-child strong{color:var(--ink);font:650 16px var(--workspace-heading-family)}
+.sentenceProgressLevel>div:first-child span,.sentenceProgressLevel footer{color:var(--muted);font-size:var(--workspace-font-micro)}
+.sentenceProgressLevel footer{font-size:var(--workspace-font-micro)}
+.sentenceProgressEmpty{margin:0;color:var(--muted);font-size:var(--workspace-font-secondary)}
+@media(max-width:760px){.sentenceHero{padding:18px}.sentenceCard{padding:17px}.sentenceProgressHeading{align-items:flex-start;flex-direction:column}.sentenceProgressLevels,.sentenceBottomRow{grid-template-columns:1fr}}
+@media(max-width:520px){.sentenceHeroTop h2{font-size:21px}.sentenceMark{width:54px;height:54px;font-size:32px}.sentenceStats{gap:6px}.sentenceStats>div{align-items:flex-start;flex-direction:column;gap:2px;padding:9px}.sentenceStats strong{font-size:18px}.sentenceQuestionTop{flex-direction:column}.sentenceFooter{align-items:flex-start;flex-direction:column}.sentencePrompt strong{font-size:19px}}
