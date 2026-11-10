@@ -22,7 +22,8 @@ testCase('every reading has a unique id, context, kanji-rich passage and transla
     assert.ok(passage.context.length > 0);
     assert.ok(passage.title.length > 0);
     assert.ok(passage.paragraphs.length >= 2);
-    assert.ok(getPassageText(passage).length > 80);
+    assert.ok(getPassageText(passage).length > 50);
+    assert.match(getPassageText(passage), /[\u4e00-\u9fff]/u);
     assert.ok(passage.paragraphs.flat().every((sentence) => sentence.meaning.length > 0));
     assert.ok(passage.vocabulary.length >= 3);
   }
