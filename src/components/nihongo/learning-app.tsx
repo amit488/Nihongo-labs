@@ -148,34 +148,35 @@ export default function LearningApp({ section = [] }: Props) {
     if (!client) return;
     const load = async () => {
       const generation = authGenerationRef.current;
-      const authPromise = client.auth.getUser();
-      const [authResult, dataSnapshot] = await Promise.all([
-        authPromise,
-        authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
-      ]);
-      const user = authResult.data.user;
-      if (!alive || generation !== authGenerationRef.current) return;
-      setConnected(true);
-      setSignedIn(Boolean(user));
-      if (user) {
-        setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
-      } else {
-        setName('Learner');
-        setActivityTrackingNotice('');
-      }
-      setRomaji(dataSnapshot.showRomaji);
-      setSnapshot(dataSnapshot);
-    };
-    void load().catch(() => {
-      // Keep the public demo available if session lookup temporarily fails.
-      if (alive) {
+      try {
+        const authPromise = client.auth.getUser();
+        const [authResult, dataSnapshot] = await Promise.all([
+          authPromise,
+          authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
+        ]);
+        const user = authResult.data.user;
+        if (!alive || generation !== authGenerationRef.current) return;
+        setConnected(true);
+        setSignedIn(Boolean(user));
+        if (user) {
+          setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
+        } else {
+          setName('Learner');
+          setActivityTrackingNotice('');
+        }
+        setRomaji(dataSnapshot.showRomaji);
+        setSnapshot(dataSnapshot);
+      } catch {
+        // Keep the public demo available if session lookup temporarily fails.
+        if (!alive || generation !== authGenerationRef.current) return;
         setConnected(true);
         setSignedIn(false);
         setName('Learner');
         setRomaji(true);
         setSnapshot(createPreviewSnapshot());
       }
-    });
+    };
+    void load();
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
       authGenerationRef.current += 1;
