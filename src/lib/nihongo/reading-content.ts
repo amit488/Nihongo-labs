@@ -1156,6 +1156,12 @@ const passageFinalSections: Record<string, ReadingSentence[][]> = {
       line('I think about where I will wear the jacket most often.', ['その上着を','そのうわぎを'], ['どこでよく着るか','どこでよくきるか'], ['考えました。','かんがえました']),
       line('In the end, I am happy with my simple choice.', ['最後に','さいごに'], ['自分の選んだ服に','じぶんのえらんだふくに'], ['満足しました。','まんぞくしました']),
     ],
+    [
+      line('I asked whether the shop could keep the jacket until the weekend.', ['週末まで','しゅうまつまで'], ['上着を','うわぎを'], ['置いてもらえるか聞きました。','おいてもらえるかききました']),
+      line('The staff said that I could return if I kept the receipt.', ['レシートを持っていれば','れしーとをもっていれば'], ['もう一度','もういちど'], ['来てもいいと言いました。','きてもいいといいました']),
+      line('At home, I tried the jacket with the shoes I usually wear.', ['家で','いえで'], ['いつも履く靴と','いつもはくくつと'], ['上着を合わせてみました。','うわぎをあわせてみました']),
+      line('The colours looked good together, so I decided to keep it.', ['色がよく合ったので','いろがよくあったので'], ['その上着を','そのうわぎを'], ['買うことにしました。','かうことにしました']),
+    ],
   ],
   'n5-friends-cafe': [
     [
