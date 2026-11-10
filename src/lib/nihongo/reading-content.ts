@@ -1434,10 +1434,16 @@ function toHiragana(value: string): string {
 }
 
 export function kanaToRomaji(value: string): string {
-  const chars = Array.from(toHiragana(value));
+  let normalized = toHiragana(value);
+  // Sentence-final particles are written with は / へ / を but pronounced wa / e / o.
+  if (normalized.endsWith('は')) normalized = `${normalized.slice(0, -1)} わ`;
+  else if (normalized.endsWith('へ')) normalized = `${normalized.slice(0, -1)} え`;
+  else if (normalized.endsWith('を')) normalized = `${normalized.slice(0, -1)} お`;
+  const chars = Array.from(normalized);
   let result = '';
   for (let index = 0; index < chars.length; index += 1) {
     const char = chars[index];
+    if (/\s/u.test(char)) { result += char; continue; }
     if (char === 'っ') {
       const next = chars[index + 1] || '';
       const pair = digraphMap[char + next] || digraphMap[next + (chars[index + 2] || '')];

@@ -24,8 +24,8 @@ testCase('every reading has a unique id, context, kanji-rich passage and transla
     assert.ok(passage.context.length > 0);
     assert.ok(passage.title.length > 0);
     assert.ok(passage.paragraphs.length >= 2);
-    assert.ok(getPassageText(passage).length > 350);
-    assert.ok(estimateReadingMinutes(passage) >= 6, `${passage.id} should take at least six minutes`);
+
+
     assert.match(getPassageText(passage), /[\u4e00-\u9fff]/u);
     assert.ok(passage.paragraphs.flat().every((sentence) => sentence.meaning.length > 0));
     assert.ok(passage.vocabulary.length >= 3);
@@ -59,4 +59,23 @@ testCase('selection popup is triggered at document level and is independent of f
   assert.match(component, /createPortal\(/);
   assert.doesNotMatch(component, /if \(!romaji\)\s*\{\s*clearSelection\(\)/);
   assert.match(component, /range\.getClientRects\(\)/);
+});
+
+
+testCase('every graded reader is long enough for at least six minutes', () => {
+  const tooShort = readingPassages
+    .map((passage) => ({
+      id: passage.id,
+      level: passage.level,
+      characters: Array.from(getPassageText(passage)).length,
+      minutes: estimateReadingMinutes(passage),
+    }))
+    .filter((passage) => passage.characters <= 350 || passage.minutes < 6);
+  assert.deepEqual(tooShort, []);
+});
+
+testCase('kana romanisation reads sentence particles correctly', () => {
+  assert.equal(kanaToRomaji('きょうは'), 'kyō wa');
+  assert.equal(kanaToRomaji('がっこうへ'), 'gakkō e');
+  assert.equal(kanaToRomaji('ほんを'), 'hon o');
 });
