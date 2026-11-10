@@ -35,7 +35,7 @@ type MembershipSubscription = {
 type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
-function GrammarStudio({ items, romaji, setRomaji, signedIn, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; onProgressSaved: () => Promise<void> }) {
+function GrammarStudio({ items, romaji, setRomaji, signedIn, search, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
@@ -45,7 +45,13 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, onProgressSaved }: 
   const [savingLearned, setSavingLearned] = useState(false);
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
-  const item = grammarItems.find((row) => row.id === selected) || grammarItems[0];
+  const filteredGrammarItems = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    if (!term) return grammarItems;
+    return grammarItems.filter((row) => [row.title, row.pattern, row.explanation, row.formation]
+      .filter(Boolean).join(' ').toLocaleLowerCase().includes(term));
+  }, [grammarItems, search]);
+  const item = filteredGrammarItems.find((row) => row.id === selected) || filteredGrammarItems[0];
 
   useEffect(() => {
     let active = true;
@@ -162,10 +168,10 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, onProgressSaved }: 
         <JlptLevelSwitch value={level} onChange={changeLevel} label="Grammar JLPT level" />
         <button type="button" className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
       </div>} />
-    {loading ? <div className={styles.panel} role="status">Loading {level} grammar…</div> : !item
-      ? <EmptyState title={`No published ${level} grammar yet`} description="Published grammar points for this level will appear here when they are added to the curriculum." />
+    {loading ? <div className={styles.panel} role="status">Loading {level} grammar…</div> : !filteredGrammarItems.length
+      ? <EmptyState title={search.trim() ? `No grammar matches for “${search}”` : `No published ${level} grammar yet`} description={search.trim() ? "Try another word, pattern or explanation." : "Published grammar points for this level will appear here when they are added to the curriculum."} />
       : <div className={styles.splitLayout}>
-        <div className={styles.lessonList}>{grammarItems.map((row, index) => (
+        <div className={styles.lessonList}>{filteredGrammarItems.map((row, index) => (
           <button type="button" key={row.id} onClick={() => { setSelected(row.id); setShowExample(true); }}
             className={`${styles.lessonRow} ${item.id === row.id ? styles.lessonRowActive : ''}`}>
             <span className={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</span>
@@ -957,12 +963,12 @@ const KANJI_THEME_GROUPS: Array<{ title: string; description: string; characters
   { title: 'Work, roles & culture', description: 'Jobs, organisations, public roles and cultural activities.', characters: '社員係業商局部役曲祭和' },
 ];
 
-function Kanji({ items, onProgressSaved }: { items: KanjiItem[]; onProgressSaved: () => Promise<void> }) {
+function Kanji({ items, search, onProgressSaved }: { items: KanjiItem[]; search: string; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<'N5' | 'N4'>('N5');
   const [deckItems, setDeckItems] = useState<KanjiItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [flipped, setFlipped] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(search);
   const [status, setStatus] = useState<Record<string, 'known' | 'learning'>>({});
   const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1294,7 +1300,7 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   </>;
 }
 
-function Reading({ romaji, setRomaji, signedIn, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; onProgressSaved: () => Promise<void> }) {
+function Reading({ romaji, setRomaji, signedIn, search, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
   const [selected, setSelected] = useState(0);
@@ -1307,7 +1313,10 @@ function Reading({ romaji, setRomaji, signedIn, onProgressSaved }: { romaji: boo
     void getReadingPassages(level).then((rows) => {
       if (!active) return;
       setPassages(rows);
-      setSelected(0);
+      const term = search.trim().toLocaleLowerCase();
+      const match = term ? rows.findIndex((row) => [row.title, row.text, row.translation]
+        .filter(Boolean).join(' ').toLocaleLowerCase().includes(term)) : -1;
+      setSelected(match >= 0 ? match : 0);
       setLoading(false);
     }).catch(() => {
       if (!active) return;
@@ -1315,7 +1324,7 @@ function Reading({ romaji, setRomaji, signedIn, onProgressSaved }: { romaji: boo
       setLoading(false);
     });
     return () => { active = false; };
-  }, [level]);
+  }, [level, search]);
 
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
@@ -1472,13 +1481,13 @@ function Membership({signedIn}:{signedIn:boolean}) {
 
 export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
-    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} onProgressSaved={props.onProgressSaved} />;
+    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
     case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
-    case 'kanji': return <Kanji items={props.kanjiItems} onProgressSaved={props.onProgressSaved} />;
+    case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
-    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} onProgressSaved={props.onProgressSaved} />;
+    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
     case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} onProgressSaved={props.onProgressSaved} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
