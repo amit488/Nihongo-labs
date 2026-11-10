@@ -49,8 +49,8 @@ function getSelectedOffsetsForToken(selectionRange: Range, node: HTMLElement): {
     tokenRange.selectNodeContents(node);
 
     // A strict overlap excludes a token that only touches the selection edge.
-    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.START_TO_END, tokenRange) < 0;
-    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.END_TO_START, tokenRange) > 0;
+    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.END_TO_START, tokenRange) < 0;
+    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.START_TO_END, tokenRange) > 0;
     if (!startsBeforeTokenEnds || !endsAfterTokenStarts) return null;
 
     const start = selectionRange.startContainer === textNode ? selectionRange.startOffset : 0;
