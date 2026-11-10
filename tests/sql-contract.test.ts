@@ -227,6 +227,39 @@ test('medium-priority optimization migration indexes existing substring searches
     'sentence_construction_attempts_user_created_idx',
   ]) assert.match(migration, new RegExp(indexName, 'i'), indexName);
   assert.match(migration, /using gin \([\s\S]*?gin_trgm_ops/i);
+  assert.ok(migration.includes("where tag ~* '^[a-z0-9:_-]{2,80}
+});
+
+test('progress and intelligence routes use database-side aggregation', () => {
+  const levelRoute = readFileSync(resolve(process.cwd(), 'src', 'app', 'api', 'learning', 'level-progress', 'route.ts'), 'utf8');
+  const vocabularyRoute = readFileSync(resolve(process.cwd(), 'src', 'app', 'api', 'learning', 'vocabulary-intelligence', 'route.ts'), 'utf8');
+  const grammarRoute = readFileSync(resolve(process.cwd(), 'src', 'app', 'api', 'learning', 'grammar-intelligence', 'route.ts'), 'utf8');
+  const kanjiRoute = readFileSync(resolve(process.cwd(), 'src', 'app', 'api', 'kanji', 'progress', 'route.ts'), 'utf8');
+  const migration = readFileSync(resolve(process.cwd(), 'supabase', 'migrations', '20261110170000_medium_priority_optimizations.sql'), 'utf8');
+
+  assert.match(levelRoute, /rpc\('get_level_progress'/i);
+  assert.match(vocabularyRoute, /rpc\('get_vocabulary_intelligence'/i);
+  assert.match(grammarRoute, /rpc\('get_grammar_intelligence'/i);
+  assert.match(kanjiRoute, /kanji_review_state[\s\S]*?kanji_entries!inner/i);
+  assert.doesNotMatch(kanjiRoute, /const ids = \(kanjiRows/);
+  for (const functionName of ['get_level_progress', 'get_vocabulary_intelligence', 'get_grammar_intelligence']) {
+    assert.match(migration, new RegExp('create or replace function public\\.' + functionName + '[\\s\\S]*?security invoker', 'i'), functionName);
+  }
+  assert.match(migration, /grant execute on function public\.get_level_progress\(text\) to authenticated/i);
+  assert.match(migration, /grant execute on function public\.get_vocabulary_intelligence\(text\) to authenticated/i);
+  assert.match(migration, /grant execute on function public\.get_grammar_intelligence\(\) to authenticated/i);
+});
+
+test('manual dashboard RPC matches the canonical My Progress migration', () => {
+  const canonical = readFileSync(resolve(process.cwd(), 'supabase', 'migrations', '20261110110000_fix_my_progress_sources.sql'), 'utf8');
+  const manual = readSql('011_backend_rpc.sql');
+  const extract = (source: string) => source.match(/create or replace function public\.get_learning_dashboard\(\)[\s\S]*?\$\$;/i)?.[0]?.replace(/\s+/g, ' ').trim();
+  assert.ok(extract(canonical), 'canonical dashboard function is missing');
+  assert.equal(extract(manual), extract(canonical), 'manual backend SQL has drifted from the canonical dashboard function');
+});
+"), 'grammar tag regex must be closed');
+  assert.equal((migration.match(/create or replace function public\.get_grammar_intelligence/g) ?? []).length, 1);
+  assert.ok(migration.trimEnd().endsWith('commit;'), 'migration must not contain statements after COMMIT');
 });
 
 test('progress and intelligence routes use database-side aggregation', () => {
