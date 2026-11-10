@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
     const authUsers = data.users ?? [];
     const ids = authUsers.map((user) => user.id);
-    if (!ids.length) return NextResponse.json({ users: [], page, perPage, total: 0 });
+    const { count: totalProfiles, error: totalError } = await admin.from('profiles').select('id', { count: 'exact', head: true });
+    if (totalError) throw totalError;
+    if (!ids.length) return NextResponse.json({ users: [], page, perPage, total: query ? 0 : totalProfiles ?? 0, hasMore: false });
 
     const [{ data: profiles, error: profileError }, { data: roles, error: roleError }, { data: subscriptions, error: subscriptionError }] = await Promise.all([
       admin.from('profiles').select('id,display_name,created_at,timezone').in('id', ids),
@@ -58,10 +60,10 @@ export async function GET(request: NextRequest) {
     if (query) {
       users = users.filter((user) => user.email.toLowerCase().includes(query) || user.name.toLowerCase().includes(query));
     }
-    const total = users.length;
+    const total = query ? users.length : totalProfiles ?? users.length;
     if (query) users = users.slice(0, 100);
     else users = users.slice(0, perPage);
-    return NextResponse.json({ users, page, perPage, total, searchLimitedToFirstThousand: Boolean(query) }, {
+    return NextResponse.json({ users, page, perPage, total, hasMore: query ? false : page * perPage < total, searchLimitedToFirstThousand: Boolean(query) }, {
       headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (error) {
