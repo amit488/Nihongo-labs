@@ -54,16 +54,16 @@ testCase('reading time is calculated and always at least one minute', () => {
 
 testCase('selection popup uses exact token overlap and remains independent of full-romaji preference', () => {
   const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
-  assert.match(component, /document\\.addEventListener\\('mouseup', updatePopupAfterSelection\\)/);
-  assert.match(component, /window\\.requestAnimationFrame/);
-  assert.match(component, /createPortal\\(/);
-  assert.doesNotMatch(component, /if \\(!romaji\\)\\s*\\{\\s*clearSelection\\(\\)/);
-  assert.match(component, /range\\.getClientRects\\(\\)/);
-  assert.match(component, /rangeOverlapsNodeContents\\(range, node\\)/);
-  assert.match(component, /compareBoundaryPoints\\(Range\\.START_TO_END, nodeRange\\) < 0/);
-  assert.match(component, /compareBoundaryPoints\\(Range\\.END_TO_START, nodeRange\\) > 0/);
-  assert.doesNotMatch(component, /range\\.intersectsNode\\(node\\)/);
-  assert.match(component, /if \\(!startsInsideReader \\|\\| !endsInsideReader\\)/);
+  assert.match(component, /document\.addEventListener\('mouseup', updatePopupAfterSelection\)/);
+  assert.match(component, /window\.requestAnimationFrame/);
+  assert.match(component, /createPortal\(/);
+  assert.doesNotMatch(component, /if \(!romaji\)\s*\{\s*clearSelection\(\)/);
+  assert.match(component, /range\.getClientRects\(\)/);
+  assert.match(component, /rangeOverlapsNodeContents\(range, node\)/);
+  assert.match(component, /compareBoundaryPoints\(Range\.START_TO_END, nodeRange\) < 0/);
+  assert.match(component, /compareBoundaryPoints\(Range\.END_TO_START, nodeRange\) > 0/);
+  assert.doesNotMatch(component, /range\.intersectsNode\(node\)/);
+  assert.match(component, /if \(!startsInsideReader \|\| !endsInsideReader\)/);
 });
 
 
