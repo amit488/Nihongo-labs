@@ -88,7 +88,7 @@ async function apiGet<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-const previewSnapshot = (): LearnerSnapshot => ({
+export const createPreviewSnapshot = (): LearnerSnapshot => ({
   displayName: 'Learner', timeZone: 'Asia/Kolkata', preferredJlptLevel: 'N5',
   grammarCount: grammar.length, grammarUnderstood: 0,
   vocabularyCount: vocabulary.length, vocabularyMastered: 0,
@@ -101,9 +101,9 @@ const previewSnapshot = (): LearnerSnapshot => ({
 
 export async function loadLearnerSnapshot(user?: { email?: string | null } | null): Promise<LearnerSnapshot> {
   const client = getSupabaseBrowserClient();
-  if (!client) return previewSnapshot();
+  if (!client) return createPreviewSnapshot();
   const resolvedUser = user === undefined ? (await client.auth.getUser()).data.user : user;
-  if (!resolvedUser) return previewSnapshot();
+  if (!resolvedUser) return createPreviewSnapshot();
   const [dashboard, billing] = await Promise.all([
     apiGet<DashboardResponse>('/api/learning/dashboard'),
     apiGet<BillingStatusResponse>('/api/billing/status').catch(() => ({ hasPremium: false })),
@@ -126,7 +126,7 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
     lessonsTotal: Number(dashboard.progress?.lessonsTotal ?? 0),
     recentScores: (dashboard.recentAttempts ?? []).map((row) => Number(row.score_percentage ?? 0)).reverse(),
     overallPercentage: Number(dashboard.progress?.overallPercentage ?? 0),
-    mastery: dashboard.progress?.mastery ?? previewSnapshot().mastery,
+    mastery: dashboard.progress?.mastery ?? createPreviewSnapshot().mastery,
     streak: Number(dashboard.streak ?? 0),
     due: dashboard.due ?? { vocabulary: 0, flashcards: 0, total: 0 },
     dailyGoal: dashboard.dailyGoal ?? { minutes: 15, studiedSeconds: 0 },

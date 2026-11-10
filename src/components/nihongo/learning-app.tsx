@@ -13,7 +13,7 @@ import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
-import { getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
+import { createPreviewSnapshot, getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 import type { GrammarItem } from '@/lib/nihongo/demo-content';
@@ -62,6 +62,8 @@ export default function LearningApp({ section = [] }: Props) {
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
   const studyTimerRef = useRef<HTMLSpanElement>(null);
   const [connected, setConnected] = useState(false);
+  const authGenerationRef = useRef(0);
+  const [authViewKey, setAuthViewKey] = useState(0);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
     displayName: 'Learner', preferredJlptLevel: 'N5',
     grammarCount: 0, grammarUnderstood: 0,
@@ -78,8 +80,11 @@ export default function LearningApp({ section = [] }: Props) {
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
+    const generation = authGenerationRef.current;
     try {
       const nextSnapshot = await loadLearnerSnapshot();
+      // Ignore a response that started before the latest sign-in/sign-out event.
+      if (generation !== authGenerationRef.current) return;
       setSnapshot(nextSnapshot);
       if (nextSnapshot.source === 'database') setName(nextSnapshot.displayName || 'Learner');
     } catch {
@@ -143,32 +148,58 @@ export default function LearningApp({ section = [] }: Props) {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     const load = async () => {
-      const authPromise = client.auth.getUser();
-      const [authResult, dataSnapshot] = await Promise.all([
-        authPromise,
-        authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
-      ]);
-      const user = authResult.data.user;
-      if (!alive) return;
-      setConnected(true);
-      if (user) {
-        setSignedIn(true);
-        setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
+      const generation = authGenerationRef.current;
+      try {
+        const authPromise = client.auth.getUser();
+        const [authResult, dataSnapshot] = await Promise.all([
+          authPromise,
+          authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
+        ]);
+        const user = authResult.data.user;
+        if (!alive || generation !== authGenerationRef.current) return;
+        setConnected(true);
+        setSignedIn(Boolean(user));
+        if (user) {
+          setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
+        } else {
+          setName('Learner');
+          setActivityTrackingNotice('');
+        }
+        setRomaji(dataSnapshot.showRomaji);
+        setSnapshot(dataSnapshot);
+      } catch {
+        // Keep the public demo available if session lookup temporarily fails.
+        if (!alive || generation !== authGenerationRef.current) return;
+        setConnected(true);
+        setSignedIn(false);
+        setName('Learner');
+        setRomaji(true);
+        setSnapshot(createPreviewSnapshot());
       }
-      setRomaji(dataSnapshot.showRomaji);
-      setSnapshot(dataSnapshot);
     };
     void load();
-    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
+      authGenerationRef.current += 1;
+      setAuthViewKey((current) => current + 1);
+      setConnected(true);
       setSignedIn(Boolean(session?.user));
       if (session?.user) {
+        if (event === 'SIGNED_IN') {
+          // Do not show a previous account's snapshot while the new profile loads.
+          setSnapshot(createPreviewSnapshot());
+          setName('Learner');
+          setRomaji(true);
+        }
         // Supabase may emit TOKEN_REFRESHED when a background tab becomes active.
         // Reload the profile rather than replacing the saved display name with email.
         window.setTimeout(() => {
           if (alive) void refreshLearnerSnapshot();
         }, 0);
       } else {
+        // A signed-out workspace is demo mode, never the last account's dashboard.
+        setSnapshot(createPreviewSnapshot());
+        setRomaji(true);
         setName('Learner');
         setActivityTrackingNotice('');
       }
@@ -633,8 +664,17 @@ export default function LearningApp({ section = [] }: Props) {
   }
 
   async function signOut() {
-    await signOutAction();
+    const result = await signOutAction();
+    if (!result.success) {
+      setActivityTrackingNotice(result.message);
+      return;
+    }
+    authGenerationRef.current += 1;
+    setAuthViewKey((current) => current + 1);
     setSignedIn(false);
+    setSnapshot(createPreviewSnapshot());
+    setRomaji(true);
+    setName('Learner');
     setActivityTrackingNotice('');
     router.push('/login');
   }
@@ -654,18 +694,18 @@ export default function LearningApp({ section = [] }: Props) {
             return <Link key={item.key} href={item.href} className={`${styles.navLink} ${selected ? styles.navActive : ''}`}><Icon>{item.icon}</Icon><span>{item.title}</span>{item.key === 'flashcards' && snapshot.due.flashcards > 0 && <em>{snapshot.due.flashcards}</em>}</Link>;
           })}</div>)}
         </nav>
-        <div className={styles.sidebarBottom}><div className={styles.helpCard}><div className={styles.helpIcon}>?</div><strong>Need a little help?</strong><p>Explore the learning guide and practical study tips.</p><Link href="/learn/reading">Open study guide <span>↗</span></Link></div><div className={styles.sidebarUser}><div className={styles.avatar}>{name.slice(0,1).toUpperCase()}</div><div className={styles.userMeta}><strong>{name}</strong><span>{signedIn ? (snapshot.premiumActive ? 'Premium member' : 'Free learner') : 'Preview learner'}</span></div><button type="button" aria-label="Account" onClick={() => router.push(signedIn ? '/learn/subscription' : '/login')}>···</button></div></div>
+        <div className={styles.sidebarBottom}><div className={styles.helpCard}><div className={styles.helpIcon}>?</div><strong>Ideas or issues?</strong><p>Share a suggestion, report a problem or tell us how we can improve.</p><Link href="/contact">Send feedback <span>↗</span></Link><Link href="/learn/reading">Open study guide <span>↗</span></Link></div><div className={styles.sidebarUser}><div className={styles.avatar}>{name.slice(0,1).toUpperCase()}</div><div className={styles.userMeta}><strong>{name}</strong><span>{signedIn ? (snapshot.premiumActive ? 'Premium member' : 'Free learner') : 'Preview learner'}</span></div><button type="button" aria-label="Account" onClick={() => router.push(signedIn ? '/learn/subscription' : '/login')}>···</button></div></div>
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn ? <Link href="/contact" className={styles.feedbackLink}>Contact us</Link> : null}{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard key={snapshot.preferredJlptLevel} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
           {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
-          {active === 'progress' && <Progress snapshot={snapshot} streak={streak} signedIn={signedIn} />}
+          {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
@@ -727,7 +767,7 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
 
   const words = Number(snapshot.vocabularyCount ?? 0);
   const kanjiCount = Number(snapshot.kanjiCount ?? 0);
-  const currentProgress = levelProgress?.level === level ? levelProgress : null;
+  const currentProgress = signedIn && levelProgress?.level === level ? levelProgress : null;
   const ready = currentProgress?.readiness ?? 0;
   const vocabularyCompleted = currentProgress?.vocabulary.completed ?? 0;
   const vocabularyTotal = currentProgress?.vocabulary.total ?? (level === 'N5' ? words : 0);
@@ -882,7 +922,7 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
         </article>;
       })}</div>
       : <p className={styles.sentenceProgressEmpty}>Sentence progress is loading.</p>}
-    {sentenceProgress?.N5.migrationRequired || sentenceProgress?.N4.migrationRequired ? <p className={styles.sentenceProgressEmpty}>Apply <code>20261110120000_sentence_construction_intelligence.sql</code> to enable saved attempts.</p> : null}
+    {signedIn && (sentenceProgress?.N5.migrationRequired || sentenceProgress?.N4.migrationRequired) ? <p className={styles.sentenceProgressEmpty}>Apply <code>20261110120000_sentence_construction_intelligence.sql</code> to enable saved attempts.</p> : null}
   </section><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{weekDays.map((day)=><div className={day.active ? styles.dayDone : styles.dayEmpty} key={day.date} title={`${day.label} · ${day.date} · ${day.active ? 'Learning activity recorded' : 'No learning activity recorded'}`}><span>{day.label}</span><b aria-hidden="true">{day.active ? '✓' : '·'}</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
 function Mastery({label,value,tone,detail}:{label:string;value:number;tone:Tone;detail?:string}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{detail ?? (value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended')}</small></div>}

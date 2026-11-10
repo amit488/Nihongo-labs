@@ -237,3 +237,5 @@
   .sentenceSessionNote{align-items:flex-start;flex-direction:column;gap:3px}
   .sentenceCard{padding:15px}
 }
+
+.feedbackLink{border:1px solid #e7cfc9;background:#fff7f5;color:#9d463f;border-radius:7px;padding:7px 10px;font-size:15px;font-weight:650;text-decoration:none;white-space:nowrap;transition:background .18s ease,border-color .18s ease}.feedbackLink:hover{background:#f9ebe7;border-color:#d8b5ad}@media(max-width:780px){.feedbackLink{padding:6px 8px;font-size:13px}}@media(max-width:480px){.feedbackLink{padding:5px 6px;font-size:12px}.topActions{gap:6px}}
