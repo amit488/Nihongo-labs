@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { estimateReadingMinutes, getPassageText, getPassagesForLevel, kanaToRomaji, type ReadingLevel, type ReadingPassage } from '@/lib/nihongo/reading-content';
+import { estimateReadingMinutes, getPassageText, getPassagesForLevel, getSelectedRomajiForTextRange, kanaToRomaji, type ReadingLevel, type ReadingPassage } from '@/lib/nihongo/reading-content';
 import { EmptyState, JlptLevelSwitch, SectionHeading, type JlptLevel } from './learning-shared';
 import styles from './reading-studio.module.css';
 
@@ -38,19 +38,26 @@ function sentenceRomaji(passage: ReadingPassage): string[] {
   );
 }
 
-/** Return true only when the selected character range overlaps token text. */
-function rangeOverlapsNodeContents(selectionRange: Range, node: HTMLElement): boolean {
+/** Return the exact UTF-16 offsets selected inside this rendered token. */
+function getSelectedOffsetsForToken(selectionRange: Range, node: HTMLElement): { start: number; end: number } | null {
   try {
-    const nodeRange = document.createRange();
-    nodeRange.selectNodeContents(node);
+    const textNode = node.firstChild;
+    const text = node.textContent ?? '';
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE || node.childNodes.length !== 1) return null;
 
-    // Strict comparisons exclude a neighboring token when the selection ends
-    // exactly at its start (or begins exactly at its end).
-    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0;
-    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0;
-    return startsBeforeTokenEnds && endsAfterTokenStarts;
+    const tokenRange = document.createRange();
+    tokenRange.selectNodeContents(node);
+
+    // A strict overlap excludes a token that only touches the selection edge.
+    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.START_TO_END, tokenRange) < 0;
+    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.END_TO_START, tokenRange) > 0;
+    if (!startsBeforeTokenEnds || !endsAfterTokenStarts) return null;
+
+    const start = selectionRange.startContainer === textNode ? selectionRange.startOffset : 0;
+    const end = selectionRange.endContainer === textNode ? selectionRange.endOffset : text.length;
+    return end > start ? { start, end } : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -167,15 +174,20 @@ export default function ReadingStudio({
           return;
         }
 
-        const selectedTokens = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-token="true"]'))
-          .filter((node) => {
-            try { return rangeOverlapsNodeContents(range, node) && Boolean(node.dataset.romaji); }
-            catch { return false; }
-          });
-        const selectedRomaji = selectedTokens
-          .map((node) => node.dataset.romaji || '')
-          .filter(Boolean)
-          .join(' · ');
+        const selectedRomaji = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-token="true"]'))
+          .flatMap((node) => {
+            const offsets = getSelectedOffsetsForToken(range, node);
+            if (!offsets) return [];
+            const tokenRomaji = getSelectedRomajiForTextRange(
+              node.textContent ?? '',
+              node.dataset.reading ?? '',
+              node.dataset.romaji || undefined,
+              offsets.start,
+              offsets.end,
+            );
+            return tokenRomaji ? [tokenRomaji] : [];
+          })
+          .join(' ');
         if (!selectedRomaji) {
           setPopup(null);
           return;
@@ -351,8 +363,8 @@ export default function ReadingStudio({
                   {paragraph.map((sentence, sentenceIndex) => (
                     <span className={styles.readerSentence} key={sentenceIndex}>
                       {sentence.tokens.map((token, tokenIndex) => {
-                        const tokenRomaji = token.romaji || kanaToRomaji(token.reading);
-                        return <span key={tokenIndex} data-reading-token="true" data-romaji={tokenRomaji || undefined}
+                        return <span key={tokenIndex} data-reading-token="true"
+                          data-reading={token.reading || undefined} data-romaji={token.romaji || undefined}
                           className={token.reading ? styles.readingToken : undefined}>{token.text}</span>;
                       })}
                     </span>
