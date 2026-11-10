@@ -55,14 +55,14 @@ testCase('reading time is calculated and always at least one minute', () => {
 
 testCase('selection popup maps only text offsets selected inside each reading token', () => {
   const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
-  assert.match(component, /document\\.addEventListener\\('mouseup', updatePopupAfterSelection\\)/);
-  assert.match(component, /window\\.requestAnimationFrame/);
-  assert.match(component, /createPortal\\(/);
-  assert.match(component, /getSelectedOffsetsForToken\\(range, node\\)/);
-  assert.match(component, /getSelectedRomajiForTextRange\\(/);
-  assert.match(component, /compareBoundaryPoints\\(Range\\.START_TO_END, tokenRange\\) < 0/);
-  assert.match(component, /compareBoundaryPoints\\(Range\\.END_TO_START, tokenRange\\) > 0/);
-  assert.match(component, /if \\(!startsInsideReader \\|\\| !endsInsideReader\\)/);
+  assert.match(component, /document\.addEventListener\('mouseup', updatePopupAfterSelection\)/);
+  assert.match(component, /window\.requestAnimationFrame/);
+  assert.match(component, /createPortal\(/);
+  assert.match(component, /getSelectedOffsetsForToken\(range, node\)/);
+  assert.match(component, /getSelectedRomajiForTextRange\(/);
+  assert.match(component, /compareBoundaryPoints\(Range\.START_TO_END, tokenRange\) < 0/);
+  assert.match(component, /compareBoundaryPoints\(Range\.END_TO_START, tokenRange\) > 0/);
+  assert.match(component, /if \(!startsInsideReader \|\| !endsInsideReader\)/);
   assert.doesNotMatch(component, /rangeOverlapsNodeContents/);
 });
 
