@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/nihongo/server/admin';
 import { createAdminSupabase } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
-
-export const dynamic = 'force-dynamic';
 
 const updateSchema = z.object({
   id: z.string().uuid(),
@@ -13,6 +11,7 @@ const updateSchema = z.object({
 }).strict();
 
 export async function GET() {
+  await connection();
   try {
     await requireAdminApi();
     const admin = createAdminSupabase();
@@ -31,6 +30,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  await connection();
   try {
     assertSameOrigin(request);
     const context = await requireAdminApi(['super_admin', 'admin', 'support_agent']);
