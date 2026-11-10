@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         .or(`character.ilike.${pattern},meaning.ilike.${pattern}`)
         .limit(5),
       supabase.from('lessons')
-        .select('id,title,summary,lesson_type,course_units!inner(courses!inner(jlpt_level))')
+        .select('id,title,summary,lesson_type,course_units!inner(slug,courses!inner(jlpt_level))')
         .eq('publication_status', 'published')
         .or(`title.ilike.${pattern},summary.ilike.${pattern}`)
         .limit(5),
@@ -79,14 +79,19 @@ export async function GET(request: NextRequest) {
         href: `/learn/kanji?search=${encodeURIComponent(query)}`,
       })),
       ...(lessons.data ?? []).map((row) => {
-        const unit = row.course_units as unknown as { courses?: { jlpt_level?: string } } | null;
+        const unit = row.course_units as unknown as { slug?: string; courses?: { jlpt_level?: string } } | null;
+        const sectionByUnit: Record<string, string> = {
+          grammar: 'grammar', vocabulary: 'vocabulary', kanji: 'kanji',
+          kana: 'kana', reading: 'reading', practice: 'practice', exams: 'exams',
+        };
+        const section = unit?.slug ? sectionByUnit[unit.slug] || 'reading' : 'reading';
         return {
           id: row.id,
           kind: 'Lesson' as const,
           level: unit?.courses?.jlpt_level || '',
           title: row.title,
           detail: row.summary || row.lesson_type.replaceAll('_', ' '),
-          href: `/learn/reading?search=${encodeURIComponent(query)}`,
+          href: `/learn/${section}?search=${encodeURIComponent(query)}`,
         };
       }),
       ...(courses.data ?? []).map((row) => ({
