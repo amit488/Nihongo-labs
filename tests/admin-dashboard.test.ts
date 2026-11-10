@@ -47,7 +47,7 @@ test('admin browser UI calls protected live endpoints and contains no service cr
 });
 
 test('admin index migration is additive and idempotent', () => {
-  const migration = read('supabase/migrations/20261110150000_admin_dashboard_indexes.sql');
+  const migration = read('supabase/migrations/20261110180000_admin_dashboard_indexes.sql');
   assert.ok(migration.includes('create index if not exists profiles_created_at_admin_idx'));
   assert.ok(migration.includes('create index if not exists payments_created_at_admin_idx'));
   assert.ok(migration.includes('create index if not exists user_daily_activity_date_admin_idx'));
