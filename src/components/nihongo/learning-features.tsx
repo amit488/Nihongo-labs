@@ -974,8 +974,8 @@ function Kanji({ items, search, onProgressSaved }: { items: KanjiItem[]; search:
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [notice, setNotice] = useState('');
-  const selectedItem = deckItems.find((row) => row.id === selected) || deckItems[0];
   const filtered = useMemo(() => deckItems.filter((row) => `${row.character} ${row.meaning} ${row.radical}`.toLowerCase().includes(query.toLowerCase())), [deckItems, query]);
+  const selectedItem = filtered.find((row) => row.id === selected) || filtered[0] || deckItems[0];
   const groupedKanji = useMemo(() => {
     const groups = KANJI_THEME_GROUPS.map((group) => ({
       title: group.title,
