@@ -14,7 +14,7 @@ type VocabularyItem = {
   dueAt: string; repetitions: number; lastRating: number | null; due: boolean; atRisk: boolean; mastered: boolean;
 };
 type VocabularyStats = { learnedCount: number; trackedCount: number; dueCount: number; atRiskCount: number; masteredCount: number; items: VocabularyItem[] };
-type SentenceStats = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number };
+type SentenceStats = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number; migrationRequired?:boolean };
 
 export default function LearningIntelligence({ signedIn }: { signedIn: boolean }) {
   const [level, setLevel] = useState<'N5'|'N4'>('N5');
@@ -45,7 +45,7 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
       <article><span>Grammar weak spots</span><strong>{grammar?.weakTopicCount??'—'}</strong><small>Concepts to revisit</small></article>
       <article><span>Vocabulary due</span><strong>{vocabulary?.dueCount??'—'}</strong><small>{vocabulary?.atRiskCount??0} words at risk</small></article>
       <article><span>Words mastered</span><strong>{vocabulary?.masteredCount??'—'}</strong><small>{vocabulary?.learnedCount??0} words marked learned</small></article>
-      <article><span>{level} sentence accuracy</span><strong>{sentences ? sentences.accuracy + '%' : '—'}</strong><small>{sentences?.solvedSentences ?? 0} solved · {sentences?.totalAttempts ?? 0} attempts</small></article>
+      <article><span>{level} sentence accuracy</span><strong>{sentences ? sentences.accuracy + '%' : '—'}</strong><small>{sentences?.migrationRequired ? 'Apply sentence tracking migration' : (sentences?.solvedSentences ?? 0) + ' solved · ' + (sentences?.totalAttempts ?? 0) + ' attempts'}</small></article>
     </div>
     <div className={styles.columns}>
       <div className={styles.panel}>
