@@ -629,7 +629,7 @@ export default function LearningApp({ section = [] }: Props) {
   return (
     <div className={styles.appFrame}>
       <aside className={styles.sidebar}>
-        <Brand href="/learn" tone="dark" />
+        <Brand href="/learn" tone="dark" className={styles.sidebarBrand} />
         <div className={styles.levelCard}><div className={styles.levelKicker}>YOUR CURRENT FOCUS</div><div className={styles.levelTitle}>JLPT {snapshot.preferredJlptLevel} <span>SELECTED</span></div><div className={styles.levelFoot}><span>Learn at your pace</span><span>✳</span></div></div>
         <nav className={styles.navigation} aria-label="Learning navigation">
           {navGroups.map((group) => <div className={styles.navGroup} key={group.label}><div className={styles.navLabel}>{group.label}</div>{group.items.map((item) => {
