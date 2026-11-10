@@ -69,7 +69,7 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [stats, setStats] = useState<SentenceStats>(emptyStats);
-  const [startedAt, setStartedAt] = useState(0);
+  const [startedAt, setStartedAt] = useState(() => Date.now());
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const current = items[index] ?? items[0];
 
@@ -81,7 +81,6 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
 
   useEffect(() => {
     let active = true;
-    setStats(emptyStats);
     if (!signedIn) return () => { active = false; };
     fetch('/api/learning/sentence-construction?level=' + level, {
       credentials: 'same-origin', cache: 'no-store',
@@ -100,13 +99,11 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
     return () => { active = false; };
   }, [level, signedIn]);
 
-  useEffect(() => {
-    setStartedAt(Date.now());
-  }, [current?.id]);
-
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
+    setStats(emptyStats);
+    setStartedAt(Date.now());
     setIndex(0);
     setSelected([]);
     setFeedback(null);
@@ -170,6 +167,7 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
   function nextSentence() {
     if (!current) return;
     setIndex((value) => (value + 1) % items.length);
+    setStartedAt(Date.now());
     setSelected([]);
     setFeedback(null);
     setShowMeaning(false);
@@ -179,6 +177,7 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
   }
 
   if (!current) return null;
+  const visibleStats = signedIn ? stats : emptyStats;
   const built = selected.map((tokenIndex) => current.tokens[tokenIndex]);
 
   return <div className={styles.sentenceWorkspace}>
@@ -196,13 +195,13 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
       </div>
       <div className={styles.sentenceStats}>
         <div><strong>{items.length}</strong><span>{level} sentences</span></div>
-        <div><strong>{stats.solvedSentences}</strong><span>solved correctly</span></div>
-        <div><strong>{stats.accuracy}%</strong><span>your accuracy</span></div>
+        <div><strong>{visibleStats.solvedSentences}</strong><span>solved correctly</span></div>
+        <div><strong>{visibleStats.accuracy}%</strong><span>your accuracy</span></div>
       </div>
       <div className={styles.sentenceProgressTrack} role="progressbar" aria-label={`${level} sentence construction set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={stats.solvedSentences}>
         <span style={{ width: `${Math.min(100, stats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
       </div>
-      <div className={styles.sentenceProgressFoot}><span>{stats.solvedSentences} of {items.length} solved</span><span>{stats.totalAttempts} saved attempts</span></div>
+      <div className={styles.sentenceProgressFoot}><span>{visibleStats.solvedSentences} of {items.length} solved</span><span>{visibleStats.totalAttempts} saved attempts</span></div>
     </section>
 
     <section className={styles.sentenceCard}>
