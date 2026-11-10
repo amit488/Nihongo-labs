@@ -15,6 +15,7 @@ export type LearningFeatureProps = {
   flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
   kanaMode: 'hiragana' | 'katakana'; setKanaMode: (value: 'hiragana' | 'katakana') => void;
   kanaQuiz: boolean; setKanaQuiz: (value: boolean) => void; onProgressSaved: () => Promise<void>;
+  preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>;
 };
 type RazorpayPaymentResult = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayFailure = { error?: { description?: string } };
@@ -35,8 +36,8 @@ type MembershipSubscription = {
 type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
-function GrammarStudio({ items, romaji, setRomaji, signedIn, search, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; onProgressSaved: () => Promise<void> }) {
-  const [level, setLevel] = useState<JlptLevel>('N5');
+function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [showExample, setShowExample] = useState(true);
@@ -155,6 +156,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, onProgressS
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
+    void onPreferredLevelChange(next);
     setGrammarItems([]);
     setSelected('');
     setLoading(true);
@@ -209,8 +211,8 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, onProgressS
       </div>}
   </>;
 }
-function Practice({ signedIn, romaji, setRomaji, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; onProgressSaved: () => Promise<void> }) {
-  return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onProgressSaved={onProgressSaved} />;
+function Practice({ signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+  return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={preferredLevel} onLevelChange={(level) => { void onPreferredLevelChange(level); }} onProgressSaved={onProgressSaved} />;
 }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -513,16 +515,18 @@ type LearnedVocabularyItem = {
 const VOCABULARY_PAGE_SIZE = 80;
 
 function Vocabulary({
-  items: fallbackItems, romaji, setRomaji, signedIn, search, onProgressSaved,
+  items: fallbackItems, romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved,
 }: {
   items: VocabularyItem[];
   romaji: boolean;
   setRomaji: (value: boolean) => void;
   signedIn: boolean;
   search: string;
+  preferredLevel: JlptLevel;
+  onPreferredLevelChange: (level: JlptLevel) => Promise<void>;
   onProgressSaved: () => Promise<void>;
 }) {
-  const [level, setLevel] = useState<VocabularyLevel>('N5');
+  const [level, setLevel] = useState<VocabularyLevel>(preferredLevel);
   const [view, setView] = useState<VocabularyView>('new');
   const [deckItems, setDeckItems] = useState<VocabularyItem[]>([]);
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
@@ -842,7 +846,7 @@ function Vocabulary({
           <div className={styles.vocabSwitch} aria-label="JLPT vocabulary level">
             {(['N5', 'N4'] as const).map((option) => (
               <button key={option} type="button" className={level === option ? styles.vocabSwitchActive : ''}
-                aria-pressed={level === option} onClick={() => setLevel(option)}>{option}</button>
+                aria-pressed={level === option} onClick={() => { setLevel(option); void onPreferredLevelChange(option); }}>{option}</button>
             ))}
           </div>
           <button type="button" className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>
@@ -963,8 +967,8 @@ const KANJI_THEME_GROUPS: Array<{ title: string; description: string; characters
   { title: 'Work, roles & culture', description: 'Jobs, organisations, public roles and cultural activities.', characters: '社員係業商局部役曲祭和' },
 ];
 
-function Kanji({ items, search, onProgressSaved }: { items: KanjiItem[]; search: string; onProgressSaved: () => Promise<void> }) {
-  const [level, setLevel] = useState<'N5' | 'N4'>('N5');
+function Kanji({ items, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { items: KanjiItem[]; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const [deckItems, setDeckItems] = useState<KanjiItem[]>(items);
   const [selected, setSelected] = useState(items[0]?.id || '');
   const [flipped, setFlipped] = useState(false);
@@ -1022,11 +1026,12 @@ function Kanji({ items, search, onProgressSaved }: { items: KanjiItem[]; search:
     return () => { alive = false; };
   }, [level]);
 
-  function changeLevel(nextLevel: 'N5' | 'N4') {
+  function changeLevel(nextLevel: JlptLevel) {
     if (nextLevel === level) return;
     setLoading(true);
     setNotice('');
     setLevel(nextLevel);
+    void onPreferredLevelChange(nextLevel);
     setQuery('');
     setFlipped(false);
   }
@@ -1120,8 +1125,8 @@ type DueFlashcard = {
   front_romaji: string | null; back_romaji: string | null; hint: string | null; example_sentence: string | null;
   example_translation: string | null; source_type: string;
 };
-function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void }) {
-  const [level, setLevel] = useState<JlptLevel>('N5');
+function Flashcards({ items, signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange }: { items: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void> }) {
+  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const [deckItems, setDeckItems] = useState<LearnerFlashcard[]>(items);
   const [deckLoading, setDeckLoading] = useState(false);
   const decks = useMemo(() => Array.from(new Map(deckItems.map((item) => [item.deckId, { id: item.deckId, title: item.deckTitle, slug: item.deckSlug }])).values()), [deckItems]);
@@ -1158,6 +1163,7 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
+    void onPreferredLevelChange(next);
     setDeckItems([]);
     setDeckLoading(true);
     setSelectedDeckId(null);
@@ -1300,8 +1306,8 @@ function Flashcards({ items, signedIn, romaji, setRomaji }: { items: LearnerFlas
   </>;
 }
 
-function Reading({ romaji, setRomaji, signedIn, search, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; onProgressSaved: () => Promise<void> }) {
-  const [level, setLevel] = useState<JlptLevel>('N5');
+function Reading({ romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+  const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
   const [selected, setSelected] = useState(0);
   const [translation, setTranslation] = useState(false);
@@ -1329,6 +1335,7 @@ function Reading({ romaji, setRomaji, signedIn, search, onProgressSaved }: { rom
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
+    void onPreferredLevelChange(next);
     setPassages([]);
     setSelected(0);
     setTranslation(false);
@@ -1386,8 +1393,8 @@ function Reading({ romaji, setRomaji, signedIn, search, onProgressSaved }: { rom
 }
 
 
-function Exams({ signedIn, romaji, setRomaji, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; onProgressSaved: () => Promise<void> }) {
-  return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} onProgressSaved={onProgressSaved} />;
+function Exams({ signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+  return <QuizRunner kind="mock" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={preferredLevel} onLevelChange={(level) => { void onPreferredLevelChange(level); }} onProgressSaved={onProgressSaved} />;
 }
 
 async function fetchMembershipData(signedIn: boolean): Promise<{
@@ -1481,15 +1488,15 @@ function Membership({signedIn}:{signedIn:boolean}) {
 
 export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
-    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
-    case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
-    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
-    case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} onProgressSaved={props.onProgressSaved} />;
+    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
-    case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} />;
-    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} onProgressSaved={props.onProgressSaved} />;
-    case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
-    case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} onProgressSaved={props.onProgressSaved} />;
+    case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} />;
+    case 'reading': return <Reading romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'subscription': return <Membership signedIn={props.signedIn} />;
     default: return null;
   }
