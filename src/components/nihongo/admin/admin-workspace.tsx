@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './admin.module.css';
 
@@ -137,11 +138,11 @@ export default function AdminWorkspace({ section }: { section: Section }) {
             <p className={styles.panelFoot}>Counts reflect records currently stored in the learning database.</p>
           </section>
           <section className={styles.panel}>
-            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>RECENT SIGNUPS</span><h2>New learners</h2></div><a href="/admin/users">View all →</a></div>
+            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>RECENT SIGNUPS</span><h2>New learners</h2></div><Link href="/admin/users">View all →</Link></div>
             {(data.recentUsers ?? []).length ? <div className={styles.rowList}>{data.recentUsers.map((user: Payload) => <div className={styles.userRow} key={user.id}><span className={styles.personMark}>{String(user.name || 'L').slice(0, 1).toUpperCase()}</span><div><strong>{user.name}</strong><small>{user.email}</small></div><time>{dateLabel(user.createdAt)}</time></div>)}</div> : <Empty>No registered learners yet.</Empty>}
           </section>
           <section className={styles.panel}>
-            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>BILLING ACTIVITY</span><h2>Recent payments</h2></div><a href="/admin/payments">View all →</a></div>
+            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>BILLING ACTIVITY</span><h2>Recent payments</h2></div><Link href="/admin/payments">View all →</Link></div>
             {(data.recentPayments ?? []).length ? <div className={styles.rowList}>{data.recentPayments.map((payment: Payload) => <div className={styles.paymentRow} key={payment.id}><div><strong>{payment.email}</strong><small>{timeLabel(payment.createdAt)}</small></div><div><strong>{money(payment.amountMinor, payment.currency)}</strong><Status value={payment.status}/></div></div>)}</div> : <Empty>No payments recorded yet.</Empty>}
           </section>
         </div> : <section className={styles.panel}>
