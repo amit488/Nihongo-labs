@@ -736,7 +736,7 @@ function FocusCard({ number, title, description, meta, tag, href, tone }: { numb
 }
 
 
-type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number };
+type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number; migrationRequired?:boolean };
 
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
@@ -792,7 +792,8 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
           <footer><span>{row.accuracy}% accuracy</span><span>{row.totalAttempts} attempts</span></footer>
         </article>;
       })}</div>
-      : <p className={styles.sentenceProgressEmpty}>Sentence progress will appear after the learning migration is applied and your first attempt is saved.</p>}
+      : <p className={styles.sentenceProgressEmpty}>Sentence progress is loading.</p>}
+    {sentenceProgress?.N5.migrationRequired || sentenceProgress?.N4.migrationRequired ? <p className={styles.sentenceProgressEmpty}>Apply <code>20261110120000_sentence_construction_intelligence.sql</code> to enable saved attempts.</p> : null}
   </section><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{weekDays.map((day)=><div className={day.active ? styles.dayDone : styles.dayEmpty} key={day.date} title={`${day.label} · ${day.date} · ${day.active ? 'Learning activity recorded' : 'No learning activity recorded'}`}><span>{day.label}</span><b aria-hidden="true">{day.active ? '✓' : '·'}</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
 function Mastery({label,value,tone,detail}:{label:string;value:number;tone:Tone;detail?:string}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{detail ?? (value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended')}</small></div>}
