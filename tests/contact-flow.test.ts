@@ -30,11 +30,11 @@ test('contact page collects the required details and gives a clear success state
 
 test('contact submissions are validated server-side and use the existing private contact_messages table', () => {
   const route = read('src/app/api/contact/route.ts');
-  assert.match(route, /assertSameOrigin\\(request\\)/);
+  assert.ok(route.includes('assertSameOrigin(request)'));
   assert.match(route, /contactMessageSchema/);
-  assert.match(route, /from\\('contact_messages'\\)/);
-  assert.match(route, /authData\\.user\\.id/);
-  assert.match(route, /input\\.website/);
-  assert.match(route, /max\\(10000\\)/);
-  assert.match(route, /jsonError\\(error\\)/);
+  assert.ok(route.includes("from('contact_messages')"));
+  assert.ok(route.includes('authData.user.id'));
+  assert.ok(route.includes('input.website'));
+  assert.ok(route.includes('.max(10000)'));
+  assert.ok(route.includes('jsonError(error)'));
 });
