@@ -741,7 +741,7 @@ type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; co
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
   useEffect(() => {
-    if (!signedIn) { setSentenceProgress(null); return; }
+    if (!signedIn) return;
     let active = true;
     void Promise.all((['N5', 'N4'] as const).map(async (level) => {
       const response = await fetch('/api/learning/sentence-construction?level=' + level, { credentials: 'same-origin', cache: 'no-store' });
