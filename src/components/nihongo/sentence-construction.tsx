@@ -12,6 +12,7 @@ type SentenceStats = {
   accuracy: number;
   attemptedSentences: number;
   solvedSentences: number;
+  migrationRequired?: boolean;
 };
 
 type Feedback = { correct: boolean; canonical: string; tip: string };
@@ -89,7 +90,10 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
       if (!response.ok) throw new Error(body.error || 'Could not load sentence progress.');
       return body as SentenceStats;
     }).then((body) => {
-      if (active) setStats(body);
+      if (active) {
+        setStats(body);
+        if (body.migrationRequired) setNotice('Apply the new sentence construction migration to save attempts and enable progress tracking.');
+      }
     }).catch((error: unknown) => {
       if (active) setNotice(error instanceof Error ? error.message : 'Sentence progress is temporarily unavailable.');
     });
