@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         .eq('vocabulary_entries.jlpt_level', level)
         .eq('vocabulary_entries.publication_status', 'published'),
       context.supabase.from('kanji_entries')
-        .select('id', { count: 'exact', head: true })
+        .select('id', { count: 'exact' })
         .eq('jlpt_level', level)
         .eq('publication_status', 'published'),
       context.supabase.from('grammar_points')
