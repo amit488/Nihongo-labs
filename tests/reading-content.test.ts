@@ -8,6 +8,7 @@ import {
   getPassagesForLevel,
   getReadingPassageById,
   kanaToRomaji,
+  getSelectedRomajiForTextRange,
   readingPassages,
 } from '../src/lib/nihongo/reading-content';
 
@@ -104,4 +105,26 @@ testCase('reading studio has one global romaji control and an explicit meaning p
   assert.match(component, /aria-controls=.*reading-meaning/);
   assert.match(component, /hidden=\{!showMeaning\}/);
   assert.match(component, /passageMeaning\.map/);
+});
+
+
+testCase('partial reading selections return only the selected romaji characters', () => {
+  assert.equal(getSelectedRomajiForTextRange('雨が降る日は', 'あめがふるひは', undefined, 0, 2), 'amega');
+  assert.equal(getSelectedRomajiForTextRange('来ますから', 'きますから', undefined, 2, 5), 'sukara');
+  assert.equal(getSelectedRomajiForTextRange('ホームで待ちます。', 'ほーむでまちます', undefined, 0, 1), 'ho');
+  assert.equal(getSelectedRomajiForTextRange('は', 'は', 'wa', 0, 1), 'wa');
+});
+
+testCase('partial kanji selections are limited to their aligned reading segment', () => {
+  assert.equal(getSelectedRomajiForTextRange('電車', 'でんしゃ', undefined, 0, 1), 'den');
+  assert.equal(getSelectedRomajiForTextRange('電車', 'でんしゃ', undefined, 1, 2), 'sha');
+});
+
+testCase('reading popup derives romaji from selected token offsets instead of whole-token readings', () => {
+  const component = readFileSync(resolve(process.cwd(), 'src/components/nihongo/reading-studio.tsx'), 'utf8');
+  assert.match(component, /getSelectedOffsetsForToken\(range, node\)/);
+  assert.match(component, /getSelectedRomajiForTextRange\(/);
+  assert.match(component, /\.join\(' '\)/);
+  assert.match(component, /data-reading=\{token\.reading/);
+  assert.doesNotMatch(component, /\.map\(\(node\) => node\.dataset\.romaji/);
 });
