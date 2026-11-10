@@ -865,7 +865,7 @@ create index if not exists flashcard_review_state_active_due_queue_idx on public
 
 create or replace function public.get_learning_dashboard()
 returns jsonb language sql stable security invoker set search_path = ''
-as $
+as $$
 with user_context as (
   select (select auth.uid()) as user_id,
     coalesce((select p.timezone from public.profiles p where p.id = (select auth.uid())), 'Asia/Kolkata') as time_zone
@@ -1111,7 +1111,7 @@ select jsonb_build_object(
     'show_romaji', show_romaji, 'show_furigana', show_furigana) from flashcard_settings_row)
 )
 from final_metrics f;
-$;
+$$;
 revoke all on function public.get_learning_dashboard() from public, anon;
 grant execute on function public.get_learning_dashboard() to authenticated;
 

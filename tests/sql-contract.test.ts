@@ -239,9 +239,9 @@ test('progress and intelligence routes use database-side aggregation', () => {
   assert.match(kanjiRoute, /kanji_review_state[\s\S]*?kanji_entries!inner/i);
   assert.doesNotMatch(kanjiRoute, /const ids = \(kanjiRows/);
   for (const functionName of ['get_level_progress', 'get_vocabulary_intelligence', 'get_grammar_intelligence']) {
-    assert.match(migration, new RegExp(\`create or replace function public\\\\.\${functionName}\`, 'i'));
-    assert.match(migration, new RegExp(\`security invoker\`, 'i'));
+    assert.ok(migration.includes('create or replace function public.' + functionName), functionName);
   }
+  assert.match(migration, /security invoker/i);
   assert.match(migration, /grant execute on function public\.get_level_progress\(text\) to authenticated/i);
   assert.match(migration, /grant execute on function public\.get_vocabulary_intelligence\(text\) to authenticated/i);
   assert.match(migration, /grant execute on function public\.get_grammar_intelligence\(\) to authenticated/i);

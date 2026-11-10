@@ -337,7 +337,8 @@ quick_events as (
     tags.skill_tag,
     q.is_correct,
     q.created_at,
-    coalesce(q.title, q.pattern, 'Grammar point') as label_override
+    case when q.title is not null or q.pattern is not null
+      then coalesce(q.title, q.pattern, 'Grammar point') else null end as label_override
   from quick_source q
   cross join lateral unnest(
     case
