@@ -173,7 +173,6 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
     setShowMeaning(false);
     setShowHint(false);
     setNotice('');
-    setStartedAt(Date.now());
   }
 
   if (!current) return null;
