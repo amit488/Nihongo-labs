@@ -46,8 +46,8 @@ function rangeOverlapsNodeContents(selectionRange: Range, node: HTMLElement): bo
 
     // Strict comparisons exclude a neighboring token when the selection ends
     // exactly at its start (or begins exactly at its end).
-    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.START_TO_END, nodeRange) < 0;
-    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.END_TO_START, nodeRange) > 0;
+    const startsBeforeTokenEnds = selectionRange.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0;
+    const endsAfterTokenStarts = selectionRange.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0;
     return startsBeforeTokenEnds && endsAfterTokenStarts;
   } catch {
     return false;
