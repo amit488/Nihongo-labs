@@ -32,14 +32,18 @@ export async function GET(request: NextRequest) {
       .eq('jlpt_level', level)
       .order('created_at', { ascending: false })
       .limit(5000);
-    if (error) throw new HttpError(500, 'Could not load sentence construction progress. Apply the sentence construction migration first.', error.message);
+    const totalSentences = getSentenceConstructionItems(level as 'N5' | 'N4').length;
+    if (error) {
+      if (['42P01', 'PGRST205'].includes(error.code ?? '')) {
+        return NextResponse.json({ level, totalSentences, totalAttempts: 0, correctAttempts: 0, accuracy: 0, attemptedSentences: 0, solvedSentences: 0, migrationRequired: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+      }
+      throw new HttpError(500, 'Could not load sentence construction progress.', error.message);
+    }
 
     const rows = (data ?? []) as AttemptRow[];
     const uniqueAttempted = new Set(rows.map((row) => row.sentence_id));
     const uniqueSolved = new Set(rows.filter((row) => row.is_correct).map((row) => row.sentence_id));
     const correctAttempts = rows.filter((row) => row.is_correct).length;
-    const totalSentences = getSentenceConstructionItems(level as 'N5' | 'N4').length;
-
     return NextResponse.json({
       level,
       totalSentences,
