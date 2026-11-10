@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/nihongo/server/admin';
 import { createAdminSupabase } from '@/lib/nihongo/server/supabase';
 import { jsonError } from '@/lib/nihongo/server/http';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET(request: NextRequest) {
+  await connection();
   try {
     await requireAdminApi();
     const admin = createAdminSupabase();
