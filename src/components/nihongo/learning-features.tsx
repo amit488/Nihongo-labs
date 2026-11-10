@@ -564,12 +564,6 @@ function Vocabulary({
   const queryKey = `${level}|${debouncedSearch}|${focusedVocabularyId ?? ''}`;
 
   useEffect(() => {
-    if (!focusedVocabularyId) return;
-    setView('new');
-    if (focusedVocabularyLevel) setLevel(focusedVocabularyLevel);
-  }, [focusedVocabularyId, focusedVocabularyLevel]);
-
-  useEffect(() => {
     if (loading || !focusedVocabularyId || !deckItems.some((item) => item.id === focusedVocabularyId)) return;
     const frame = window.requestAnimationFrame(() => {
       focusedCardRef.current?.scrollIntoView({
