@@ -60,6 +60,7 @@ testCase('selection popup uses exact token overlap and remains independent of fu
   assert.doesNotMatch(component, /if \(!romaji\)\s*\{\s*clearSelection\(\)/);
   assert.match(component, /range\.getClientRects\(\)/);
   assert.match(component, /rangeOverlapsNodeContents\(range, node\)/);
+  assert.match(component, /nodeRange\.selectNodeContents\(node\)/);
   assert.match(component, /compareBoundaryPoints\(Range\.START_TO_END, nodeRange\) < 0/);
   assert.match(component, /compareBoundaryPoints\(Range\.END_TO_START, nodeRange\) > 0/);
   assert.doesNotMatch(component, /range\.intersectsNode\(node\)/);
