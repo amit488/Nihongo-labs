@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const raw = request.nextUrl.searchParams.get('q') ?? '';
     // The query is embedded in PostgREST .or() expressions, so keep it to
     // letters, numbers, spaces and hyphens before building those filters.
-    const query = raw.replace(/[^\\p{L}\\p{N}\\s-]/gu, ' ').replace(/\\s+/g, ' ').slice(0, 60).trim();
+    const query = raw.replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').slice(0, 60).trim();
     if (query.length < 2) return NextResponse.json({ items: [] });
 
     const pattern = `%${query}%`;
