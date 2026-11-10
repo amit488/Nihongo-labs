@@ -13,7 +13,7 @@ import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
-import { getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
+import { createPreviewSnapshot, getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 import type { GrammarItem } from '@/lib/nihongo/demo-content';
@@ -62,6 +62,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
   const studyTimerRef = useRef<HTMLSpanElement>(null);
   const [connected, setConnected] = useState(false);
+  const authGenerationRef = useRef(0);
   const [snapshot, setSnapshot] = useState<LearnerSnapshot>({
     displayName: 'Learner', preferredJlptLevel: 'N5',
     grammarCount: 0, grammarUnderstood: 0,
@@ -78,8 +79,11 @@ export default function LearningApp({ section = [] }: Props) {
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
+    const generation = authGenerationRef.current;
     try {
       const nextSnapshot = await loadLearnerSnapshot();
+      // Ignore a response that started before the latest sign-in/sign-out event.
+      if (generation !== authGenerationRef.current) return;
       setSnapshot(nextSnapshot);
       if (nextSnapshot.source === 'database') setName(nextSnapshot.displayName || 'Learner');
     } catch {
@@ -143,32 +147,56 @@ export default function LearningApp({ section = [] }: Props) {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     const load = async () => {
+      const generation = authGenerationRef.current;
       const authPromise = client.auth.getUser();
       const [authResult, dataSnapshot] = await Promise.all([
         authPromise,
         authPromise.then(({ data }) => loadLearnerSnapshot(data.user)),
       ]);
       const user = authResult.data.user;
-      if (!alive) return;
+      if (!alive || generation !== authGenerationRef.current) return;
       setConnected(true);
+      setSignedIn(Boolean(user));
       if (user) {
-        setSignedIn(true);
         setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
+      } else {
+        setName('Learner');
+        setActivityTrackingNotice('');
       }
       setRomaji(dataSnapshot.showRomaji);
       setSnapshot(dataSnapshot);
     };
-    void load();
-    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+    void load().catch(() => {
+      // Keep the public demo available if session lookup temporarily fails.
+      if (alive) {
+        setConnected(true);
+        setSignedIn(false);
+        setName('Learner');
+        setRomaji(true);
+        setSnapshot(createPreviewSnapshot());
+      }
+    });
+    const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
+      authGenerationRef.current += 1;
+      setConnected(true);
       setSignedIn(Boolean(session?.user));
       if (session?.user) {
+        if (event === 'SIGNED_IN') {
+          // Do not show a previous account's snapshot while the new profile loads.
+          setSnapshot(createPreviewSnapshot());
+          setName('Learner');
+          setRomaji(true);
+        }
         // Supabase may emit TOKEN_REFRESHED when a background tab becomes active.
         // Reload the profile rather than replacing the saved display name with email.
         window.setTimeout(() => {
           if (alive) void refreshLearnerSnapshot();
         }, 0);
       } else {
+        // A signed-out workspace is demo mode, never the last account's dashboard.
+        setSnapshot(createPreviewSnapshot());
+        setRomaji(true);
         setName('Learner');
         setActivityTrackingNotice('');
       }
@@ -633,8 +661,16 @@ export default function LearningApp({ section = [] }: Props) {
   }
 
   async function signOut() {
-    await signOutAction();
+    const result = await signOutAction();
+    if (!result.success) {
+      setActivityTrackingNotice(result.message);
+      return;
+    }
+    authGenerationRef.current += 1;
     setSignedIn(false);
+    setSnapshot(createPreviewSnapshot());
+    setRomaji(true);
+    setName('Learner');
     setActivityTrackingNotice('');
     router.push('/login');
   }
@@ -712,8 +748,13 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
   }, []);
 
   useEffect(() => {
-    if (!signedIn) return;
+    // Never carry account-specific level statistics into the signed-out demo.
+    if (!signedIn) {
+      setLevelProgress(null);
+      return;
+    }
     let active = true;
+    setLevelProgress(null);
     fetch(`/api/learning/level-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json() as DashboardLevelProgress & { error?: string };
@@ -830,8 +871,12 @@ type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; co
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn) {
+      setSentenceProgress(null);
+      return;
+    }
     let active = true;
+    setSentenceProgress(null);
     void Promise.all((['N5', 'N4'] as const).map(async (level) => {
       const response = await fetch('/api/learning/sentence-construction?level=' + level, { credentials: 'same-origin', cache: 'no-store' });
       const body = await response.json() as SentenceProgressSummary & { error?: string };
