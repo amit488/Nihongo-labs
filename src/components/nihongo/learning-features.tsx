@@ -1,10 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
-import SentenceConstruction from './sentence-construction';
-import ReadingStudio from './reading-studio';
 import { getPublishedFlashcards, getPublishedGrammar, getPublishedVocabulary, getPublishedVocabularyById, type LearnerFlashcard } from '@/lib/nihongo/data';
 import { kanaRows, katakanaRows, kanaRomajiRows, hiraganaVoicedRows, hiraganaVoicedRomajiRows, katakanaVoicedRows, katakanaVoicedRomajiRows } from '@/lib/nihongo/demo-content';
 import type { GrammarItem, KanjiItem, VocabularyItem } from '@/lib/nihongo/demo-content';
@@ -27,6 +25,10 @@ type RazorpayCheckoutOptions = {
 };
 type RazorpayCheckout = { open: () => void; on: (event: 'payment.failed', callback: (payload: RazorpayFailure) => void) => void };
 declare global { interface Window { Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayCheckout; } }
+
+const LazySentenceConstruction = lazy(() => import('./sentence-construction'));
+const LazyReadingStudio = lazy(() => import('./reading-studio'));
+
 type MembershipPlan = {
   id: string; code: string; name: string; description: string | null; planKind: string; amountMinor: number;
   currency: string; billingInterval: string; intervalCount: number; features: Array<{ key: string; value: unknown }>;
@@ -1440,9 +1442,19 @@ export function LearningFeature(props: LearningFeatureProps) {
     case 'kanji': return <Kanji items={props.kanjiItems} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kana': return <Kana mode={props.kanaMode} setMode={props.setKanaMode} quiz={props.kanaQuiz} setQuiz={props.setKanaQuiz} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} onProgressSaved={props.onProgressSaved} />;
     case 'flashcards': return <Flashcards items={props.flashcardItems} signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} />;
-    case 'reading': return <ReadingStudio romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'reading':
+      return (
+        <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading reading studio…</h2></div>}>
+          <LazyReadingStudio romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />
+        </Suspense>
+      );
     case 'exams': return <Exams signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
-    case 'sentences': return <SentenceConstruction signedIn={props.signedIn} romaji={props.romaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'sentences':
+      return (
+        <Suspense fallback={<div className={styles.emptyState} role="status"><div>文</div><h2>Loading sentence construction…</h2></div>}>
+          <LazySentenceConstruction signedIn={props.signedIn} romaji={props.romaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />
+        </Suspense>
+      );
     case 'subscription': return <Membership signedIn={props.signedIn} />;
     default: return null;
   }

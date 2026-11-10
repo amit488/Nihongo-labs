@@ -84,11 +84,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const markProcessing = await admin.from('payment_webhook_events').update({
-      status: 'processing', retry_count: Number(prior?.retry_count ?? 0) + 1,
-      received_at: new Date().toISOString(), processing_error: null,
-    }).eq('provider', 'razorpay').eq('provider_event_id', eventId);
-    if (markProcessing.error) throw new HttpError(500, 'Could not mark webhook as processing.', markProcessing.error.message);
+    const { data: processingToken, error: claimError } = await admin.rpc('claim_payment_webhook_event', {
+      _provider: 'razorpay',
+      _provider_event_id: eventId,
+      _lease_seconds: PROCESSING_LEASE_MS / 1000,
+    });
+    if (claimError) throw new HttpError(500, 'Could not claim webhook event for processing.', claimError.message);
+    if (typeof processingToken !== 'string') {
+      const { data: latest, error: latestError } = await admin.from('payment_webhook_events')
+        .select('status')
+        .eq('provider', 'razorpay')
+        .eq('provider_event_id', eventId)
+        .maybeSingle();
+      if (latestError) throw new HttpError(500, 'Could not inspect webhook processing status.', latestError.message);
+      if (latest?.status === 'processed') return NextResponse.json({ received: true, duplicate: true });
+      return NextResponse.json({ received: true, processing: true, duplicate: true });
+    }
 
     try {
       const eventPayload = asObject(payload.payload);
@@ -132,14 +143,19 @@ export async function POST(request: NextRequest) {
       }
 
       const markProcessed = await admin.from('payment_webhook_events').update({
-        status: 'processed', processed_at: new Date().toISOString(), processing_error: null,
-      }).eq('provider', 'razorpay').eq('provider_event_id', eventId);
+        status: 'processed', processed_at: new Date().toISOString(), processing_error: null, processing_token: null,
+      }).eq('provider', 'razorpay').eq('provider_event_id', eventId)
+        .eq('processing_token', processingToken).select('id').maybeSingle();
       if (markProcessed.error) throw new HttpError(500, 'Payment event completed but its receipt could not be finalized.', markProcessed.error.message);
+      if (!markProcessed.data) return NextResponse.json({ received: true, processing: true, duplicate: true });
       return NextResponse.json({ received: true, processed: true });
     } catch (processingError) {
       const markFailed = await admin.from('payment_webhook_events').update({
-        status: 'failed', processing_error: processingError instanceof Error ? processingError.message.slice(0, 2000) : 'Unknown processing error',
-      }).eq('provider', 'razorpay').eq('provider_event_id', eventId);
+        status: 'failed',
+        processing_error: processingError instanceof Error ? processingError.message.slice(0, 2000) : 'Unknown processing error',
+        processing_token: null,
+      }).eq('provider', 'razorpay').eq('provider_event_id', eventId)
+        .eq('processing_token', processingToken);
       if (markFailed.error) console.error('[Nihongo Labs webhook] Could not record failed event.', markFailed.error);
       throw processingError;
     }
