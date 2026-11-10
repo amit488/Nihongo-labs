@@ -132,7 +132,7 @@ n4-017|fujisan ni nobotta koto ga arimasen|I have never climbed Mount Fuji.|gram
 n4-018|mainichi nijikan benkyou suru tsumori desu|I intend to study for two hours every day.|grammar:intention,grammar:tsumori|つもりです expresses the speaker's intention.|毎日 二時間 勉強する つもり です 。
 n4-019|raigetsu hikkosu yotei desu|I am scheduled to move next month.|grammar:schedule,grammar:yotei|予定です describes a plan or schedule.|来月 引っ越す 予定 です 。
 n4-020|mou sugu ame ga furi sou desu|It looks like it will rain soon.|grammar:appearance,grammar:sou|そうです after a verb stem expresses appearance.|もうすぐ 雨 が 降り そう です 。
-n4-021|kono mise wa oishi sou desu|This shop's food looks delicious.|grammar:appearance,grammar:sou,adjective:i|そうです after an adjective stem describes how something looks.|この 店 は おいし そう です 。
+n4-021|kono ryouri wa oishi sou desu|This dish looks delicious.|grammar:appearance,grammar:sou,adjective:i|そうです after an adjective stem describes how something looks.|この 料理 は おいし そう です 。
 n4-022|Tanaka-san wa kuru rashii desu|Apparently, Mr. Tanaka is coming.|grammar:hearsay,grammar:rashii|らしいです can report information heard from another source.|田中さん は 来る らしい です 。
 n4-023|kare wa gakusei no you desu|He seems to be a student.|grammar:inference,grammar:you-desu|ようです expresses an impression or inference based on evidence.|彼 は 学生 の よう です 。
 n4-024|kyou wa haru mitai desu|Today feels like spring.|grammar:comparison,grammar:mitai|みたいです is a conversational expression meaning seems like.|今日は 春 みたい です 。
@@ -177,7 +177,7 @@ n4-062|haru ni naru to sakura ga sakimasu|When spring comes, cherry blossoms blo
 n4-063|ame ga futte mo dekakemasu|Even if it rains, I will go out.|grammar:concession,grammar:temo|ても expresses that the result remains true despite the condition.|雨 が 降って も 出かけます 。
 n4-064|hayaku neta hou ga ii desu|You should go to bed early.|grammar:recommendation,grammar:hou-ga-ii|たほうがいい gives advice or a recommendation.|早く 寝た 方 が いい です 。
 n4-065|muri o shinai hou ga ii desu|You should not push yourself too hard.|grammar:recommendation,grammar:hou-ga-ii,verb:negative|ないほうがいい advises against an action.|無理 を しない 方 が いい です 。
-n4-066|mainichi benkyou sureba jouzu ni narimasu|If you study every day, you will improve.|grammar:conditional,grammar:ba|ば expresses a condition that leads to a result.|毎日 勉強すれば 上手 に なります 。
+n4-066|mainichi nihongo o benkyou sureba nihongo ga jouzu ni narimasu|If you study Japanese every day, you will improve.|grammar:conditional,grammar:ba|ば expresses a condition that leads to a result.|毎日 日本語 を 勉強すれば 日本語 が 上手 に なります 。
 n4-067|nando yonde mo imi ga wakarimasen|No matter how many times I read it, I cannot understand the meaning.|grammar:concession,grammar:temo|何度〜ても means no matter how many times.|何度 読んで も 意味 が 分かりません 。
 n4-068|denki o tsuketa mama nete shimaimashita|I fell asleep with the light left on.|grammar:state,grammar:mama,grammar:teshimau|まま describes leaving something in a state; てしまう can show an unintended result.|電気 を つけた まま 寝て しまいました 。
 n4-069|nihon de hataraku tame ni nihongo o manande imasu|I am learning Japanese in order to work in Japan.|grammar:purpose,grammar:tame-ni|ために introduces the purpose of learning.|日本 で 働く ために 日本語 を 学んでいます 。
