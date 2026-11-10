@@ -182,29 +182,23 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
 
   return <div className={styles.sentenceWorkspace}>
     <SectionHeading
-      eyebrow={`ACTIVE PRACTICE · JLPT ${level}`}
-      title="Build the sentence."
-      description="Turn the grammar you know into Japanese you can actually use. Arrange every tile, then check your sentence."
+      eyebrow={`SENTENCE PRACTICE · JLPT ${level}`}
+      title="Build a natural sentence."
+      description="Arrange the tiles, check your answer and learn from the grammar."
       action={<div className={styles.headingActions}><JlptLevelSwitch value={level} onChange={changeLevel} label="Sentence construction JLPT level" /></div>}
     />
 
-    <section className={styles.sentenceHero}>
-      <div className={styles.sentenceHeroTop}>
-        <div><span className={styles.sentenceEyebrow}>SENTENCE CONSTRUCTION LAB</span><h2>Think in Japanese, one tile at a time.</h2><p>160 curated challenges · mixed grammar · instant feedback</p></div>
-        <div className={styles.sentenceMark} aria-hidden="true">文</div>
-      </div>
-      <div className={styles.sentenceStats}>
-        <div><strong>{items.length}</strong><span>{level} sentences</span></div>
-        <div><strong>{visibleStats.solvedSentences}</strong><span>solved correctly</span></div>
-        <div><strong>{visibleStats.accuracy}%</strong><span>your accuracy</span></div>
-      </div>
-      <div className={styles.sentenceProgressTrack} role="progressbar" aria-label={`${level} sentence construction set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={visibleStats.solvedSentences}>
-        <span style={{ width: `${Math.min(100, visibleStats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
-      </div>
-      <div className={styles.sentenceProgressFoot}><span>{visibleStats.solvedSentences} of {items.length} solved</span><span>{visibleStats.totalAttempts} saved attempts</span></div>
-    </section>
-
     <section className={styles.sentenceCard}>
+      <div className={styles.sentenceCardMeta}>
+        <div className={styles.sentenceQuickStats}>
+          <span><strong>{visibleStats.solvedSentences}</strong> / {items.length} solved</span>
+          <span><strong>{visibleStats.accuracy}%</strong> accuracy</span>
+          <span><strong>{visibleStats.totalAttempts}</strong> attempts</span>
+        </div>
+        <div className={styles.sentenceCompactTrack} role="progressbar" aria-label={`${level} sentence set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={visibleStats.solvedSentences}>
+          <span style={{ width: `${Math.min(100, visibleStats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
+        </div>
+      </div>
       <div className={styles.sentenceQuestionTop}>
         <div><span className={styles.sentenceEyebrow}>CHALLENGE {String(index + 1).padStart(2, '0')} / {items.length}</span><h3>Arrange the words in the correct order</h3></div>
         <span className={styles.sentenceLevelPill}>{level} · MIXED GRAMMAR</span>
@@ -259,9 +253,9 @@ export default function SentenceConstruction({ signedIn, romaji, onProgressSaved
       </div>
     </section>
 
-    <div className={styles.sentenceBottomRow}>
-      <div className={styles.sentenceInfoCard}><span className={styles.sentenceEyebrow}>SESSION RECAP</span><strong>{sessionCorrect} correct this session</strong><p>Build accuracy by attempting a mix of grammar patterns, not only the ones that feel familiar.</p></div>
-      <div className={styles.sentenceInfoCard}><span className={styles.sentenceEyebrow}>LEARNING INTELLIGENCE</span><strong>Every answer counts.</strong><p>{signedIn ? 'Saved answers update your grammar weakness map and My progress report.' : 'Sign in to keep your attempts and connect them to your learner profile.'}</p></div>
+    <div className={styles.sentenceSessionNote}>
+      <strong>{sessionCorrect} correct this session</strong>
+      <span>{signedIn ? 'Saved attempts flow into My progress and Learning Intelligence.' : 'Sign in to save attempts to My progress and Learning Intelligence.'}</span>
     </div>
   </div>;
 }
