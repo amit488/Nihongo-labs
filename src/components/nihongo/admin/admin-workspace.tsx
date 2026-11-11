@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import styles from './admin.module.css';
 
-type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics';
+type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics' | 'database';
 type ActivityDay = {
   date: string;
   label: string;
@@ -64,8 +64,10 @@ type TicketRow = {
   status: string;
   created_at: string;
 };
+type DatabaseTable = { schema: string; name: string; estimated_rows: number; total_bytes: number; data_bytes: number; index_bytes: number };
+type DatabaseHealth = { database_name: string; database_size_bytes: number; storage_limit_bytes: number | null; storage_limit_source: string; table_count: number; empty_table_count: number; populated_table_count: number; estimated_row_count: number; tables: DatabaseTable[]; generated_at: string };
 type AdminData = {
-  generatedAt?: string;
+  generatedAt?: string;\n  database?: DatabaseHealth;
   metrics?: AdminMetrics;
   content?: Record<string, number>;
   weeklyActivity?: ActivityDay[];
@@ -89,11 +91,17 @@ const headings: Record<Section, { eyebrow: string; title: string; description: s
   users: { eyebrow: 'LEARNER DIRECTORY', title: 'Your learners', description: 'Find registered learners and review their account and subscription details.' },
   payments: { eyebrow: 'FINANCIAL OPERATIONS', title: 'Payments', description: 'Review captured transactions, refunds and payment status from your billing ledger.' },
   inbox: { eyebrow: 'CUSTOMER EXPERIENCE', title: 'Contact & support inbox', description: 'Review suggestions, complaints and support requests from your learners.' },
-  analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },
+  analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },\n  database: { eyebrow: 'DATABASE OPERATIONS', title: 'Database health', description: 'Monitor storage consumption, table inventory and the largest data tables.' },
 };
 
 function money(minor: number, currency = 'INR') {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format((Number(minor) || 0) / 100);
+}
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
 }
 function dateLabel(value?: string | null) {
   if (!value) return '—';
@@ -144,7 +152,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
       const response = await fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' });
       const body = await response.json() as AdminData;
       if (!response.ok) throw new Error(body.error || 'Could not load administrator data.');
-      setData(body);
+      setData(section === 'database' ? { database: body as unknown as DatabaseHealth, generatedAt: body.database?.generated_at } : body);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load administrator data.');
       setData(null);
@@ -192,6 +200,25 @@ export default function AdminWorkspace({ section }: { section: Section }) {
       </div>
       {error ? <div className={styles.error} role="alert">{error}<button type="button" onClick={() => void load(search, userPage)}>Retry</button></div> : null}
       {loading && !data ? <div className={styles.loading}><span />Loading live administrator data…</div> : null}
+
+      {section === 'database' && data?.database ? <>
+        <div className={styles.metricGrid}>
+          <Metric label="Database storage used" value={formatBytes(data.database.database_size_bytes)} note={data.database.storage_limit_bytes ? `${formatBytes(data.database.storage_limit_bytes - data.database.database_size_bytes)} remaining of ${formatBytes(data.database.storage_limit_bytes)} configured` : 'Live PostgreSQL database size'} icon="▤" />
+          <Metric label="Total tables" value={data.database.table_count.toLocaleString('en-IN')} note={`${data.database.populated_table_count} with estimated rows`} icon="▦" />
+          <Metric label="Empty tables" value={data.database.empty_table_count.toLocaleString('en-IN')} note="No live rows in PostgreSQL statistics" icon="○" />
+          <Metric label="Estimated rows" value={data.database.estimated_row_count.toLocaleString('en-IN')} note="PostgreSQL statistics estimate; not an exact count" icon="#" />
+        </div>
+        <section className={styles.panel}>
+          <div className={styles.panelHeading}><div><span className={styles.eyebrow}>STORAGE OVERVIEW</span><h2>{data.database.database_name}</h2></div><span className={styles.panelMeta}>Updated {timeLabel(data.database.generated_at)}</span></div>
+          {data.database.storage_limit_bytes ? <div className={styles.storageTrack}><span style={{ width: `${Math.min(100, data.database.database_size_bytes / data.database.storage_limit_bytes * 100)}%` }} /></div> : <p className={styles.panelFoot}>Project storage quota is not exposed by PostgreSQL. Set SUPABASE_DATABASE_STORAGE_LIMIT_BYTES to your plan’s database limit to show capacity and utilization here.</p>}
+          {data.database.storage_limit_bytes ? <div className={styles.storageLegend}><span>{formatBytes(data.database.database_size_bytes)} used</span><strong>{(data.database.database_size_bytes / data.database.storage_limit_bytes * 100).toFixed(1)}% of configured limit</strong><span>{formatBytes(Math.max(0, data.database.storage_limit_bytes - data.database.database_size_bytes))} available</span></div> : null}
+        </section>
+        <section className={styles.panel}>
+          <div className={styles.panelHeading}><div><span className={styles.eyebrow}>TABLE INVENTORY</span><h2>Tables ranked by estimated row count</h2></div><span className={styles.panelMeta}>{data.database.tables.length} public tables</span></div>
+          {data.database.tables.length ? <div className={styles.tableWrap}><table><thead><tr><th>Table</th><th>Estimated rows</th><th>Total size</th><th>Table data</th><th>Indexes</th><th>State</th></tr></thead><tbody>{data.database.tables.map((table) => <tr key={table.schema + '.' + table.name}><td><strong>{table.name}</strong><small>{table.schema}</small></td><td>{Number(table.estimated_rows).toLocaleString('en-IN')}</td><td>{formatBytes(table.total_bytes)}</td><td>{formatBytes(table.data_bytes)}</td><td>{formatBytes(table.index_bytes)}</td><td><Status value={table.estimated_rows > 0 ? 'Populated' : 'Empty (estimated)'}/></td></tr>)}</tbody></table></div> : <Empty>No public tables were found.</Empty>}
+          <p className={styles.panelFoot}>Largest table by estimated row count: <strong>{data.database.tables[0]?.name ?? '—'}</strong>{data.database.tables[0] ? ` · ${Number(data.database.tables[0].estimated_rows).toLocaleString('en-IN')} estimated rows · ${formatBytes(data.database.tables[0].total_bytes)} total size` : ''}. Row counts are PostgreSQL planner statistics, so they are estimates and may lag until ANALYZE runs.</p>
+        </section>
+      </> : null}
 
       {(section === 'overview' || section === 'analytics') && data ? <>
         <div className={styles.metricGrid}>
