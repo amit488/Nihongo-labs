@@ -33,7 +33,7 @@ const RETRY_WHEN_EMPTY_MS = 60_000;
 const NEXT_QUESTION_MIN_MS = 4 * 60_000;
 const NEXT_QUESTION_RANGE_MS = 1 * 60_000;
 
-export function QuickRevision({ signedIn }: { signedIn: boolean }) {
+export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; activeSection: string }) {
   const [question, setQuestion] = useState<QuickQuestion | null>(null);
   const [selected, setSelected] = useState('');
   const [result, setResult] = useState<QuickResult | null>(null);
@@ -45,6 +45,7 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
   const dialogOpen = useRef(false);
   const activeMilliseconds = useRef(0);
   const targetMilliseconds = useRef(FIRST_QUESTION_MS);
+  const timerStorageKey = 'nihongo:quick-revision:timer:v1';
 
   useEffect(() => {
     dialogOpen.current = Boolean(question);
@@ -66,15 +67,53 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
       activeMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
       dialogOpen.current = false;
+      try { window.localStorage.removeItem(timerStorageKey); } catch { /* Storage may be unavailable. */ }
       return;
     }
     let disposed = false;
-    let lastSampleAt = performance.now();
     let requestInProgress = false;
+    const excludedSection = activeSection === 'reading' || activeSection === 'exams';
+    let lastUpdatedAt = Date.now();
 
-    // Count time whenever the learner is viewing the learning workspace.
-    // The timer does not depend on window focus and pauses only in hidden tabs.
-    const activeAndAvailable = () => document.visibilityState === 'visible';
+    // Persist one shared wall-clock accumulator so route remounts and other
+    // browser tabs continue the same signed-in countdown. Only reading and
+    // mock examinations pause it; background-tab visibility is irrelevant.
+    const readTimerState = () => {
+      try {
+        const raw = window.localStorage.getItem(timerStorageKey);
+        if (!raw) return null;
+        const value = JSON.parse(raw) as { elapsedMs?: unknown; lastUpdatedAt?: unknown; targetMs?: unknown };
+        if (typeof value.elapsedMs !== 'number' || !Number.isFinite(value.elapsedMs) || value.elapsedMs < 0) return null;
+        return {
+          elapsedMs: value.elapsedMs,
+          lastUpdatedAt: typeof value.lastUpdatedAt === 'number' && Number.isFinite(value.lastUpdatedAt)
+            ? value.lastUpdatedAt : Date.now(),
+          targetMs: typeof value.targetMs === 'number' && Number.isFinite(value.targetMs) && value.targetMs > 0
+            ? value.targetMs : FIRST_QUESTION_MS,
+        };
+      } catch {
+        return null;
+      }
+    };
+    const writeTimerState = (now: number) => {
+      try {
+        window.localStorage.setItem(timerStorageKey, JSON.stringify({
+          elapsedMs: activeMilliseconds.current,
+          lastUpdatedAt: now,
+          targetMs: targetMilliseconds.current,
+        }));
+      } catch { /* Keep the countdown working in memory if storage is unavailable. */ }
+    };
+    const savedTimer = readTimerState();
+    if (savedTimer) {
+      activeMilliseconds.current = savedTimer.elapsedMs;
+      targetMilliseconds.current = savedTimer.targetMs;
+      lastUpdatedAt = savedTimer.lastUpdatedAt;
+    } else {
+      activeMilliseconds.current = 0;
+      targetMilliseconds.current = FIRST_QUESTION_MS;
+      writeTimerState(lastUpdatedAt);
+    }
 
 
     const loadQuestion = async () => {
@@ -110,6 +149,8 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
         setResult(null);
         questionStartedAt.current = performance.now();
         activeMilliseconds.current = 0;
+        lastUpdatedAt = Date.now();
+        writeTimerState(lastUpdatedAt);
       } catch (requestError) {
         if (!disposed) {
           setError(requestError instanceof Error ? requestError.message : 'Quick Revision is temporarily unavailable.');
@@ -123,14 +164,25 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
 
     // The interruption is automatic on every signed-in learning section.
     const interval = window.setInterval(() => {
-      const now = performance.now();
-      const elapsed = Math.min(1_500, Math.max(0, now - lastSampleAt));
-      lastSampleAt = now;
+      const now = Date.now();
+      const saved = readTimerState();
+      if (saved && saved.lastUpdatedAt > lastUpdatedAt) {
+        activeMilliseconds.current = saved.elapsedMs;
+        targetMilliseconds.current = saved.targetMs;
+        lastUpdatedAt = saved.lastUpdatedAt;
+      }
+      const elapsed = Math.max(0, now - lastUpdatedAt);
+      lastUpdatedAt = now;
 
-      if (!activeAndAvailable() || dialogOpen.current || responsePending.current) return;
-      activeMilliseconds.current += elapsed;
+      if (!excludedSection && !dialogOpen.current && !responsePending.current) {
+        activeMilliseconds.current += elapsed;
+      }
+      // Advance the shared checkpoint even during excluded sections so that
+      // time spent reading or taking a mock exam is never added later.
+      writeTimerState(now);
 
-      if (activeMilliseconds.current >= targetMilliseconds.current) {
+      if (!excludedSection && !dialogOpen.current && !responsePending.current &&
+          activeMilliseconds.current >= targetMilliseconds.current) {
         void loadQuestion();
       }
     }, 1_000);
@@ -138,8 +190,9 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
     return () => {
       disposed = true;
       window.clearInterval(interval);
+      writeTimerState(Date.now());
     };
-  }, [signedIn]);
+  }, [signedIn, activeSection]);
 
   async function submitAnswer(didNotRemember: boolean) {
     if (!question || responsePending.current || result) return;
@@ -179,6 +232,14 @@ export function QuickRevision({ signedIn }: { signedIn: boolean }) {
     setError('');
     targetMilliseconds.current = NEXT_QUESTION_MIN_MS + Math.floor(Math.random() * NEXT_QUESTION_RANGE_MS);
     activeMilliseconds.current = 0;
+    const now = Date.now();
+    try {
+      window.localStorage.setItem(timerStorageKey, JSON.stringify({
+        elapsedMs: 0,
+        lastUpdatedAt: now,
+        targetMs: targetMilliseconds.current,
+      }));
+    } catch { /* The in-memory timer remains available. */ }
   }
 
   if (!signedIn) return null;
