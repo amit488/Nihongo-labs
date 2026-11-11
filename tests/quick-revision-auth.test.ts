@@ -19,6 +19,14 @@ const supabaseServer = readFileSync(
   resolve(process.cwd(), 'src/lib/nihongo/server/supabase.ts'),
   'utf8',
 );
+const learnerApp = readFileSync(
+  resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'),
+  'utf8',
+);
+const adminShell = readFileSync(
+  resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'),
+  'utf8',
+);
 
 test('Quick Revision waits for verified auth instead of trusting the initial cookie snapshot', () => {
   assert.match(globalController, /if \(event === 'INITIAL_SESSION'\) return;/);
@@ -43,4 +51,18 @@ test('question and answer endpoints remain protected by server-verified Supabase
   assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
   assert.match(supabaseServer, /supabase\.auth\.getUser\(\)/);
   assert.match(supabaseServer, /if \(error \|\| !data\.user\)/);
+});
+
+
+test('anonymous Supabase users cannot activate Quick Revision or access learner endpoints', () => {
+  assert.match(globalController, /session\\.user\\?\\.is_anonymous/);
+  assert.match(globalController, /!data\\.user \\|\\| data\\.user\\.is_anonymous/);
+  assert.match(supabaseServer, /!data\\.user \\|\\| data\\.user\\.is_anonymous/);
+});
+
+test('learner and admin logout clear the browser Supabase client session', () => {
+  assert.match(learnerApp, /await client\\.auth\\.signOut\\(\\)/);
+  assert.match(adminShell, /await client\\.auth\\.signOut\\(\\)/);
+  assert.doesNotMatch(learnerApp, /signOutAction/);
+  assert.doesNotMatch(adminShell, /signOutAction/);
 });
