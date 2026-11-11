@@ -69,10 +69,67 @@
 .dialog.incorrect .brandMark{background:#f4bcbc;color:#8c2929}
 
 
-.errorToast {
+.quickRevisionDock {
   position: fixed;
   right: 20px;
   bottom: 20px;
+  z-index: 80;
+  display: grid;
+  gap: 10px;
+  width: min(350px, calc(100vw - 32px));
+}
+.launcher {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 70px;
+  padding: 11px 13px;
+  border: 1px solid #d7a49c;
+  border-radius: 14px;
+  background: #fff;
+  color: #26313c;
+  text-align: left;
+  box-shadow: 0 12px 36px rgba(35, 44, 55, .18);
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.launcher:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #ad544b;
+  box-shadow: 0 16px 42px rgba(35, 44, 55, .22);
+}
+.launcher:focus-visible { outline: 3px solid #dca296; outline-offset: 3px; }
+.launcher:disabled { opacity: .72; cursor: wait; }
+.launcherMark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #a84840;
+  color: #fff;
+  font-size: 23px;
+  font-weight: 700;
+}
+.launcherCopy { display: grid; gap: 3px; min-width: 0; }
+.launcherCopy strong { color: #303a45; font-size: 15px; font-weight: 850; }
+.launcherCopy small { color: #73808c; font-size: 12px; line-height: 1.35; }
+.launcherAction {
+  flex: none;
+  margin-left: auto;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: #a84840;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+}
+.errorToast {
+  position: static;
+  width: min(440px, calc(100vw - 32px));
+  margin: 0;
   z-index: 1200;
   width: min(440px, calc(100vw - 32px));
   padding: 14px 16px;
@@ -86,5 +143,6 @@
 }
 
 @media (max-width: 560px) {
-  .errorToast { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
+  .quickRevisionDock { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
+  .errorToast { width: 100%; }
 }
