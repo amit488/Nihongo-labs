@@ -44,7 +44,7 @@ export async function GET() {
       const alternatives=pick(getSentenceConstructionItems(item.level).filter(x=>x.id!==item.id),3).map(x=>x.tokens.join(' '));
       questions.push({id:'sentence:'+item.id,kind:'sentence',level:item.level,prompt:item.meaning,question:'Choose the correctly ordered Japanese sentence for this meaning.',options:shuffle([correct,...alternatives]),answer:correct,explanation:item.sentence+' — '+item.meaning+' '+item.tip});
     }
-    return NextResponse.json({questions:shuffle(questions).map(({answer,...q})=>q)}, {headers:{'Cache-Control':'private, no-store'}});
+    return NextResponse.json({questions:shuffle(questions).map(({answer,explanation,...q})=>q)}, {headers:{'Cache-Control':'private, no-store'}});
   } catch(error) { return jsonError(error); }
 }
 
@@ -54,6 +54,7 @@ export async function POST(request:NextRequest) {
     const context=await requireUser();
     if(!context.ok) throw new HttpError(401,context.error);
     const input=await readJson(request,finishSchema);
+    const db=context.supabase;
     const ids=[...new Set(input.answers.map(a=>a.questionId))];
     if(ids.length!==input.answers.length) throw new HttpError(400,'Duplicate challenge questions are not allowed.');
     const categories:Record<Kind,{answered:number;correct:number}>={vocabulary:{answered:0,correct:0},kanji:{answered:0,correct:0},grammar:{answered:0,correct:0},hiragana:{answered:0,correct:0},katakana:{answered:0,correct:0},sentence:{answered:0,correct:0}};
