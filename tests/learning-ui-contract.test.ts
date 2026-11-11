@@ -113,21 +113,23 @@ test('Quick Revision can be launched manually and visible-time scheduling works 
   const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
   const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
 
-  assert.match(quickRevision, /Start Quick Revision now/);
-  assert.match(quickRevision, /loadQuestionRef\\.current/);
-  assert.match(quickRevision, /document\\.visibilityState === 'visible'/);
-  assert.doesNotMatch(quickRevision, /document\\.hasFocus\\(\\)/);
-  assert.match(quickStyles, /\\.quickRevisionDock/);
-  assert.match(quickStyles, /\\.launcher/);
+  assert.ok(quickRevision.includes('Start Quick Revision now'));
+  assert.ok(quickRevision.includes('loadQuestionRef.current'));
+  assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
+  assert.ok(!quickRevision.includes('document.hasFocus()'));
+  assert.ok(quickStyles.includes('.quickRevisionDock'));
+  assert.ok(quickStyles.includes('.launcher'));
 });
 
 test('sentence reset confirmation is rendered in a body portal and uses a prominent destructive action', () => {
   const sentence = readFileSync(resolve(process.cwd(), 'src/components/nihongo/sentence-construction.tsx'), 'utf8');
   const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
 
-  assert.match(sentence, /createPortal\\([\\s\\S]*?document\\.body/);
-  assert.match(sentence, /resetCancelRef/);
-  assert.match(sentence, /resetConfirmRef/);
-  assert.match(learningStyles, /\\.sentenceResetOverlay\\{position:fixed;inset:0;z-index:1600/);
-  assert.match(learningStyles, /\\.sentenceResetButton\\{[^}]*background:#a84840[^}]*color:#fff/);
+  assert.ok(sentence.includes('createPortal('));
+  assert.ok(sentence.includes('document.body'));
+  assert.ok(sentence.includes('resetCancelRef'));
+  assert.ok(sentence.includes('resetConfirmRef'));
+  assert.ok(sentence.includes('disabled={!progressLoaded || saving || resetting}'));
+  assert.ok(learningStyles.includes('.sentenceResetOverlay{position:fixed;inset:0;z-index:1600'));
+  assert.ok(learningStyles.includes('.sentenceResetButton{display:inline-flex;align-items:center;gap:7px;border:1px solid #a84840;background:#a84840;color:#fff'));
 });
