@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import './globals.css';
 import CopyProtection from '@/components/copy-protection';
 import GlobalQuickRevision from '@/components/nihongo/global-quick-revision';
@@ -17,5 +18,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><CopyProtection /><GlobalQuickRevision />{children}</body></html>;
+  return <html lang="en"><body><CopyProtection /><Suspense fallback={null}><GlobalQuickRevision /></Suspense>{children}</body></html>;
 }
