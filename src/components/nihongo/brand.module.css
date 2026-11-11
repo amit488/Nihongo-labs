@@ -8,16 +8,19 @@
   white-space: nowrap;
 }
 .mark {
-  display: grid;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 11px;
-  background: #b54c43;
-  color: #fff;
-  font: 600 22px Georgia, serif;
-  box-shadow: 0 6px 16px rgba(181, 76, 67, .16);
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(35, 44, 55, .08);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 5px 13px rgba(35, 44, 55, .1);
+}
+.markImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .name {
   display: block;
@@ -28,11 +31,9 @@
 }
 .dark { color: #f7f5f1; }
 .dark .mark {
-  background: #e5a37a;
-  color: #232c37;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, .16);
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .2);
 }
 @media (max-width: 420px) {
-  .mark { flex-basis: 34px; width: 34px; height: 34px; font-size: 20px; }
   .name { font-size: 17px; }
 }
