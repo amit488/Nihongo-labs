@@ -120,11 +120,15 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
   assert.ok(quickRevision.includes('const NEXT_QUESTION_RANGE_MS = 1 * 60_000'));
   assert.ok(quickRevision.includes('window.setInterval'));
-  assert.ok(quickRevision.includes("activeSection === 'reading' || activeSection === 'exams'"));
+  assert.ok(quickRevision.includes("activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams'"));
   assert.ok(quickRevision.includes("window.localStorage.setItem(timerStorageKey"));
   assert.ok(quickRevision.includes("const now = Date.now()"));
-  assert.ok(!quickRevision.includes("document.visibilityState === 'visible'"));
-  assert.ok(!quickRevision.includes("document.hasFocus()"));
+  assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
+  assert.ok(quickRevision.includes("document.hasFocus()"));
+  assert.ok(quickRevision.includes('sessionElapsedMs: sessionElapsedMilliseconds.current'));
+  assert.ok(quickRevision.includes("window.addEventListener('blur', handleEligibilityChange)"));
+  assert.ok(quickRevision.includes("window.addEventListener('focus', handleEligibilityChange)"));
+  assert.ok(quickRevision.includes('}, [signedIn]);'));
   assert.ok(!quickRevision.includes('Start Quick Revision'));
   assert.ok(!quickRevision.includes('loadQuestionRef'));
   assert.ok(!quickRevision.includes('disabled?: boolean'));
@@ -132,6 +136,9 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(globalController.includes('client.auth.onAuthStateChange'));
   assert.ok(globalController.includes("pathname.split('/')[2]"));
   assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
+  assert.ok(learningApp.includes('nihongo:quick-revision:timer:v1'));
+  assert.ok(learningApp.includes('nihongo:quick-revision-timer'));
+  assert.ok(learningApp.includes('isExcludedStudySection ? 0 :'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
   assert.ok(quickStyles.includes('.backdrop{'));
