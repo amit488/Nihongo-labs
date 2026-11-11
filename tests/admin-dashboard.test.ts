@@ -85,7 +85,7 @@ test('database monitoring exposes protected Cron schedule and previous run detai
   assert.match(migration, /cron_run_id bigint unique/);
   assert.match(migration, /get diagnostics v_deleted = row_count/);
   assert.match(migration, /insert into private\.cron_job_run_audit/);
-  assert.match(migration, /d\.status = 'failed'/);
+  assert.match(migration, /r\.status = 'failed'/);
   assert.match(migration, /r\.return_message/);
   assert.match(migration, /Asia\/Kolkata/);
   assert.match(migration, /Every hour at minute 45 \(IST\)/);
