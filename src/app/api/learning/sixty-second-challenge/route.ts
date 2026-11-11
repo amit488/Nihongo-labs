@@ -49,7 +49,7 @@ export async function GET() {
       const alternatives=pick(getSentenceConstructionItems(item.level).filter(x=>x.id!==item.id),3).map(x=>x.tokens.join(' '));
       questions.push({id:'sentence:'+item.id,kind:'sentence',level:item.level,prompt:item.meaning,question:'Choose the correctly ordered Japanese sentence for this meaning.',options:shuffle([correct,...alternatives]),answer:correct,explanation:item.sentence+' — '+item.meaning+' '+item.tip});
     }
-    return NextResponse.json({questions:shuffle(questions).map(({answer,explanation,...q})=>q)}, {headers:{'Cache-Control':'private, no-store'}});
+    return NextResponse.json({questions:shuffle(questions).map(q=>({id:q.id,kind:q.kind,level:q.level,prompt:q.prompt,question:q.question,options:q.options}))}, {headers:{'Cache-Control':'private, no-store'}});
   } catch(error) { return jsonError(error); }
 }
 
