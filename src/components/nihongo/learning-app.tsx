@@ -692,6 +692,7 @@ export default function LearningApp({ section = [] }: Props) {
       setActivityTrackingNotice(result.message);
       return;
     }
+    window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     authGenerationRef.current += 1;
     setAuthViewKey((current) => current + 1);
     setSignedIn(false);
