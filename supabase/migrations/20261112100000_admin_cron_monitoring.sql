@@ -45,6 +45,11 @@ begin
    order by d.start_time desc
    limit 1;
 
+  if not found then
+    v_cron_run_id := null;
+    v_started_at := clock_timestamp();
+  end if;
+
   delete from public.user_activity_heartbeat_requests
    where created_at < clock_timestamp() - interval '8 days';
   get diagnostics v_deleted = row_count;
