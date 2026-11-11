@@ -49,7 +49,7 @@ test('Quick Revision is remounted per authenticated session and hidden when sign
 
 test('question and answer endpoints remain protected by server-verified Supabase auth', () => {
   assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
-  assert.match(supabaseServer, /supabase\.auth\.getUser\(\)/);
+  assert.ok(supabaseServer.includes('if (error || !data.user || data.user.is_anonymous)'));
   assert.match(supabaseServer, /if \(error \|\| !data\.user\)/);
 });
 
