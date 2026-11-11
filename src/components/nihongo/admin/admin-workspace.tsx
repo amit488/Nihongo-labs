@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import styles from './admin.module.css';
 
-type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics' | 'database';
+type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics' | 'database' | 'cron';
 type ActivityDay = {
   date: string;
   label: string;
@@ -95,11 +95,12 @@ type DatabaseHealth = {
   estimated_row_count: number;
   tables: DatabaseTable[];
   generated_at: string;
-  cron_monitoring: CronMonitoring;
 };
 type AdminData = {
   generatedAt?: string;
   database?: DatabaseHealth;
+  cron_monitoring?: CronMonitoring;
+  selected_limit?: string;
   metrics?: AdminMetrics;
   content?: Record<string, number>;
   weeklyActivity?: ActivityDay[];
@@ -125,6 +126,7 @@ const headings: Record<Section, { eyebrow: string; title: string; description: s
   inbox: { eyebrow: 'CUSTOMER EXPERIENCE', title: 'Contact & support inbox', description: 'Review suggestions, complaints and support requests from your learners.' },
   analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },
   database: { eyebrow: 'DATABASE OPERATIONS', title: 'Database health', description: 'Monitor storage consumption, table inventory and the largest data tables.' },
+  cron: { eyebrow: 'SCHEDULED MAINTENANCE', title: 'Cron job runs', description: 'Review scheduled database jobs, execution results and cleanup counts in Indian Standard Time.' },
 };
 
 function money(minor: number, currency = 'INR') {
@@ -181,6 +183,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
   const [search, setSearch] = useState('');
   const [userPage, setUserPage] = useState(1);
   const [updatingId, setUpdatingId] = useState('');
+  const [cronRunLimit, setCronRunLimit] = useState('10');
   const heading = headings[section];
   const users = data?.users ?? [];
   const payments = section === 'payments' ? data?.payments ?? [] : data?.recentPayments ?? [];
@@ -195,7 +198,9 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         ? '/api/admin/overview'
         : section === 'database'
           ? '/api/admin/database'
-          : section === 'users'
+          : section === 'cron'
+            ? '/api/admin/database/cron?limit=' + cronRunLimit
+            : section === 'users'
           ? '/api/admin/users?page=' + requestedPage + '&perPage=25' + (term ? '&q=' + encodeURIComponent(term) : '')
           : section === 'payments'
             ? '/api/admin/payments'
@@ -203,14 +208,20 @@ export default function AdminWorkspace({ section }: { section: Section }) {
       const response = await fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' });
       const body = await response.json() as AdminData;
       if (!response.ok) throw new Error(body.error || 'Could not load administrator data.');
-      setData(section === 'database' ? { database: body as unknown as DatabaseHealth, generatedAt: (body as unknown as DatabaseHealth).generated_at } : body);
+      if (section === 'database') {
+        setData({ database: body as unknown as DatabaseHealth, generatedAt: (body as unknown as DatabaseHealth).generated_at });
+      } else if (section === 'cron') {
+        setData({ cron_monitoring: body.cron_monitoring as CronMonitoring, generatedAt: body.generated_at, selected_limit: body.selected_limit });
+      } else {
+        setData(body);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load administrator data.');
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [section]);
+  }, [section, cronRunLimit]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
