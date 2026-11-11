@@ -52,3 +52,21 @@ test('admin index migration is additive and idempotent', () => {
   assert.ok(migration.includes('create index if not exists payments_created_at_admin_idx'));
   assert.ok(migration.includes('create index if not exists user_daily_activity_date_admin_idx'));
 });
+
+
+test('database health API is protected and the inventory RPC is service-role-only', () => {
+  const route = read('src/app/api/admin/database/route.ts');
+  const migration = read('supabase/migrations/20261112090000_admin_database_health.sql');
+  const workspace = read('src/components/nihongo/admin/admin-workspace.tsx');
+  const shell = read('src/components/nihongo/admin/admin-shell.tsx');
+  assert.match(route, /requireAdminApi/);
+  assert.match(route, /createAdminSupabase/);
+  assert.match(route, /get_admin_database_health/);
+  assert.match(route, /Cache-Control.*private, no-store/);
+  assert.match(migration, /security definer/);
+  assert.match(migration, /revoke all on function public\.get_admin_database_health\(\) from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.get_admin_database_health\(\) to service_role/);
+  assert.match(workspace, /Database storage used/);
+  assert.match(workspace, /estimated_rows/);
+  assert.match(shell, /\/admin\/database/);
+});
