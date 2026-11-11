@@ -128,6 +128,8 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(quickRevision.includes('sessionElapsedMs: sessionElapsedMilliseconds.current'));
   assert.ok(quickRevision.includes("window.addEventListener('blur', handleEligibilityChange)"));
   assert.ok(quickRevision.includes("window.addEventListener('focus', handleEligibilityChange)"));
+  assert.ok(quickRevision.includes("window.addEventListener('nihongo:study-section-changed', handleSectionChange)"));
+  assert.ok(quickRevision.includes("window.dispatchEvent(new Event('nihongo:study-section-changed'))"));
   assert.ok(quickRevision.includes('}, [signedIn]);'));
   assert.ok(!quickRevision.includes('Start Quick Revision'));
   assert.ok(!quickRevision.includes('loadQuestionRef'));
