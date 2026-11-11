@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './learning-app.module.css';
 import { JlptLevelSwitch, SectionHeading, type JlptLevel } from './learning-shared';
 import { getSentenceConstructionItems } from '@/lib/nihongo/sentence-construction-bank';
@@ -76,8 +77,10 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const resettingRef = useRef(false);
   const [resetError, setResetError] = useState('');
   const resetCancelRef = useRef<HTMLButtonElement>(null);
+  const resetConfirmRef = useRef<HTMLButtonElement>(null);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const current = items[index] ?? null;
@@ -116,17 +119,36 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
   useEffect(() => {
     if (!showResetConfirm) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     resetCancelRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !resetting) {
+      if (event.key === 'Escape' && !resettingRef.current) {
         setShowResetConfirm(false);
         setResetError('');
+        return;
+      }
+      if (event.key === 'Tab') {
+        const first = resetCancelRef.current;
+        const last = resetConfirmRef.current;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showResetConfirm, resetting]);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [showResetConfirm]);
 
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
@@ -220,6 +242,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
   async function resetProgress() {
     if (!signedIn || saving || resetting) return;
+    resettingRef.current = true;
     setResetting(true);
     setResetError('');
 
@@ -245,6 +268,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     } catch (error) {
       setResetError(error instanceof Error ? error.message : 'Sentence construction progress could not be reset.');
     } finally {
+      resettingRef.current = false;
       setResetting(false);
     }
   }
@@ -272,54 +296,60 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
           type="button"
           className={styles.sentenceResetButton}
           onClick={() => { setResetError(''); setShowResetConfirm(true); }}
-          disabled={!progressLoaded || saving || resetting}
+          disabled={saving || resetting}
           aria-haspopup="dialog"
-        >Reset progress</button> : null}
+          aria-expanded={showResetConfirm}
+        >
+          <span aria-hidden="true">↺</span> Reset progress
+        </button> : null}
       </div>}
     />
-    {showResetConfirm ? <div
-      className={styles.sentenceResetOverlay}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !resetting) {
-          setShowResetConfirm(false);
-          setResetError('');
-        }
-      }}
-    >
-      <section
-        className={styles.sentenceResetDialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sentence-reset-title"
-        aria-describedby="sentence-reset-description"
+    {showResetConfirm && typeof document !== 'undefined' ? createPortal(
+      <div
+        className={styles.sentenceResetOverlay}
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !resettingRef.current) {
+            setShowResetConfirm(false);
+            setResetError('');
+          }
+        }}
       >
-        <span className={styles.sentenceResetEyebrow}>SENTENCE CONSTRUCTION</span>
-        <h2 id="sentence-reset-title">Reset all sentence progress?</h2>
-        <p id="sentence-reset-description">
-          This permanently deletes all saved sentence attempts and solved questions for both N5 and N4.
-          Sentence accuracy, solved counts and attempts in My Progress and Learning Intelligence will return to zero, and sentence-derived grammar insights will be recalculated.
-          Your other grammar, vocabulary, kanji, lesson and quiz records will not be deleted. This action cannot be undone.
-        </p>
-        {resetError ? <p className={styles.sentenceResetError} role="alert">{resetError}</p> : null}
-        <div className={styles.sentenceResetActions}>
-          <button
-            type="button"
-            className={styles.ghostButton}
-            ref={resetCancelRef}
-            onClick={() => { setShowResetConfirm(false); setResetError(''); }}
-            disabled={resetting}
-          >Cancel</button>
-          <button
-            type="button"
-            className={styles.sentenceResetConfirmButton}
-            onClick={() => void resetProgress()}
-            disabled={resetting}
-          >{resetting ? 'Resetting…' : 'Yes, reset progress'}</button>
-        </div>
-      </section>
-    </div> : null}
+        <section
+          className={styles.sentenceResetDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sentence-reset-title"
+          aria-describedby="sentence-reset-description"
+        >
+          <span className={styles.sentenceResetEyebrow}>SENTENCE CONSTRUCTION</span>
+          <h2 id="sentence-reset-title">Reset all sentence progress?</h2>
+          <p id="sentence-reset-description">
+            This permanently deletes all saved sentence attempts and solved questions for both N5 and N4.
+            Sentence accuracy, solved counts and attempts in My Progress and Learning Intelligence will return to zero, and sentence-derived grammar insights will be recalculated.
+            Your other grammar, vocabulary, kanji, lesson and quiz records will not be deleted. This action cannot be undone.
+          </p>
+          {resetError ? <p className={styles.sentenceResetError} role="alert">{resetError}</p> : null}
+          <div className={styles.sentenceResetActions}>
+            <button
+              type="button"
+              className={styles.ghostButton}
+              ref={resetCancelRef}
+              onClick={() => { setShowResetConfirm(false); setResetError(''); }}
+              disabled={resetting}
+            >Cancel</button>
+            <button
+              type="button"
+              className={styles.sentenceResetConfirmButton}
+              ref={resetConfirmRef}
+              onClick={() => void resetProgress()}
+              disabled={resetting}
+            >{resetting ? 'Resetting…' : 'Yes, reset progress'}</button>
+          </div>
+        </section>
+      </div>,
+      document.body,
+    ) : null}
   </>;
-
   if (signedIn && !progressLoaded) {
     return <div className={styles.sentenceWorkspace}>
       {heading}
