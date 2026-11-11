@@ -93,10 +93,9 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
 
     const isSectionExcluded = () =>
       activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams';
-    const isSessionEligible = () =>
-      !isSectionExcluded() &&
-      document.visibilityState === 'visible' &&
-      document.hasFocus();
+    const isBrowserTabActive = () =>
+      document.visibilityState === 'visible' && document.hasFocus();
+    const isSessionEligible = () => !isSectionExcluded() && isBrowserTabActive();
     const isRevisionEligible = () =>
       isSessionEligible() &&
       !dialogOpen.current &&
@@ -143,7 +142,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     const writeTimerState = (now: number) => {
       // A hidden or unfocused tab must never overwrite the foreground tab's
       // newer shared timer snapshot with stale data.
-      const shouldPersist = wasSessionCounting || isSessionEligible() || wasRevisionCounting || isRevisionEligible();
+      const shouldPersist = isBrowserTabActive() || wasSessionCounting || wasRevisionCounting;
       if (shouldPersist) {
         try {
           window.localStorage.setItem(timerStorageKey, JSON.stringify({
