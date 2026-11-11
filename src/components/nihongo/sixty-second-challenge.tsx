@@ -3,214 +3,80 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './sixty-second-challenge.module.css';
 
-type RevisionQuestion = {
-  contentType: 'vocabulary' | 'kanji' | 'grammar';
-  contentId: string;
-  level: string;
-  question: string;
-  prompt: string;
-  options: string[];
-};
+type ChallengeQuestion = { id:string; kind:'vocabulary'|'kanji'|'grammar'|'hiragana'|'katakana'|'sentence'; level:string; prompt:string; question:string; options:string[] };
+type Answer = { questionId:string; selectedOption:string };
+type Scorecard = { id:string; created_at:string; scorePercentage:number; totalAnswered:number; totalCorrect:number; categories:Record<string,{answered:number;correct:number}>; review:Array<{kind:string;level:string;question:string;prompt:string;selected:string;correctAnswer:string;correct:boolean;explanation:string}> };
+const CHALLENGE_MS=60_000, AUTO_MIN_MS=7*60_000, AUTO_RANGE_MS=6*60_000;
+const nextAutoDelay=()=>AUTO_MIN_MS+Math.floor(Math.random()*AUTO_RANGE_MS);
 
-type RevisionAnswer = {
-  isCorrect: boolean;
-  didNotRemember: boolean;
-  correctAnswer: string;
-  explanation: string;
-};
-
-const CHALLENGE_MS = 60_000;
-const AUTO_MIN_MS = 7 * 60_000;
-const AUTO_RANGE_MS = 6 * 60_000;
-
-function nextAutoDelay() {
-  return AUTO_MIN_MS + Math.floor(Math.random() * AUTO_RANGE_MS);
-}
-
-export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn: boolean; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [question, setQuestion] = useState<RevisionQuestion | null>(null);
-  const [selected, setSelected] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(60);
-  const [answered, setAnswered] = useState(0);
-  const [correct, setCorrect] = useState(0);
-  const [feedback, setFeedback] = useState<RevisionAnswer | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const deadlineRef = useRef(0);
-  const targetAutoRef = useRef(nextAutoDelay());
-  const activeTimeRef = useRef(0);
-  const busyRef = useRef(false);
-  const openRef = useRef(false);
-  const startChallengeRef = useRef<() => void>(() => undefined);
-  const finishChallengeRef = useRef<() => void>(() => undefined);
-
-  useEffect(() => { openRef.current = open; }, [open]);
-
-  useEffect(() => {
-    if (!signedIn || disabled) return;
-    let last = performance.now();
-    const interval = window.setInterval(() => {
-      const now = performance.now();
-      const elapsed = Math.min(1500, Math.max(0, now - last));
-      last = now;
-      if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
-      if (openRef.current) {
-        const remaining = Math.max(0, deadlineRef.current - Date.now());
-        setSecondsLeft(Math.ceil(remaining / 1000));
-        if (remaining <= 0) finishChallengeRef.current();
-        return;
-      }
-      if (document.querySelector('[role="dialog"]')) return;
-      activeTimeRef.current += elapsed;
-      if (activeTimeRef.current >= targetAutoRef.current) {
-        activeTimeRef.current = 0;
-        targetAutoRef.current = nextAutoDelay();
-        startChallengeRef.current();
-      }
-    }, 250);
-    return () => window.clearInterval(interval);
-  }, [signedIn, disabled]);
-
-  const loadQuestion = useCallback(async () => {
-    const response = await fetch('/api/learning/quick-revision?view=question', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
-    const body = await response.json().catch(() => ({})) as {
-      available?: boolean;
-      question?: RevisionQuestion;
-      reason?: string;
-      error?: string;
-    };
-    if (!response.ok) throw new Error(body.error || 'Could not load a challenge question.');
-    if (!body.available || !body.question) {
-      throw new Error(body.reason === 'no-learned-items'
-        ? 'Mark vocabulary as learned, kanji as known or grammar as understood to unlock questions.'
-        : 'There are not enough published answer choices for your learned items yet.');
+export function SixtySecondChallenge({signedIn,disabled=false}:{signedIn:boolean;disabled?:boolean}) {
+  const [open,setOpen]=useState(false),[questions,setQuestions]=useState<ChallengeQuestion[]>([]),[index,setIndex]=useState(0),[selected,setSelected]=useState(''),[secondsLeft,setSecondsLeft]=useState(60),[answers,setAnswers]=useState<Answer[]>([]),[scorecard,setScorecard]=useState<Scorecard|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
+  const deadlineRef=useRef(0),targetAutoRef=useRef(nextAutoDelay()),activeTimeRef=useRef(0),busyRef=useRef(false),openRef=useRef(false),startRef=useRef<()=>void>(()=>undefined),finishRef=useRef<()=>void>(()=>undefined),answersRef=useRef<Answer[]>([]);
+  useEffect(()=>{openRef.current=open;},[open]);
+  const finish=useCallback(async()=>{
+    if(!openRef.current||busyRef.current)return;
+    openRef.current=false;setOpen(false);setLoading(true);
+    const finalAnswers=answersRef.current;
+    if(finalAnswers.length){
+      try{
+        const response=await fetch('/api/learning/sixty-second-challenge',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({answers:finalAnswers,durationSeconds:Math.min(60,Math.max(0,Math.round((Date.now()-(deadlineRef.current-CHALLENGE_MS))/1000)))})});
+        const body=await response.json();
+        if(!response.ok)throw new Error(body.error||'Could not save your scorecard.');
+        setScorecard(body.attempt as Scorecard);
+      }catch(cause){setError(cause instanceof Error?cause.message:'Could not save your scorecard.');}
     }
-    setQuestion(body.question);
-    setSelected('');
-    setFeedback(null);
-  }, []);
-
-  const startChallenge = useCallback(async () => {
-    if (!signedIn || disabled || busyRef.current || openRef.current) return;
-    busyRef.current = true;
-    setLoading(true);
-    setError('');
-    setAnswered(0);
-    setCorrect(0);
-    setSecondsLeft(60);
-    deadlineRef.current = Date.now() + CHALLENGE_MS;
-    try {
-      await loadQuestion();
-      setOpen(true);
-      openRef.current = true;
-      activeTimeRef.current = 0;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The challenge is unavailable right now.');
-    } finally {
-      busyRef.current = false;
-      setLoading(false);
-    }
-  }, [signedIn, disabled, loadQuestion]);
-
-  async function submitAnswer() {
-    if (!question || !selected || busyRef.current || Date.now() >= deadlineRef.current) return;
-    busyRef.current = true;
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch('/api/learning/quick-revision', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contentType: question.contentType,
-          contentId: question.contentId,
-          selectedOption: selected,
-          didNotRemember: false,
-          responseTimeMs: 0,
-        }),
-      });
-      const body = await response.json().catch(() => ({})) as RevisionAnswer & { error?: string };
-      if (!response.ok) throw new Error(body.error || 'Your answer could not be saved.');
-      setAnswered((value) => value + 1);
-      setCorrect((value) => value + (body.isCorrect ? 1 : 0));
-      setFeedback(body);
-      window.dispatchEvent(new Event('nihongo:quick-revision-updated'));
-      await new Promise((resolve) => window.setTimeout(resolve, 350));
-      if (Date.now() < deadlineRef.current) await loadQuestion();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Your answer could not be saved.');
-    } finally {
-      busyRef.current = false;
-      setLoading(false);
-    }
-  }
-
-  const finishChallenge = useCallback(() => {
-    if (!openRef.current) return;
-    openRef.current = false;
-    setOpen(false);
-    setQuestion(null);
-    setSelected('');
-    setFeedback(null);
-    activeTimeRef.current = 0;
-    targetAutoRef.current = nextAutoDelay();
-  }, []);
-
-  useEffect(() => {
-    startChallengeRef.current = () => { void startChallenge(); };
-    finishChallengeRef.current = finishChallenge;
-  }, [startChallenge, finishChallenge]);
-
-  if (!signedIn || disabled) return null;
-
-  return (
-    <>
-      <button type="button" className={styles.launcher} onClick={() => void startChallenge()} disabled={loading || open}>
-        <span aria-hidden="true">◷</span> 60-second challenge
-      </button>
-      {error && !open ? <p className={styles.toast} role="status">{error}</p> : null}
-      {open ? (
-        <div className={styles.backdrop}>
-          <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="sixty-title">
-            <header className={styles.header}>
-              <div><span className={styles.eyebrow}>NIHONGO LABS · QUICK REVISION</span><h2 id="sixty-title">60-second challenge</h2></div>
-              <div className={styles.timer} aria-live="off">{secondsLeft}<small>SEC</small></div>
-            </header>
-            <div className={styles.progressTrack}><span style={{ width: `${(secondsLeft / 60) * 100}%` }} /></div>
-            <div className={styles.scoreRow}><span>{question?.level} · {question?.contentType}</span><strong>{correct} correct <i>·</i> {answered} answered</strong></div>
-            {question ? (
-              <>
-                <h3>{question.question}</h3>
-                <div className={styles.prompt}>{question.prompt}</div>
-                <div className={styles.options}>
-                  {question.options.map((option, index) => (
-                    <button type="button" key={`${option}-${index}`} onClick={() => setSelected(option)}
-                      className={selected === option ? styles.selected : ''} disabled={loading}>
-                      <span>{String.fromCharCode(65 + index)}</span>{option}
-                    </button>
-                  ))}
-                </div>
-                {feedback ? <p className={feedback.isCorrect ? styles.correct : styles.incorrect} role="status">
-                  {feedback.isCorrect ? 'Correct!' : `Answer: ${feedback.correctAnswer}`}
-                </p> : null}
-                {error ? <p className={styles.error} role="alert">{error}</p> : null}
-                <footer className={styles.actions}>
-                  <span>Keep going — every second counts.</span>
-                  <button type="button" onClick={() => void submitAnswer()} disabled={!selected || loading}>
-                    {loading ? 'Checking…' : 'Answer →'}
-                  </button>
-                </footer>
-              </>
-            ) : null}
-            <button type="button" className={styles.endButton} onClick={finishChallenge}>End challenge</button>
-          </section>
-        </div>
-      ) : null}
-    </>
-  );
+    setLoading(false);setQuestions([]);setSelected('');activeTimeRef.current=0;targetAutoRef.current=nextAutoDelay();
+  },[]);
+  useEffect(()=>{finishRef.current=()=>{void finish();};},[finish]);
+  const start=useCallback(async()=>{
+    if(!signedIn||disabled||busyRef.current||openRef.current)return;
+    busyRef.current=true;setLoading(true);setError('');setScorecard(null);setAnswers([]);answersRef.current=[];setIndex(0);setSecondsLeft(60);
+    try{
+      const response=await fetch('/api/learning/sixty-second-challenge',{credentials:'same-origin',cache:'no-store'});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'Could not load challenge questions.');
+      const list=(body.questions??[]) as ChallengeQuestion[];
+      if(!list.length)throw new Error('Start learning vocabulary, kanji and grammar to unlock your challenge. Kana and sentence practice will also appear as you study.');
+      setQuestions(list);deadlineRef.current=Date.now()+CHALLENGE_MS;setOpen(true);openRef.current=true;activeTimeRef.current=0;
+    }catch(cause){setError(cause instanceof Error?cause.message:'The challenge is unavailable.');}
+    finally{busyRef.current=false;setLoading(false);}
+  },[signedIn,disabled]);
+  useEffect(()=>{
+    startRef.current=()=>{void start();};
+  },[start]);
+  useEffect(()=>{
+    if(!signedIn||disabled)return;
+    let last=performance.now();
+    const timer=window.setInterval(()=>{
+      const now=performance.now(),elapsed=Math.min(1500,Math.max(0,now-last));last=now;
+      if(document.visibilityState!=='visible'||!document.hasFocus())return;
+      if(openRef.current){const remaining=Math.max(0,deadlineRef.current-Date.now());setSecondsLeft(Math.ceil(remaining/1000));if(remaining<=0)finishRef.current();return;}
+      if(document.querySelector('[role="dialog"]'))return;
+      activeTimeRef.current+=elapsed;
+      if(activeTimeRef.current>=targetAutoRef.current){activeTimeRef.current=0;targetAutoRef.current=nextAutoDelay();startRef.current();}
+    },250);
+    return()=>window.clearInterval(timer);
+  },[signedIn,disabled]);
+  const choose=(option:string)=>{
+    if(!questions[index]||loading||Date.now()>=deadlineRef.current)return;
+    const answer={questionId:questions[index].id,selectedOption:option};
+    const next=[...answersRef.current,answer];answersRef.current=next;setAnswers(next);setSelected('');
+    if(index+1>=questions.length){void finish();return;}
+    setIndex(index+1);
+  };
+  const current=questions[index];
+  if(!signedIn||disabled)return null;
+  return <>
+    <button type="button" className={styles.launcher} onClick={()=>void start()} disabled={loading||open}><span aria-hidden="true">◷</span> 60-second challenge</button>
+    {error&&!open?<p className={styles.toast} role="status">{error}</p>:null}
+    {scorecard&&!open?<div className={styles.resultToast} role="status"><strong>{scorecard.scorePercentage}% · {scorecard.totalCorrect}/{scorecard.totalAnswered} correct</strong><span>Scorecard saved in My Progress.</span><button type="button" onClick={()=>setScorecard(null)}>Dismiss</button></div>:null}
+    {open&&current?<div className={styles.backdrop}><section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="sixty-title">
+      <header className={styles.header}><div><span className={styles.eyebrow}>NIHONGO LABS · MIXED-SKILL REVISION</span><h2 id="sixty-title">60-second challenge</h2></div><div className={styles.timer}>{secondsLeft}<small>SEC</small></div></header>
+      <div className={styles.progressTrack}><span style={{width:(secondsLeft/60*100)+'%'}}/></div>
+      <div className={styles.scoreRow}><span>{current.level} · {current.kind}</span><strong>{answers.length} answered <i>·</i> move quickly</strong></div>
+      <h3>{current.question}</h3><div className={styles.prompt}>{current.prompt}</div>
+      <div className={styles.options}>{current.options.map((option,i)=><button type="button" key={i} onClick={()=>choose(option)} disabled={loading}><span>{String.fromCharCode(65+i)}</span>{option}</button>)}</div>
+      <footer className={styles.actions}><span>Question {index+1} · {questions.length} in this round</span><button type="button" onClick={()=>void finish()}>Finish now</button></footer>
+    </section></div>:null}
+  </>;
 }
