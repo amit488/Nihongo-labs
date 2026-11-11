@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './sixty-second-challenge.module.css';
 
-type ChallengeQuestion = { id:string; kind:'vocabulary'|'kanji'|'grammar'|'hiragana'|'katakana'|'sentence'; level:string; prompt:string; question:string; options:string[] };
+type ChallengeQuestion = { id:string; kind:'vocabulary'|'verb'|'kana-word'|'kanji'|'grammar'|'hiragana'|'katakana'|'sentence'; level:string; prompt:string; question:string; options:string[] };
 type Answer = { questionId:string; selectedOption:string };
 type Scorecard = { id:string; created_at:string; scorePercentage:number; totalAnswered:number; totalCorrect:number; categories:Record<string,{answered:number;correct:number}>; review:Array<{kind:string;level:string;question:string;prompt:string;selected:string;correctAnswer:string;correct:boolean;explanation:string}> };
 const CHALLENGE_MS=60_000, AUTO_MIN_MS=7*60_000, AUTO_RANGE_MS=6*60_000;
