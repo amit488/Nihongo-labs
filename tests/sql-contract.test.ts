@@ -84,14 +84,19 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   const component = readFileSync(componentPath, 'utf8');
   assert.match(component, /localStorage\.setItem\(storageKey/);
   assert.match(component, /navigator as unknown as \{ locks\?: BrowserLockManager \}/);
-  assert.match(component, /visibilitychange/);
   assert.match(component, /pagehide/);
-  assert.match(component, /sendPendingTime\(true\)/);
-  assert.match(component, /crypto\.randomUUID\(\)/);
-  assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
-  assert.match(component, /studyTimerRef = useRef<HTMLSpanElement>\(null\)/);
-  assert.match(component, /studyTimerRef\.current\.textContent = `Study · \$\{minutes\}:/);
-  assert.match(component, /<span ref=\{studyTimerRef\} className=/);
+  assert.match(component, /sendPendingTime\\(true\\)/);
+  assert.match(component, /crypto\\.randomUUID\\(\\)/);
+  assert.doesNotMatch(component, /inactivityLimitMilliseconds/);
+  assert.doesNotMatch(component, /document\\.hasFocus\\(\\)/);
+  assert.doesNotMatch(component, /document\\.visibilityState === 'visible'/);
+  assert.match(component, /studyTimerRef = useRef<HTMLSpanElement>\\(null\\)/);
+  assert.match(component, /nihongo-labs:study-session:v1:/);
+  assert.match(component, /elapsedMilliseconds/);
+  assert.match(component, /isExcludedStudySection = active === 'reading' \\|\\| active === 'exams'/);
+  assert.match(component, /isExcludedStudySection \\? 0 : Math\\.floor\\(sessionMilliseconds \\/ 1000\\)/);
+  assert.match(component, /studyTimerRef\\.current\\.textContent = `Study · \\$\\{minutes\\}:/);
+  assert.match(component, /<span ref=\\{studyTimerRef\\} className=/);
   assert.doesNotMatch(component, /setLiveStudySeconds/);
 });
 
