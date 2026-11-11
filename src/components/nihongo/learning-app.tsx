@@ -664,7 +664,7 @@ export default function LearningApp({ section = [] }: Props) {
       window.removeEventListener('pagehide', handlePageHide);
       stopActiveLoop?.();
     };
-  }, [signedIn, active]);
+  }, [signedIn, active, isExcludedStudySection]);
 
   const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', sentences: 'Sentence construction lab', progress: 'Your progress', plans: 'Learning plans', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
