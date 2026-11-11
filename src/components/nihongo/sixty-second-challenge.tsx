@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './sixty-second-challenge.module.css';
 
 type RevisionQuestion = {
@@ -68,9 +68,9 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
       }
     }, 250);
     return () => window.clearInterval(interval);
-  }, [signedIn, disabled]);
+  }, [signedIn, disabled, startChallenge, finishChallenge]);
 
-  async function loadQuestion() {
+  const loadQuestion = useCallback(async () => {
     const response = await fetch('/api/learning/quick-revision?view=question', {
       credentials: 'same-origin',
       cache: 'no-store',
@@ -90,9 +90,9 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
     setQuestion(body.question);
     setSelected('');
     setFeedback(null);
-  }
+  }, []);
 
-  async function startChallenge() {
+  const startChallenge = useCallback(async () => {
     if (!signedIn || disabled || busyRef.current || openRef.current) return;
     busyRef.current = true;
     setLoading(true);
@@ -112,7 +112,7 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
       busyRef.current = false;
       setLoading(false);
     }
-  }
+  }, [signedIn, disabled, loadQuestion]);
 
   async function submitAnswer() {
     if (!question || !selected || busyRef.current || Date.now() >= deadlineRef.current) return;
@@ -148,7 +148,7 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
     }
   }
 
-  function finishChallenge() {
+  const finishChallenge = useCallback(() => {
     if (!openRef.current) return;
     openRef.current = false;
     setOpen(false);
@@ -157,7 +157,7 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
     setFeedback(null);
     activeTimeRef.current = 0;
     targetAutoRef.current = nextAutoDelay();
-  }
+  }, []);
 
   if (!signedIn || disabled) return null;
 
