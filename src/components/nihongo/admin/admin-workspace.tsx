@@ -98,6 +98,7 @@ type DatabaseHealth = {
 };
 type AdminData = {
   generatedAt?: string;
+  generated_at?: string;
   database?: DatabaseHealth;
   cron_monitoring?: CronMonitoring;
   selected_limit?: string;
