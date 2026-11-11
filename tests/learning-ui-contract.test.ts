@@ -130,7 +130,7 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(quickRevision.includes("window.addEventListener('focus', handleEligibilityChange)"));
   assert.ok(quickRevision.includes("window.addEventListener('nihongo:study-section-changed', handleSectionChange)"));
   assert.ok(quickRevision.includes("window.dispatchEvent(new Event('nihongo:study-section-changed'))"));
-  assert.ok(quickRevision.includes('}, [signedIn]);'));
+  assert.ok(quickRevision.includes('}, [signedIn, sessionId]);'));
   assert.ok(!quickRevision.includes('Start Quick Revision'));
   assert.ok(!quickRevision.includes('loadQuestionRef'));
   assert.ok(!quickRevision.includes('disabled?: boolean'));
@@ -151,6 +151,9 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(learningApp.includes('nihongo:quick-revision:timer:v1'));
   assert.ok(learningApp.includes('nihongo:quick-revision-timer'));
   assert.ok(learningApp.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
+  const adminShell = readFileSync(resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'), 'utf8');
+  assert.ok(adminShell.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
+
   assert.ok(learningApp.includes('isExcludedStudySection ? 0 :'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
