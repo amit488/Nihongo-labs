@@ -34,8 +34,8 @@ test('a sign-out invalidates pending auth checks so they cannot re-enable Quick 
   assert.match(globalController, /window\.addEventListener\('nihongo:auth-signed-out', handleAppSignOut\)/);
 });
 
-test('Quick Revision discards an open prompt and its result when authentication ends', () => {
-  assert.match(quickRevision, /if \(signedIn && sessionId\) return;[\s\S]*?setQuestion\(null\);[\s\S]*?setSelected\(''\);[\s\S]*?setResult\(null\);/);
+test('Quick Revision is remounted per authenticated session and hidden when signed out', () => {
+  assert.match(globalController, /key=\{signedIn && sessionId \? sessionId : 'signed-out'\}/);
   assert.match(quickRevision, /if \(!signedIn \|\| !sessionId\) return null;/);
 });
 
