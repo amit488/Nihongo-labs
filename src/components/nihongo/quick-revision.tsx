@@ -50,6 +50,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
 
   useEffect(() => {
     activeSectionRef.current = activeSection;
+    window.dispatchEvent(new Event('nihongo:study-section-changed'));
   }, [activeSection]);
   const timerStorageKey = 'nihongo:quick-revision:timer:v1';
 
@@ -200,6 +201,8 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     };
 
     const handleEligibilityChange = () => checkpoint(Date.now());
+    const handleSectionChange = () => checkpoint(Date.now());
+    window.addEventListener('nihongo:study-section-changed', handleSectionChange);
     document.addEventListener('visibilitychange', handleEligibilityChange);
     window.addEventListener('focus', handleEligibilityChange);
     window.addEventListener('blur', handleEligibilityChange);
@@ -270,6 +273,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
       window.removeEventListener('storage', syncFromOtherTab);
+      window.removeEventListener('nihongo:study-section-changed', handleSectionChange);
     };
   }, [signedIn]);
 
