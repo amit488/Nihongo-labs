@@ -42,6 +42,8 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
   const activeTimeRef = useRef(0);
   const busyRef = useRef(false);
   const openRef = useRef(false);
+  const startChallengeRef = useRef<() => void>(() => undefined);
+  const finishChallengeRef = useRef<() => void>(() => undefined);
 
   useEffect(() => { openRef.current = open; }, [open]);
 
@@ -56,7 +58,7 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
       if (openRef.current) {
         const remaining = Math.max(0, deadlineRef.current - Date.now());
         setSecondsLeft(Math.ceil(remaining / 1000));
-        if (remaining <= 0) finishChallenge();
+        if (remaining <= 0) finishChallengeRef.current();
         return;
       }
       if (document.querySelector('[role="dialog"]')) return;
@@ -64,11 +66,11 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
       if (activeTimeRef.current >= targetAutoRef.current) {
         activeTimeRef.current = 0;
         targetAutoRef.current = nextAutoDelay();
-        void startChallenge();
+        startChallengeRef.current();
       }
     }, 250);
     return () => window.clearInterval(interval);
-  }, [signedIn, disabled, startChallenge, finishChallenge]);
+  }, [signedIn, disabled]);
 
   const loadQuestion = useCallback(async () => {
     const response = await fetch('/api/learning/quick-revision?view=question', {
@@ -158,6 +160,9 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
     activeTimeRef.current = 0;
     targetAutoRef.current = nextAutoDelay();
   }, []);
+
+  startChallengeRef.current = () => { void startChallenge(); };
+  finishChallengeRef.current = finishChallenge;
 
   if (!signedIn || disabled) return null;
 
