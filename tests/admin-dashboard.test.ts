@@ -70,3 +70,46 @@ test('database health API is protected and the inventory RPC is service-role-onl
   assert.match(workspace, /estimated_rows/);
   assert.match(shell, /\/admin\/database/);
 });
+
+
+test('database health links to a separate, paginated Cron run history page', () => {
+  const databaseRoute = read('src/app/api/admin/database/route.ts');
+  const cronRoute = read('src/app/api/admin/database/cron/route.ts');
+  const initialMigration = read('supabase/migrations/20261112100000_admin_cron_monitoring.sql');
+  const historyMigration = read('supabase/migrations/20261112110000_admin_cron_monitoring_history_and_limit.sql');
+  const workspace = read('src/components/nihongo/admin/admin-workspace.tsx');
+  const cronPage = read('src/app/admin/database/cron/page.tsx');
+  const styles = read('src/components/nihongo/admin/admin.module.css');
+
+  assert.ok(databaseRoute.includes('get_admin_database_health'));
+  assert.ok(!databaseRoute.includes('get_admin_cron_monitoring'));
+  assert.ok(cronRoute.includes('requireAdminApi'));
+  assert.ok(cronRoute.includes('get_admin_cron_monitoring'));
+  assert.ok(cronRoute.includes('p_limit: databaseLimit'));
+  assert.ok(cronRoute.includes('Cache-Control'));
+  assert.ok(cronRoute.includes('private, no-store'));
+
+  assert.ok(initialMigration.includes('create table if not exists nihongo_admin_private.cron_job_run_audit'));
+  assert.ok(initialMigration.includes('get diagnostics v_deleted = row_count'));
+  assert.ok(initialMigration.includes('Every hour at minute 45 (IST)'));
+  assert.ok(historyMigration.includes('abs(extract(epoch from (a.started_at - r.start_time))) <= 60'));
+  assert.ok(historyMigration.includes('get_admin_cron_monitoring(p_limit integer)'));
+  assert.ok(historyMigration.includes('when p_limit = 0 then 1000'));
+  assert.ok(historyMigration.includes('r.return_message'));
+
+  assert.ok(workspace.includes('Cron job monitoring'));
+  assert.ok(workspace.includes('View job runs'));
+  assert.ok(workspace.includes('href="/admin/database/cron"'));
+  assert.ok(workspace.includes('id="cron-run-limit"'));
+  assert.ok(workspace.includes('Last 10'));
+  assert.ok(workspace.includes('Last 25'));
+  assert.ok(workspace.includes('Last 50'));
+  assert.ok(workspace.includes('All available'));
+  assert.ok(workspace.includes('Records deleted'));
+  assert.ok(workspace.includes('Error message'));
+  assert.ok(workspace.includes("timeZone: 'Asia/Kolkata'"));
+  assert.ok(cronPage.includes('section="cron"'));
+  assert.ok(styles.includes('cronToolbar'));
+  assert.ok(styles.includes('cronError'));
+  assert.ok(styles.includes('status_succeeded'));
+});

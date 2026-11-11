@@ -16,3 +16,16 @@
 
 /* Database inventory + shared Nihongo Labs typography scale. */
 .storageTrack{height:12px;overflow:hidden;border-radius:20px;background:#f0f1f3}.storageTrack span{display:block;height:100%;min-width:2px;border-radius:20px;background:linear-gradient(90deg,#bd665b,#d58b80)}.storageLegend{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#77848d;font-size:var(--type-size-caption)}.storageLegend strong{color:#394852;font-size:var(--type-size-secondary)}
+
+/* Cron execution monitoring. */
+.status_succeeded{background:#e9f5ee;color:#387b55}.status_running{background:#fff4e5;color:#9a6a1e}
+.cronJob{margin-top:18px;padding-top:18px;border-top:1px solid #edf0f2}.cronJob:first-of-type{margin-top:0;padding-top:0;border-top:0}
+.cronJobHeader{display:flex;align-items:center;justify-content:space-between;gap:14px}.cronJobHeader strong,.cronJobHeader small{display:block}.cronJobHeader strong{color:#293640;font-size:var(--type-size-body-large);overflow-wrap:anywhere}.cronJobHeader small{margin-top:4px;color:#89949c;font-size:var(--type-size-caption)}
+.cronSchedule{display:grid;gap:5px;margin:14px 0 20px;padding:13px 15px;border:1px solid #edf0f2;border-radius:8px;background:#f8f9fa}.cronSchedule span{color:#89949c;font-size:var(--type-size-caption);font-weight:700;letter-spacing:.7px;text-transform:uppercase}.cronSchedule strong{color:#293640;font-size:var(--type-size-body-large)}.cronSchedule small{color:#89949c;font-size:var(--type-size-caption);overflow-wrap:anywhere}
+.cronError{display:block;max-width:420px;color:#a94e45;white-space:normal;overflow-wrap:anywhere;line-height:1.5}.cronNoError{color:#a0a9af}
+@media(max-width:700px){.cronSchedule strong{font-size:var(--type-size-body)}.cronJobHeader{align-items:flex-start}}
+
+/* Database health → dedicated Cron execution-history navigation. */
+.cronViewLink,.cronBackLink{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid #e1e6e9;border-radius:7px;background:#fff;color:#a94e45;font-size:var(--type-size-secondary);font-weight:700;text-decoration:none;white-space:nowrap}.cronViewLink:hover,.cronBackLink:hover{background:#fbf4f2;border-color:#e8cbc7}
+.cronToolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border:1px solid #e8ebee;border-radius:9px;background:#fff}.cronToolbar label{display:flex;align-items:center;gap:10px;color:#5d6b74;font-size:var(--type-size-secondary);font-weight:650}.cronToolbar select{min-width:145px;padding:9px 30px 9px 10px;border:1px solid #dfe5e8;border-radius:7px;background:#fff;color:#293640;font:inherit;cursor:pointer}
+@media(max-width:700px){.cronToolbar{align-items:stretch;flex-direction:column}.cronToolbar label{justify-content:space-between}.cronToolbar select{min-width:0}}
