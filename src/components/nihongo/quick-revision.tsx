@@ -40,6 +40,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const questionStartedAt = useRef(0);
+  const loadQuestionRef = useRef<() => Promise<void>>(async () => undefined);
   const dialogRef = useRef<HTMLElement | null>(null);
   const responsePending = useRef(false);
   const dialogOpen = useRef(false);
@@ -68,16 +69,13 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       dialogOpen.current = false;
       return;
     }
-    if (disabled) return;
-
     let disposed = false;
     let lastSampleAt = performance.now();
     let requestInProgress = false;
 
-    // A visible, focused study workspace counts as active even while the learner
-    // is quietly reading. Time pauses when the tab is hidden or the window blurs.
-    const activeAndAvailable = () =>
-      document.visibilityState === 'visible' && document.hasFocus();
+    // Count visible study time. Browser window-focus APIs can be inconsistent,
+    // so learners can also start a revision manually.
+    const activeAndAvailable = () => document.visibilityState === 'visible';
 
 
     const loadQuestion = async () => {
@@ -123,6 +121,13 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
         requestInProgress = false;
       }
     };
+    loadQuestionRef.current = loadQuestion;
+
+    // Keep a manual launcher available in practice sections, but do not interrupt
+    // those focused exercises with the timed prompt.
+    if (disabled) {
+      return () => { disposed = true; };
+    }
 
     const interval = window.setInterval(() => {
       const now = performance.now();
@@ -183,9 +188,27 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     activeMilliseconds.current = 0;
   }
 
-  if (!signedIn || disabled) return null;
+  if (!signedIn) return null;
   if (!question) {
-    return error ? <div className={styles.errorToast} role="status" aria-live="polite">{error} Quick Revision will retry while you continue studying.</div> : null;
+    return (
+      <div className={styles.quickRevisionDock}>
+        {error ? <div className={styles.errorToast} role="status" aria-live="polite">{error}</div> : null}
+        <button
+          type="button"
+          className={styles.launcher}
+          disabled={loading}
+          onClick={() => void loadQuestionRef.current()}
+          aria-label="Start Quick Revision now"
+        >
+          <span className={styles.launcherMark} aria-hidden="true">復</span>
+          <span className={styles.launcherCopy}>
+            <strong>Quick Revision</strong>
+            <small>{loading ? 'Finding a question…' : 'Review a learned item now'}</small>
+          </span>
+          <span className={styles.launcherAction}>{loading ? '…' : 'Start →'}</span>
+        </button>
+      </div>
+    );
   }
 
   const resultTone = result ? (result.isCorrect && !result.didNotRemember ? 'correct' : 'incorrect') : '';
