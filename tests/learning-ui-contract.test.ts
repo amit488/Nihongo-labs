@@ -136,10 +136,21 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(!quickRevision.includes('disabled?: boolean'));
   assert.ok(globalController.includes('client.auth.getUser()'));
   assert.ok(globalController.includes('client.auth.onAuthStateChange'));
+  assert.ok(globalController.includes("const SESSION_STORAGE_KEY = 'nihongo:quick-revision:session:v1'"));
+  assert.ok(globalController.includes("window.localStorage.removeItem(TIMER_STORAGE_KEY)"));
+  assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
+  assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
+  assert.ok(globalController.includes("sessionId={sessionId}"));
+  assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
+  assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
+  assert.ok(quickRevision.includes("if (!signedIn || !sessionId)"));
+  assert.ok(quickRevision.includes("sessionId,\n            lastUpdatedAt: now"));
+
   assert.ok(globalController.includes("pathname.split('/')[2]"));
   assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
   assert.ok(learningApp.includes('nihongo:quick-revision:timer:v1'));
   assert.ok(learningApp.includes('nihongo:quick-revision-timer'));
+  assert.ok(learningApp.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
   assert.ok(learningApp.includes('isExcludedStudySection ? 0 :'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
