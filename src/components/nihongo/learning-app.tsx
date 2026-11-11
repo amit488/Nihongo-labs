@@ -868,9 +868,11 @@ function FocusCard({ number, title, description, meta, tag, href, tone }: { numb
 
 
 type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number; migrationRequired?:boolean };
+type ChallengeHistory = { id:string; score_percentage:number; total_answered:number; total_correct:number; duration_seconds:number; category_scores:Record<string,{answered:number;correct:number}>; answer_review:Array<{kind:string;prompt:string;selected:string;correctAnswer:string;correct:boolean;explanation:string}>; created_at:string };
 
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
+  const [challengeHistory, setChallengeHistory] = useState<{attempts:ChallengeHistory[];totalAttempts:number}|null>(null);
   useEffect(() => {
     if (!signedIn) return;
     let active = true;
@@ -882,6 +884,19 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     })).then(([n5, n4]) => {
       if (active) setSentenceProgress({ N5: n5[1], N4: n4[1] });
     }).catch(() => { if (active) setSentenceProgress(null); });
+    return () => { active = false; };
+  }, [signedIn]);
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    void fetch('/api/learning/sixty-second-challenge/history', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'Challenge history is unavailable.');
+        return body as { attempts: ChallengeHistory[]; totalAttempts: number };
+      })
+      .then((body) => { if (active) setChallengeHistory(body); })
+      .catch(() => { if (active) setChallengeHistory(null); });
     return () => { active = false; };
   }, [signedIn]);
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
@@ -925,7 +940,22 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
       })}</div>
       : <p className={styles.sentenceProgressEmpty}>Sentence progress is loading.</p>}
     {signedIn && (sentenceProgress?.N5.migrationRequired || sentenceProgress?.N4.migrationRequired) ? <p className={styles.sentenceProgressEmpty}>Apply <code>20261110120000_sentence_construction_intelligence.sql</code> to enable saved attempts.</p> : null}
-  </section><div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{weekDays.map((day)=><div className={day.active ? styles.dayDone : styles.dayEmpty} key={day.date} title={`${day.label} · ${day.date} · ${day.active ? 'Learning activity recorded' : 'No learning activity recorded'}`}><span>{day.label}</span><b aria-hidden="true">{day.active ? '✓' : '·'}</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
+  </section>
+  <section className={styles.sentenceProgressPanel}>
+    <div className={styles.sentenceProgressHeading}>
+      <div><div className={styles.eyebrow}>60-SECOND CHALLENGE</div><h2>Your rapid-revision scorecards</h2><p>{challengeHistory ? `${challengeHistory.totalAttempts} completed challenges` : 'Every completed challenge is saved here with its category breakdown and answer review.'}</p></div>
+    </div>
+    {!signedIn ? <p className={styles.sentenceProgressEmpty}>Sign in to view your challenge history.</p>
+      : challengeHistory ? challengeHistory.attempts.length ? <div className={styles.challengeHistoryList}>{challengeHistory.attempts.slice(0,10).map((attempt) => (
+        <details className={styles.challengeHistoryItem} key={attempt.id}>
+          <summary><span><strong>{attempt.score_percentage}%</strong><small>{new Date(attempt.created_at).toLocaleString()} · {attempt.total_correct}/{attempt.total_answered} correct</small></span><b>{attempt.total_answered} answered⌄</b></summary>
+          <div className={styles.challengeCategoryGrid}>{Object.entries(attempt.category_scores).filter(([,value])=>value.answered>0).map(([kind,value])=><span key={kind}><strong>{kind}</strong>{value.correct}/{value.answered}</span>)}</div>
+          <div className={styles.challengeReviewList}>{attempt.answer_review.map((answer,index)=><article key={index}><b>{answer.correct?'✓':'✕'} {answer.kind} · {answer.prompt}</b><span>Your answer: {answer.selected}</span>{!answer.correct?<span>Correct: {answer.correctAnswer}</span>:null}<small>{answer.explanation}</small></article>)}</div>
+        </details>
+      ))}</div> : <p className={styles.sentenceProgressEmpty}>No 60-second challenges completed yet. Start one whenever you are ready.</p>
+      : <p className={styles.sentenceProgressEmpty}>Challenge history is loading.</p>}
+  </section>
+  <div className={styles.progressBottom}><div className={styles.panel}><div className={styles.eyebrow}>STUDY CONSISTENCY</div><h3>{streak}-day learning streak</h3><p>Complete a lesson, quiz or revision session to add a learning day.</p><div className={styles.weekDots}>{weekDays.map((day)=><div className={day.active ? styles.dayDone : styles.dayEmpty} key={day.date} title={`${day.label} · ${day.date} · ${day.active ? 'Learning activity recorded' : 'No learning activity recorded'}`}><span>{day.label}</span><b aria-hidden="true">{day.active ? '✓' : '·'}</b></div>)}</div></div><div className={styles.panel}><div className={styles.eyebrow}>RECENT TEST SCORES</div><h3>{scores.length ? 'Your latest results' : 'Your exam history will appear here.'}</h3><div className={styles.scoreBars}>{scores.slice(0,7).map((value:number,i:number)=><div key={i}><span style={{height:`${value}%`}}/><small>{i+1}</small></div>)}</div></div></div></>;
 }
 function Mastery({label,value,tone,detail}:{label:string;value:number;tone:Tone;detail?:string}){return <div className={styles.masteryCard}><div><strong>{label}</strong><b>{value}%</b></div><ProgressBar value={value} tone={tone}/><small>{detail ?? (value>=80?'Strong progress':value>=50?'Building confidence':'More practice recommended')}</small></div>}
 
