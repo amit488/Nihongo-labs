@@ -111,6 +111,8 @@ test('sentence construction reset confirms the full scope and clears only the si
 
 test('Quick Revision is automatic, full-screen and repeats on a four-to-five-minute cadence', () => {
   const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
+  const globalController = readFileSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx'), 'utf8');
+  const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
   const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
   const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
 
@@ -126,7 +128,11 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(!quickRevision.includes('Start Quick Revision'));
   assert.ok(!quickRevision.includes('loadQuestionRef'));
   assert.ok(!quickRevision.includes('disabled?: boolean'));
-  assert.ok(learningApp.includes('<QuickRevision signedIn={signedIn} />'));
+  assert.ok(globalController.includes('client.auth.getUser()'));
+  assert.ok(globalController.includes('client.auth.onAuthStateChange'));
+  assert.ok(globalController.includes("pathname.split('/')[2]"));
+  assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
+  assert.ok(!learningApp.includes('<QuickRevision'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
   assert.ok(quickStyles.includes('.backdrop{'));
   assert.ok(quickStyles.includes('position:fixed;inset:0;z-index:2200'));
