@@ -14,7 +14,6 @@ import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
 import { createPreviewSnapshot, getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
-import { signOutAction } from '@/app/actions/auth';
 import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 import type { GrammarItem } from '@/lib/nihongo/demo-content';
 
@@ -687,11 +686,18 @@ export default function LearningApp({ section = [] }: Props) {
   }
 
   async function signOut() {
-    const result = await signOutAction();
-    if (!result.success) {
-      setActivityTrackingNotice(result.message);
+    const client = getSupabaseBrowserClient();
+    if (!client) {
+      setActivityTrackingNotice('Authentication is temporarily unavailable. Please try again.');
       return;
     }
+    const { error } = await client.auth.signOut();
+    if (error) {
+      setActivityTrackingNotice(error.message);
+      return;
+    }
+    // Browser signOut clears the same cookie-backed storage used by the
+    // persistent client and emits SIGNED_OUT to GlobalQuickRevision.
     window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     authGenerationRef.current += 1;
     setAuthViewKey((current) => current + 1);

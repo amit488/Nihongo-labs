@@ -368,7 +368,7 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
     }));
   }
 
-  if (!signedIn) return null;
+  if (!signedIn || !sessionId) return null;
   if (!question) {
     return error ? <div className={styles.errorToast} role="status" aria-live="polite">{error}</div> : null;
   }

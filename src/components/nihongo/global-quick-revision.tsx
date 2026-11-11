@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { QuickRevision } from './quick-revision';
@@ -58,6 +58,7 @@ export default function GlobalQuickRevision() {
   const pathname = usePathname();
   const [signedIn, setSignedIn] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const authRevision = useRef(0);
   const activeSection = pathname.startsWith('/learn')
     ? pathname.split('/')[2] || 'overview'
     : 'site';
@@ -67,7 +68,11 @@ export default function GlobalQuickRevision() {
     if (!client) return;
     let alive = true;
 
+    // Every auth event invalidates an older getUser() response. Without this
+    // guard, an initial lookup can resolve after SIGNED_OUT and turn the
+    // Quick Revision UI back on for a signed-out visitor.
     const finishSignOut = () => {
+      authRevision.current += 1;
       clearSignedInSession();
       setSessionId(null);
       setSignedIn(false);
@@ -82,16 +87,29 @@ export default function GlobalQuickRevision() {
         finishSignOut();
         return;
       }
+
+      // INITIAL_SESSION only reports what was found in browser cookie storage.
+      // Do not expose learner-only UI until getUser() has verified that session
+      // against Supabase Auth. Other events represent an active auth transition.
+      if (event === 'INITIAL_SESSION') return;
+      if (session?.user?.is_anonymous) {
+        // Anonymous Supabase users have an authenticated JWT but no real
+        // account. They must never receive learner revision questions.
+        finishSignOut();
+        return;
+      }
       if (session?.user) {
+        authRevision.current += 1;
         const nextSessionId = startOrResumeSession(session.user.id);
         setSessionId(nextSessionId);
         setSignedIn(true);
       }
     });
 
+    const initialAuthRevision = authRevision.current;
     void client.auth.getUser().then(({ data, error }) => {
-      if (!alive) return;
-      if (error || !data.user) {
+      if (!alive || initialAuthRevision !== authRevision.current) return;
+      if (error || !data.user || data.user.is_anonymous) {
         finishSignOut();
         return;
       }
@@ -99,15 +117,25 @@ export default function GlobalQuickRevision() {
       setSessionId(nextSessionId);
       setSignedIn(true);
     }).catch(() => {
-      if (alive) finishSignOut();
+      if (alive && initialAuthRevision === authRevision.current) finishSignOut();
     });
 
     return () => {
       alive = false;
+      authRevision.current += 1;
       window.removeEventListener('nihongo:auth-signed-out', handleAppSignOut);
       listener.subscription.unsubscribe();
     };
   }, []);
 
-  return <QuickRevision signedIn={signedIn} sessionId={sessionId} activeSection={activeSection} />;
+  // Remount the modal controller when auth ends or a different login starts.
+  // This discards any pending question/result from the previous user session.
+  return (
+    <QuickRevision
+      key={signedIn && sessionId ? sessionId : 'signed-out'}
+      signedIn={signedIn}
+      sessionId={sessionId}
+      activeSection={activeSection}
+    />
+  );
 }
