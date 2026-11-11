@@ -72,28 +72,43 @@ test('database health API is protected and the inventory RPC is service-role-onl
 });
 
 
-test('database monitoring exposes protected Cron schedule and previous run details in IST', () => {
-  const route = read('src/app/api/admin/database/route.ts');
-  const migration = read('supabase/migrations/20261112100000_admin_cron_monitoring.sql');
+test('database health links to a separate, paginated Cron run history page', () => {
+  const databaseRoute = read('src/app/api/admin/database/route.ts');
+  const cronRoute = read('src/app/api/admin/database/cron/route.ts');
+  const initialMigration = read('supabase/migrations/20261112100000_admin_cron_monitoring.sql');
+  const historyMigration = read('supabase/migrations/20261112110000_admin_cron_monitoring_history_and_limit.sql');
   const workspace = read('src/components/nihongo/admin/admin-workspace.tsx');
+  const cronPage = read('src/app/admin/database/cron/page.tsx');
   const styles = read('src/components/nihongo/admin/admin.module.css');
 
-  assert.match(route, /requireAdminApi/);
-  assert.match(route, /get_admin_cron_monitoring/);
-  assert.match(route, /Cache-Control.*private, no-store/);
-  assert.match(migration, /create table if not exists nihongo_admin_private\.cron_job_run_audit/);
-  assert.match(migration, /cron_run_id bigint unique/);
-  assert.match(migration, /get diagnostics v_deleted = row_count/);
-  assert.match(migration, /insert into nihongo_admin_private\.cron_job_run_audit/);
-  assert.match(migration, /r\.status = 'failed'/);
-  assert.match(migration, /r\.return_message/);
-  assert.match(migration, /Asia\/Kolkata/);
-  assert.match(migration, /Every hour at minute 45 \(IST\)/);
+  assert.match(databaseRoute, /get_admin_database_health/);
+  assert.doesNotMatch(databaseRoute, /get_admin_cron_monitoring/);
+  assert.match(cronRoute, /requireAdminApi/);
+  assert.match(cronRoute, /get_admin_cron_monitoring/);
+  assert.match(cronRoute, /p_limit: databaseLimit/);
+  assert.match(cronRoute, /Cache-Control.*private, no-store/);
+
+  assert.match(initialMigration, /create table if not exists nihongo_admin_private\\.cron_job_run_audit/);
+  assert.match(initialMigration, /get diagnostics v_deleted = row_count/);
+  assert.match(initialMigration, /Every hour at minute 45 \\(IST\\)/);
+  assert.match(historyMigration, /started_at - r\\.start_time/);
+  assert.match(historyMigration, /create or replace function public\\.get_admin_cron_monitoring\\(p_limit integer\\)/);
+  assert.match(historyMigration, /when p_limit = 0 then 1000/);
+  assert.match(historyMigration, /r\\.return_message/);
+
   assert.match(workspace, /Cron job monitoring/);
-  assert.match(workspace, /Schedule \(IST\)/);
-  assert.match(workspace, /Rows deleted/);
+  assert.match(workspace, /View job runs/);
+  assert.match(workspace, /href="\\/admin\\/database\\/cron"/);
+  assert.match(workspace, /id="cron-run-limit"/);
+  assert.match(workspace, /Last 10/);
+  assert.match(workspace, /Last 25/);
+  assert.match(workspace, /Last 50/);
+  assert.match(workspace, /All available/);
+  assert.match(workspace, /Records deleted/);
   assert.match(workspace, /Error message/);
-  assert.match(workspace, /timeZone: 'Asia\/Kolkata'/);
+  assert.match(workspace, /timeZone: 'Asia\\/Kolkata'/);
+  assert.match(cronPage, /section="cron"/);
+  assert.match(styles, /cronToolbar/);
   assert.match(styles, /cronError/);
   assert.match(styles, /status_succeeded/);
 });
