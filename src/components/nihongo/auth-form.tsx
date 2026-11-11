@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
-import Brand from './brand';
+import Brand, { BrandMark } from './brand';
 import { resendSignupConfirmationAction, signInAction, signUpAction } from '@/app/actions/auth';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
@@ -73,7 +73,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             <div className={styles.authEyebrow}>ONE LAST STEP</div>
             <h2>Check your inbox.</h2>
             <p>We sent a verification link to <strong>{email}</strong>. Open the email and confirm your address to unlock your Nihongo Labs learning space.</p>
-            <div className={styles.verificationTip}><span>日</span><div><strong>Look for “Confirm your Nihongo Labs account”</strong><small>Can’t see it? Check your spam or promotions folder.</small></div></div>
+            <div className={styles.verificationTip}><BrandMark size={34} className={styles.verificationMark} /><div><strong>Look for “Confirm your Nihongo Labs account”</strong><small>Can’t see it? Check your spam or promotions folder.</small></div></div>
             {message && <div className={styles.authMessage} role="status">{message}</div>}
             <button className={styles.resendButton} type="button" onClick={resendConfirmation} disabled={resending}>
               {resending ? 'Sending...' : 'Resend verification email'} <span>↗</span>

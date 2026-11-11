@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { signOutAction } from '@/app/actions/auth';
 import styles from './admin.module.css';
+import { BrandMark } from '@/components/nihongo/brand';
 
 const navigation = [
   { href: '/admin', label: 'Overview', icon: '◫', exact: true },
@@ -39,7 +40,7 @@ export default function AdminShell({ children, email, roles }: {
     <div className={styles.adminFrame}>
       <aside className={styles.sidebar}>
         <Link href="/admin" className={styles.brand}>
-          <span className={styles.brandMark}>日</span>
+          <BrandMark size={37} className={styles.brandMark} />
           <span><strong>Nihongo Labs</strong><small>ADMIN CONSOLE</small></span>
         </Link>
         <div className={styles.navCaption}>WORKSPACE</div>
