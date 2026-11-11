@@ -3,10 +3,10 @@
 -- cron.job_run_details, whose return_message contains the PostgreSQL error.
 begin;
 
-create schema if not exists private authorization postgres;
-revoke all on schema private from public, anon, authenticated, service_role;
+create schema if not exists nihongo_admin_private authorization postgres;
+revoke all on schema nihongo_admin_private from public, anon, authenticated, service_role;
 
-create table if not exists private.cron_job_run_audit (
+create table if not exists nihongo_admin_private.cron_job_run_audit (
   id bigint generated always as identity primary key,
   cron_run_id bigint unique,
   job_name text not null,
@@ -16,9 +16,9 @@ create table if not exists private.cron_job_run_audit (
   recorded_at timestamptz not null default clock_timestamp()
 );
 
-alter table private.cron_job_run_audit enable row level security;
-revoke all on table private.cron_job_run_audit from public, anon, authenticated, service_role;
-grant usage on schema private to postgres;
+alter table nihongo_admin_private.cron_job_run_audit enable row level security;
+revoke all on table nihongo_admin_private.cron_job_run_audit from public, anon, authenticated, service_role;
+grant usage on schema nihongo_admin_private to postgres;
 
 create or replace function public.cleanup_expired_user_activity_heartbeat_requests()
 returns bigint
@@ -64,13 +64,13 @@ begin
      and end_time < clock_timestamp() - interval '8 days';
 
   -- Keep the count audit aligned with the eight-day Cron history window.
-  delete from private.cron_job_run_audit
+  delete from nihongo_admin_private.cron_job_run_audit
    where job_name = v_job_name
      and finished_at < clock_timestamp() - interval '8 days';
 
   v_finished_at := clock_timestamp();
 
-  insert into private.cron_job_run_audit (
+  insert into nihongo_admin_private.cron_job_run_audit (
     cron_run_id, job_name, started_at, finished_at, deleted_rows
   ) values (
     v_cron_run_id, v_job_name, v_started_at, v_finished_at, v_deleted
@@ -183,7 +183,7 @@ as $$
                   order by d.start_time desc
                   limit 50
                 ) r
-                left join private.cron_job_run_audit a
+                left join nihongo_admin_private.cron_job_run_audit a
                   on a.cron_run_id = r.runid
               ),
               '[]'::jsonb
