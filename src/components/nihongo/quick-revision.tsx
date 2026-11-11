@@ -30,17 +30,16 @@ type RevisionStats = {
 
 const FIRST_QUESTION_MS = 5 * 60_000;
 const RETRY_WHEN_EMPTY_MS = 60_000;
-const NEXT_QUESTION_MIN_MS = 8 * 60_000;
-const NEXT_QUESTION_RANGE_MS = 4 * 60_000;
+const NEXT_QUESTION_MIN_MS = 4 * 60_000;
+const NEXT_QUESTION_RANGE_MS = 1 * 60_000;
 
-export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolean; disabled?: boolean }) {
+export function QuickRevision({ signedIn }: { signedIn: boolean }) {
   const [question, setQuestion] = useState<QuickQuestion | null>(null);
   const [selected, setSelected] = useState('');
   const [result, setResult] = useState<QuickResult | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const questionStartedAt = useRef(0);
-  const loadQuestionRef = useRef<() => Promise<void>>(async () => undefined);
   const dialogRef = useRef<HTMLElement | null>(null);
   const responsePending = useRef(false);
   const dialogOpen = useRef(false);
@@ -73,8 +72,8 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
     let lastSampleAt = performance.now();
     let requestInProgress = false;
 
-    // Count visible study time. Browser window-focus APIs can be inconsistent,
-    // so learners can also start a revision manually.
+    // Count time whenever the learner is viewing the learning workspace.
+    // The timer does not depend on window focus and pauses only in hidden tabs.
     const activeAndAvailable = () => document.visibilityState === 'visible';
 
 
@@ -121,14 +120,8 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
         requestInProgress = false;
       }
     };
-    loadQuestionRef.current = loadQuestion;
 
-    // Keep a manual launcher available in practice sections, but do not interrupt
-    // those focused exercises with the timed prompt.
-    if (disabled) {
-      return () => { disposed = true; };
-    }
-
+    // The interruption is automatic on every signed-in learning section.
     const interval = window.setInterval(() => {
       const now = performance.now();
       const elapsed = Math.min(1_500, Math.max(0, now - lastSampleAt));
@@ -146,7 +139,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
       disposed = true;
       window.clearInterval(interval);
     };
-  }, [signedIn, disabled]);
+  }, [signedIn]);
 
   async function submitAnswer(didNotRemember: boolean) {
     if (!question || responsePending.current || result) return;
@@ -190,25 +183,7 @@ export function QuickRevision({ signedIn, disabled = false }: { signedIn: boolea
 
   if (!signedIn) return null;
   if (!question) {
-    return (
-      <div className={styles.quickRevisionDock}>
-        {error ? <div className={styles.errorToast} role="status" aria-live="polite">{error}</div> : null}
-        <button
-          type="button"
-          className={styles.launcher}
-          disabled={loading}
-          onClick={() => void loadQuestionRef.current()}
-          aria-label="Start Quick Revision now"
-        >
-          <span className={styles.launcherMark} aria-hidden="true">復</span>
-          <span className={styles.launcherCopy}>
-            <strong>Quick Revision</strong>
-            <small>{loading ? 'Finding a question…' : 'Review a learned item now'}</small>
-          </span>
-          <span className={styles.launcherAction}>{loading ? '…' : 'Start →'}</span>
-        </button>
-      </div>
-    );
+    return error ? <div className={styles.errorToast} role="status" aria-live="polite">{error}</div> : null;
   }
 
   const resultTone = result ? (result.isCorrect && !result.didNotRemember ? 'correct' : 'incorrect') : '';
