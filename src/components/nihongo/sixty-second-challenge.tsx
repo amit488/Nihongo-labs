@@ -161,8 +161,10 @@ export function SixtySecondChallenge({ signedIn, disabled = false }: { signedIn:
     targetAutoRef.current = nextAutoDelay();
   }, []);
 
-  startChallengeRef.current = () => { void startChallenge(); };
-  finishChallengeRef.current = finishChallenge;
+  useEffect(() => {
+    startChallengeRef.current = () => { void startChallenge(); };
+    finishChallengeRef.current = finishChallenge;
+  }, [startChallenge, finishChallenge]);
 
   if (!signedIn || disabled) return null;
 
