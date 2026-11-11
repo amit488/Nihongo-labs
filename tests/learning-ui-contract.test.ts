@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const dashboard = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
@@ -174,4 +174,24 @@ test('sentence reset confirmation is rendered in a body portal and uses a promin
   assert.ok(sentence.includes('disabled={!progressLoaded || saving || resetting}'));
   assert.ok(learningStyles.includes('.sentenceResetOverlay{position:fixed;inset:0;z-index:1600'));
   assert.ok(learningStyles.includes('.sentenceResetButton{display:inline-flex;align-items:center;gap:7px;border:1px solid #a84840;background:#a84840;color:#fff'));
+});
+
+
+test('the official Nihongo Labs emblem is shared across app surfaces, email and browser icons', () => {
+  const brand = readFileSync(resolve(process.cwd(), 'src/components/nihongo/brand.tsx'), 'utf8');
+  const admin = readFileSync(resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'), 'utf8');
+  const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
+  const auth = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
+  const layout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
+  const email = readFileSync(resolve(process.cwd(), 'supabase/templates/confirmation.html'), 'utf8');
+
+  assert.match(brand, /src="\\/nihongo-labs-logo\\.png"/);
+  assert.match(brand, /export function BrandMark/);
+  assert.match(admin, /BrandMark size=\{37\}/);
+  assert.match(quickRevision, /BrandMark size=\{38\}/);
+  assert.match(auth, /BrandMark size=\{34\}/);
+  assert.match(layout, /icon: \[\{ url: '\/nihongo-labs-logo\.png'/);
+  assert.match(layout, /apple: \[\{ url: '\/nihongo-labs-logo\.png'/);
+  assert.ok(email.includes('{{ .SiteURL }}/nihongo-labs-logo.png'));
+  assert.ok(existsSync(resolve(process.cwd(), 'public/nihongo-labs-logo.png')));
 });
