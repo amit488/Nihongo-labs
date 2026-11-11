@@ -27,7 +27,10 @@ export default function AdminShell({ children, email, roles }: {
   async function signOut() {
     setSigningOut(true);
     const result = await signOutAction();
-    if (result.success) router.replace('/login');
+    if (result.success) {
+      window.dispatchEvent(new Event('nihongo:auth-signed-out'));
+      router.replace('/login');
+    }
     else setSigningOut(false);
   }
 

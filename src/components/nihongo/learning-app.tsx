@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
-import { QuickRevision, QuickRevisionStats } from './quick-revision';
+import { QuickRevisionStats } from './quick-revision';
 import Brand from './brand';
 import LearningIntelligence from './learning-intelligence';
 import LearningPlans from './learning-plans';
@@ -56,7 +56,9 @@ export default function LearningApp({ section = [] }: Props) {
   const focusedVocabularyLevel = focusedVocabularyId
     ? (searchParams.get('level') === 'N4' ? 'N4' : searchParams.get('level') === 'N5' ? 'N5' : undefined)
     : undefined;
-  const isStudySection = ['grammar', 'vocabulary', 'kanji', 'kana', 'practice', 'sentences', 'flashcards', 'reading', 'exams'].includes(active);
+  const isExcludedStudySection = active === 'reading' || active === 'exams';
+  const isExcludedStudySectionRef = useRef(isExcludedStudySection);
+  const studyEligibilityChangeRef = useRef<(() => void) | null>(null);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -103,6 +105,54 @@ export default function LearningApp({ section = [] }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [kanaMode, setKanaMode] = useState<'hiragana' | 'katakana'>('hiragana');
   const [kanaQuiz, setKanaQuiz] = useState(false);
+
+  useEffect(() => {
+    isExcludedStudySectionRef.current = isExcludedStudySection;
+    studyEligibilityChangeRef.current?.();
+  }, [isExcludedStudySection]);
+
+  useEffect(() => {
+    const renderTimer = (elapsedMilliseconds: number) => {
+      if (!studyTimerRef.current) return;
+      const elapsedSeconds = isExcludedStudySection ? 0 : Math.floor(Math.max(0, elapsedMilliseconds) / 1000);
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      studyTimerRef.current.textContent = `Study · ${minutes}:${String(seconds).padStart(2, '0')}`;
+      studyTimerRef.current.setAttribute(
+        'aria-label',
+        isExcludedStudySection
+          ? 'Study timer paused'
+          : `Elapsed website study time ${minutes} minutes and ${seconds} seconds`,
+      );
+    };
+    const readSavedTimer = () => {
+      try {
+        const raw = window.localStorage.getItem('nihongo:quick-revision:timer:v1');
+        if (!raw) return 0;
+        const saved = JSON.parse(raw) as { sessionElapsedMs?: unknown };
+        return typeof saved.sessionElapsedMs === 'number' && Number.isFinite(saved.sessionElapsedMs)
+          ? Math.max(0, saved.sessionElapsedMs)
+          : 0;
+      } catch {
+        return 0;
+      }
+    };
+    const handleTimerUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionElapsedMs?: number }>).detail;
+      renderTimer(typeof detail?.sessionElapsedMs === 'number' ? detail.sessionElapsedMs : readSavedTimer());
+    };
+    const handleStorageUpdate = (event: StorageEvent) => {
+      if (event.key === 'nihongo:quick-revision:timer:v1') renderTimer(readSavedTimer());
+    };
+    window.addEventListener('nihongo:quick-revision-timer', handleTimerUpdate);
+    window.addEventListener('storage', handleStorageUpdate);
+    renderTimer(readSavedTimer());
+    return () => {
+      window.removeEventListener('nihongo:quick-revision-timer', handleTimerUpdate);
+      window.removeEventListener('storage', handleStorageUpdate);
+    };
+  }, [signedIn, isExcludedStudySection]);
+
 
   useEffect(() => {
     const query = search.trim();
@@ -224,8 +274,7 @@ export default function LearningApp({ section = [] }: Props) {
   }, [active]);
 
   useEffect(() => {
-    if (!signedIn || !isStudySection) return;
-    let sessionMilliseconds = 0;
+    if (!signedIn) return;
 
     type BrowserLockManager = {
       request(
@@ -257,7 +306,8 @@ export default function LearningApp({ section = [] }: Props) {
     let retryTimer: number | null = null;
     let stopActiveLoop: (() => void) | null = null;
 
-    const isEligible = () =>
+    // Count only while this site tab is visible and focused; Reading and Mock Exams are exempt.
+    const isEligible = () => !isExcludedStudySectionRef.current &&
       document.visibilityState === 'visible' && document.hasFocus();
 
     // Persist the queued duration and one immutable request batch together.
@@ -366,10 +416,7 @@ export default function LearningApp({ section = [] }: Props) {
       return next;
     };
 
-    let lastInteractionAt = performance.now();
-    const inactivityLimitMilliseconds = 5 * 60 * 1000;
-    const isStudyEligible = () =>
-      isEligible() && performance.now() - lastInteractionAt <= inactivityLimitMilliseconds;
+    const isStudyEligible = () => isEligible();
 
     const sendPendingTime = async (includePartialBatch: boolean) => {
       // A visibility/page-exit flush waits for any already-running heartbeat
@@ -498,17 +545,8 @@ export default function LearningApp({ section = [] }: Props) {
         lastSampleAt = now;
 
         if (Number.isFinite(elapsed) && elapsed > 0) {
-          // The short cap prevents a suspended laptop/browser from turning
-          // sleep time into study time while tolerating ordinary UI delays.
-          const sampledMilliseconds = Math.min(elapsed, 5_000);
-          sessionMilliseconds += sampledMilliseconds;
-          if (!disposed && studyTimerRef.current) {
-            const elapsedSeconds = Math.floor(sessionMilliseconds / 1000);
-            const minutes = Math.floor(elapsedSeconds / 60);
-            const seconds = elapsedSeconds % 60;
-            studyTimerRef.current.textContent = `Study · ${minutes}:${String(seconds).padStart(2, '0')}`;
-            studyTimerRef.current.setAttribute('aria-label', `Active study time ${minutes} minutes and ${seconds} seconds`);
-          }
+          // Count only time accumulated by the foreground, focused browser tab.
+          const sampledMilliseconds = elapsed;
           const pending = readPendingState();
           writePendingState({
             ...pending,
@@ -576,27 +614,13 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     const handleEligibilityChange = () => {
-      if (isEligible()) {
-        lastInteractionAt = performance.now();
-        void refreshLearnerSnapshot();
-        acquireStudyLock();
-      } else {
-        stopActiveLoop?.();
-      }
+      if (isEligible()) acquireStudyLock();
+      else stopActiveLoop?.();
     };
-
-    const handleLearnerInteraction = () => {
-      lastInteractionAt = performance.now();
-      acquireStudyLock();
-    };
-
     const handlePageHide = () => stopActiveLoop?.();
 
+    studyEligibilityChangeRef.current = handleEligibilityChange;
     document.addEventListener('visibilitychange', handleEligibilityChange);
-    document.addEventListener('pointerdown', handleLearnerInteraction, { passive: true });
-    document.addEventListener('keydown', handleLearnerInteraction);
-    document.addEventListener('scroll', handleLearnerInteraction, { passive: true });
-    document.addEventListener('touchstart', handleLearnerInteraction, { passive: true });
     window.addEventListener('focus', handleEligibilityChange);
     window.addEventListener('blur', handleEligibilityChange);
     window.addEventListener('pagehide', handlePageHide);
@@ -626,17 +650,16 @@ export default function LearningApp({ section = [] }: Props) {
     return () => {
       disposed = true;
       if (retryTimer !== null) window.clearInterval(retryTimer);
+      if (studyEligibilityChangeRef.current === handleEligibilityChange) {
+        studyEligibilityChangeRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleEligibilityChange);
-      document.removeEventListener('pointerdown', handleLearnerInteraction);
-      document.removeEventListener('keydown', handleLearnerInteraction);
-      document.removeEventListener('scroll', handleLearnerInteraction);
-      document.removeEventListener('touchstart', handleLearnerInteraction);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
       stopActiveLoop?.();
     };
-  }, [signedIn, isStudySection, refreshLearnerSnapshot]);
+  }, [signedIn]);
 
   const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', sentences: 'Sentence construction lab', progress: 'Your progress', plans: 'Learning plans', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
@@ -669,6 +692,7 @@ export default function LearningApp({ section = [] }: Props) {
       setActivityTrackingNotice(result.message);
       return;
     }
+    window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     authGenerationRef.current += 1;
     setAuthViewKey((current) => current + 1);
     setSignedIn(false);
@@ -698,7 +722,7 @@ export default function LearningApp({ section = [] }: Props) {
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn ? <Link href="/contact" className={styles.feedbackLink}>Contact us</Link> : null}{signedIn && isStudySection ? <span ref={studyTimerRef} className={styles.counterPill} aria-label="Active study time 0 minutes and 0 seconds" title="Active time in this study session">Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn ? <Link href="/contact" className={styles.feedbackLink}>Contact us</Link> : null}{signedIn ? <span ref={studyTimerRef} className={styles.counterPill} aria-label={isExcludedStudySection ? 'Study timer paused' : 'Elapsed website study time'} title={isExcludedStudySection ? 'Study timer paused in this section' : 'Elapsed active time on Nihongo Labs'}>Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
@@ -709,7 +733,6 @@ export default function LearningApp({ section = [] }: Props) {
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
-      <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'sentences' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
     </div>
   );
 }

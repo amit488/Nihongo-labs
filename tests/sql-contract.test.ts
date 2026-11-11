@@ -82,17 +82,26 @@ test('accurate study-time heartbeat accepts partial batches and caps them to ser
 test('study-time client persists partial seconds and coordinates active tabs', () => {
   const componentPath = resolve(process.cwd(), 'src', 'components', 'nihongo', 'learning-app.tsx');
   const component = readFileSync(componentPath, 'utf8');
-  assert.match(component, /localStorage\.setItem\(storageKey/);
-  assert.match(component, /navigator as unknown as \{ locks\?: BrowserLockManager \}/);
-  assert.match(component, /visibilitychange/);
-  assert.match(component, /pagehide/);
-  assert.match(component, /sendPendingTime\(true\)/);
-  assert.match(component, /crypto\.randomUUID\(\)/);
-  assert.match(component, /inactivityLimitMilliseconds = 5 \* 60 \* 1000/);
-  assert.match(component, /studyTimerRef = useRef<HTMLSpanElement>\(null\)/);
-  assert.match(component, /studyTimerRef\.current\.textContent = `Study · \$\{minutes\}:/);
-  assert.match(component, /<span ref=\{studyTimerRef\} className=/);
-  assert.doesNotMatch(component, /setLiveStudySeconds/);
+  assert.ok(component.includes('localStorage.setItem(storageKey'));
+  assert.ok(component.includes('navigator as unknown as { locks?: BrowserLockManager }'));
+  assert.ok(component.includes('pagehide'));
+  assert.ok(component.includes('sendPendingTime(true)'));
+  assert.ok(component.includes('crypto.randomUUID()'));
+  assert.ok(!component.includes('inactivityLimitMilliseconds'));
+  assert.ok(component.includes('document.hasFocus()'));
+  assert.ok(component.includes("document.visibilityState === 'visible'"));
+  assert.ok(component.includes("window.addEventListener('focus', handleEligibilityChange)"));
+  assert.ok(component.includes("window.addEventListener('blur', handleEligibilityChange)"));
+  assert.ok(component.includes('studyTimerRef = useRef<HTMLSpanElement>(null)'));
+  assert.ok(component.includes('nihongo:quick-revision:timer:v1'));
+  assert.ok(component.includes('sessionElapsedMs?: unknown'));
+  assert.ok(component.includes('nihongo:quick-revision-timer'));
+  assert.ok(component.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
+  assert.ok(component.includes("isExcludedStudySection = active === 'reading' || active === 'exams'"));
+  assert.ok(component.includes('}, [signedIn]);'));
+  assert.ok(component.includes('studyTimerRef.current.textContent = `Study · ${minutes}:'));
+  assert.ok(component.includes('<span ref={studyTimerRef} className='));
+  assert.ok(!component.includes('setLiveStudySeconds'));
 });
 
 

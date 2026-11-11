@@ -107,3 +107,71 @@ test('sentence construction reset confirms the full scope and clears only the si
   assert.match(learningStyles, /\.sentenceResetOverlay/);
   assert.match(learningStyles, /\.sentenceResetDialog/);
 });
+
+
+test('Quick Revision is automatic, full-screen and repeats on a four-to-five-minute cadence', () => {
+  const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
+  const globalController = readFileSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx'), 'utf8');
+  const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
+  const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
+  const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
+
+  assert.ok(quickRevision.includes('const FIRST_QUESTION_MS = 5 * 60_000'));
+  assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
+  assert.ok(quickRevision.includes('const NEXT_QUESTION_RANGE_MS = 1 * 60_000'));
+  assert.ok(quickRevision.includes('window.setInterval'));
+  assert.ok(quickRevision.includes("activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams'"));
+  assert.ok(quickRevision.includes("window.localStorage.setItem(timerStorageKey"));
+  assert.ok(quickRevision.includes('let lastUpdatedAt = Date.now()'));
+  assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
+  assert.ok(quickRevision.includes("document.hasFocus()"));
+  assert.ok(quickRevision.includes('sessionElapsedMs: sessionElapsedMilliseconds.current'));
+  assert.ok(quickRevision.includes("window.addEventListener('blur', handleEligibilityChange)"));
+  assert.ok(quickRevision.includes("window.addEventListener('focus', handleEligibilityChange)"));
+  assert.ok(quickRevision.includes("window.addEventListener('nihongo:study-section-changed', handleSectionChange)"));
+  assert.ok(quickRevision.includes("window.dispatchEvent(new Event('nihongo:study-section-changed'))"));
+  assert.ok(quickRevision.includes('}, [signedIn, sessionId]);'));
+  assert.ok(!quickRevision.includes('Start Quick Revision'));
+  assert.ok(!quickRevision.includes('loadQuestionRef'));
+  assert.ok(!quickRevision.includes('disabled?: boolean'));
+  assert.ok(globalController.includes('client.auth.getUser()'));
+  assert.ok(globalController.includes('client.auth.onAuthStateChange'));
+  assert.ok(globalController.includes("const SESSION_STORAGE_KEY = 'nihongo:quick-revision:session:v1'"));
+  assert.ok(globalController.includes("window.localStorage.removeItem(TIMER_STORAGE_KEY)"));
+  assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
+  assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
+  assert.ok(globalController.includes("sessionId={sessionId}"));
+  assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
+  assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
+  assert.ok(quickRevision.includes("if (!signedIn || !sessionId)"));
+  assert.ok(quickRevision.includes("sessionId,\n            lastUpdatedAt: now"));
+
+  assert.ok(globalController.includes("pathname.split('/')[2]"));
+  assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
+  assert.ok(learningApp.includes('nihongo:quick-revision:timer:v1'));
+  assert.ok(learningApp.includes('nihongo:quick-revision-timer'));
+  assert.ok(learningApp.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
+  const adminShell = readFileSync(resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'), 'utf8');
+  assert.ok(adminShell.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
+
+  assert.ok(learningApp.includes('isExcludedStudySection ? 0 :'));
+  assert.ok(!learningApp.includes('<QuickRevision signedIn'));
+  assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
+  assert.ok(quickStyles.includes('.backdrop{'));
+  assert.ok(quickStyles.includes('position:fixed;inset:0;z-index:2200'));
+  assert.ok(!quickStyles.includes('.launcher'));
+  assert.ok(!quickStyles.includes('.quickRevisionDock'));
+});
+
+test('sentence reset confirmation is rendered in a body portal and uses a prominent destructive action', () => {
+  const sentence = readFileSync(resolve(process.cwd(), 'src/components/nihongo/sentence-construction.tsx'), 'utf8');
+  const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
+
+  assert.ok(sentence.includes('createPortal('));
+  assert.ok(sentence.includes('document.body'));
+  assert.ok(sentence.includes('resetCancelRef'));
+  assert.ok(sentence.includes('resetConfirmRef'));
+  assert.ok(sentence.includes('disabled={!progressLoaded || saving || resetting}'));
+  assert.ok(learningStyles.includes('.sentenceResetOverlay{position:fixed;inset:0;z-index:1600'));
+  assert.ok(learningStyles.includes('.sentenceResetButton{display:inline-flex;align-items:center;gap:7px;border:1px solid #a84840;background:#a84840;color:#fff'));
+});
