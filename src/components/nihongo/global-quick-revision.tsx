@@ -92,6 +92,12 @@ export default function GlobalQuickRevision() {
       // Do not expose learner-only UI until getUser() has verified that session
       // against Supabase Auth. Other events represent an active auth transition.
       if (event === 'INITIAL_SESSION') return;
+      if (session?.user?.is_anonymous) {
+        // Anonymous Supabase users have an authenticated JWT but no real
+        // account. They must never receive learner revision questions.
+        finishSignOut();
+        return;
+      }
       if (session?.user) {
         authRevision.current += 1;
         const nextSessionId = startOrResumeSession(session.user.id);
@@ -103,7 +109,7 @@ export default function GlobalQuickRevision() {
     const initialAuthRevision = authRevision.current;
     void client.auth.getUser().then(({ data, error }) => {
       if (!alive || initialAuthRevision !== authRevision.current) return;
-      if (error || !data.user) {
+      if (error || !data.user || data.user.is_anonymous) {
         finishSignOut();
         return;
       }
