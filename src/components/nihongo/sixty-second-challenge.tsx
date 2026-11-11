@@ -10,7 +10,7 @@ const CHALLENGE_MS=60_000, AUTO_MIN_MS=7*60_000, AUTO_RANGE_MS=6*60_000;
 const nextAutoDelay=()=>AUTO_MIN_MS+Math.floor(Math.random()*AUTO_RANGE_MS);
 
 export function SixtySecondChallenge({signedIn,disabled=false}:{signedIn:boolean;disabled?:boolean}) {
-  const [open,setOpen]=useState(false),[questions,setQuestions]=useState<ChallengeQuestion[]>([]),[index,setIndex]=useState(0),[selected,setSelected]=useState(''),[secondsLeft,setSecondsLeft]=useState(60),[answers,setAnswers]=useState<Answer[]>([]),[scorecard,setScorecard]=useState<Scorecard|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
+  const [open,setOpen]=useState(false),[questions,setQuestions]=useState<ChallengeQuestion[]>([]),[index,setIndex]=useState(0),[secondsLeft,setSecondsLeft]=useState(60),[answers,setAnswers]=useState<Answer[]>([]),[scorecard,setScorecard]=useState<Scorecard|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
   const deadlineRef=useRef(0),targetAutoRef=useRef(nextAutoDelay()),activeTimeRef=useRef(0),busyRef=useRef(false),openRef=useRef(false),startRef=useRef<()=>void>(()=>undefined),finishRef=useRef<()=>void>(()=>undefined),answersRef=useRef<Answer[]>([]);
   useEffect(()=>{openRef.current=open;},[open]);
   const finish=useCallback(async()=>{
@@ -25,7 +25,7 @@ export function SixtySecondChallenge({signedIn,disabled=false}:{signedIn:boolean
         setScorecard(body.attempt as Scorecard);
       }catch(cause){setError(cause instanceof Error?cause.message:'Could not save your scorecard.');}
     }
-    setLoading(false);setQuestions([]);setSelected('');activeTimeRef.current=0;targetAutoRef.current=nextAutoDelay();
+    setLoading(false);setQuestions([]);activeTimeRef.current=0;targetAutoRef.current=nextAutoDelay();
   },[]);
   useEffect(()=>{finishRef.current=()=>{void finish();};},[finish]);
   const start=useCallback(async()=>{
@@ -58,9 +58,9 @@ export function SixtySecondChallenge({signedIn,disabled=false}:{signedIn:boolean
     return()=>window.clearInterval(timer);
   },[signedIn,disabled]);
   const choose=(option:string)=>{
-    if(!questions[index]||loading||Date.now()>=deadlineRef.current)return;
+    if(!questions[index]||loading||secondsLeft<=0)return;
     const answer={questionId:questions[index].id,selectedOption:option};
-    const next=[...answersRef.current,answer];answersRef.current=next;setAnswers(next);setSelected('');
+    const next=[...answersRef.current,answer];answersRef.current=next;setAnswers(next);
     if(index+1>=questions.length){void finish();return;}
     setIndex(index+1);
   };
