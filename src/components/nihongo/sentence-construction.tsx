@@ -297,8 +297,8 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
         <h2 id="sentence-reset-title">Reset all sentence progress?</h2>
         <p id="sentence-reset-description">
           This permanently deletes all saved sentence attempts and solved questions for both N5 and N4.
-          Your sentence progress, accuracy and attempt counts in My Progress and Learning Intelligence will return to zero.
-          Other learning progress will not be affected. This action cannot be undone.
+          Sentence accuracy, solved counts and attempts in My Progress and Learning Intelligence will return to zero, and sentence-derived grammar insights will be recalculated.
+          Your other grammar, vocabulary, kanji, lesson and quiz records will not be deleted. This action cannot be undone.
         </p>
         {resetError ? <p className={styles.sentenceResetError} role="alert">{resetError}</p> : null}
         <div className={styles.sentenceResetActions}>
