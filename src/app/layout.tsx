@@ -9,8 +9,9 @@ export const metadata: Metadata = {
   description: 'A calm, structured workspace for Japanese grammar, vocabulary, kanji, reading and practice.',
   applicationName: 'Nihongo Labs',
   icons: {
-    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
-    shortcut: ['/favicon.svg'],
+    icon: [{ url: '/nihongo-labs-logo.png', type: 'image/png', sizes: '128x128' }],
+    shortcut: ['/nihongo-labs-logo.png'],
+    apple: [{ url: '/nihongo-labs-logo.png', type: 'image/png', sizes: '128x128' }],
   },
   appleWebApp: { capable: true, title: 'Nihongo Labs', statusBarStyle: 'default' },
 };
