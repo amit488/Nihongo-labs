@@ -122,7 +122,7 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(quickRevision.includes('window.setInterval'));
   assert.ok(quickRevision.includes("activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams'"));
   assert.ok(quickRevision.includes("window.localStorage.setItem(timerStorageKey"));
-  assert.ok(quickRevision.includes("const now = Date.now()"));
+  assert.ok(quickRevision.includes('let lastUpdatedAt = Date.now()'));
   assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
   assert.ok(quickRevision.includes("document.hasFocus()"));
   assert.ok(quickRevision.includes('sessionElapsedMs: sessionElapsedMilliseconds.current'));
