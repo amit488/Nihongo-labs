@@ -2,7 +2,7 @@ import { connection, NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSentenceConstructionItem, getSentenceConstructionItems } from '@/lib/nihongo/sentence-construction-bank';
 import { HttpError, assertSameOrigin, jsonError, readJson } from '@/lib/nihongo/server/http';
-import { requireUser } from '@/lib/nihongo/server/supabase';
+import { createAdminSupabase, requireUser } from '@/lib/nihongo/server/supabase';
 
 const attemptSchema = z.object({
   sentenceId: z.string().regex(/^n[45]-\d{3}$/),
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const totalSentences = getSentenceConstructionItems(level as 'N5' | 'N4').length;
     if (error) {
       if (['42P01', 'PGRST205'].includes(error.code ?? '')) {
-        return NextResponse.json({ level, totalSentences, totalAttempts: 0, correctAttempts: 0, accuracy: 0, attemptedSentences: 0, solvedSentences: 0, migrationRequired: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+        return NextResponse.json({ level, totalSentences, totalAttempts: 0, correctAttempts: 0, accuracy: 0, attemptedSentences: 0, solvedSentences: 0, solvedSentenceIds: [], migrationRequired: true }, { headers: { 'Cache-Control': 'private, no-store' } });
       }
       throw new HttpError(500, 'Could not load sentence construction progress.', error.message);
     }
@@ -52,6 +52,34 @@ export async function GET(request: NextRequest) {
       accuracy: rows.length ? Math.round(correctAttempts / rows.length * 100) : 0,
       attemptedSentences: uniqueAttempted.size,
       solvedSentences: uniqueSolved.size,
+      solvedSentenceIds: Array.from(uniqueSolved),
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
+
+export async function DELETE(request: NextRequest) {
+  await connection();
+  try {
+    assertSameOrigin(request);
+    const context = await requireUser();
+    if (!context.ok) throw new HttpError(401, context.error);
+
+    // Delete only the authenticated learner's sentence-construction attempts.
+    // The service-role client is necessary because normal learner access is
+    // intentionally limited to reading and inserting attempt history.
+    const { count, error } = await createAdminSupabase()
+      .from('sentence_construction_attempts')
+      .delete({ count: 'exact' })
+      .eq('user_id', context.user.id);
+
+    if (error) throw new HttpError(500, 'Could not reset sentence construction progress.', error.message);
+
+    return NextResponse.json({
+      deletedAttempts: count ?? 0,
+      resetLevels: ['N5', 'N4'],
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     return jsonError(error);

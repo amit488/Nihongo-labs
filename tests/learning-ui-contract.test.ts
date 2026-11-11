@@ -89,3 +89,21 @@ test('sentence builder keeps progress inside the exercise instead of stacking du
   assert.doesNotMatch(sentence, /sentenceHero/);
   assert.doesNotMatch(sentence, /sentenceBottomRow/);
 });
+
+
+test('sentence construction reset confirms the full scope and clears only the signed-in learner history', () => {
+  const sentencePath = resolve(process.cwd(), 'src/components/nihongo/sentence-construction.tsx');
+  const sentence = readFileSync(sentencePath, 'utf8');
+  const sentenceApiPath = resolve(process.cwd(), 'src/app/api/learning/sentence-construction/route.ts');
+  const sentenceApi = readFileSync(sentenceApiPath, 'utf8');
+  const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
+
+  assert.match(sentence, /Reset all sentence progress\?/);
+  assert.match(sentence, /for both N5 and N4/);
+  assert.match(sentence, /My Progress and Learning Intelligence/);
+  assert.match(sentence, /method: 'DELETE'/);
+  assert.match(sentenceApi, /export async function DELETE\(request: NextRequest\)/);
+  assert.match(sentenceApi, /createAdminSupabase\(\)[\s\S]*?from\('sentence_construction_attempts'\)[\s\S]*?\.delete\([\s\S]*?\.eq\('user_id', context\.user\.id\)/);
+  assert.match(learningStyles, /\.sentenceResetOverlay/);
+  assert.match(learningStyles, /\.sentenceResetDialog/);
+});

@@ -239,3 +239,21 @@
 }
 
 .feedbackLink{border:1px solid #e7cfc9;background:#fff7f5;color:#9d463f;border-radius:7px;padding:7px 10px;font-size:15px;font-weight:650;text-decoration:none;white-space:nowrap;transition:background .18s ease,border-color .18s ease}.feedbackLink:hover{background:#f9ebe7;border-color:#d8b5ad}@media(max-width:780px){.feedbackLink{padding:6px 8px;font-size:13px}}@media(max-width:480px){.feedbackLink{padding:5px 6px;font-size:12px}.topActions{gap:6px}}
+
+
+/* Confirm destructive sentence-progress resets clearly before deleting history. */
+.sentenceResetButton{border:1px solid #e7cfc9;background:#fff;color:#a45149;border-radius:7px;padding:8px 11px;font-size:var(--workspace-font-secondary);font-weight:750;cursor:pointer;white-space:nowrap;transition:background .18s,border-color .18s}
+.sentenceResetButton:hover:not(:disabled){background:#fff5f2;border-color:#d8aaa2}
+.sentenceResetButton:disabled{opacity:.45;cursor:not-allowed}
+.sentenceResetOverlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(35,44,55,.56)}
+.sentenceResetDialog{width:min(100%,480px);max-height:calc(100vh - 40px);overflow:auto;padding:25px;border:1px solid #eadedb;border-radius:15px;background:#fff;box-shadow:0 24px 70px rgba(24,32,40,.28)}
+.sentenceResetEyebrow{color:#a45149;font-size:var(--workspace-font-micro);font-weight:850;letter-spacing:1.2px}
+.sentenceResetDialog h2{margin:9px 0 10px;color:#303a45;font:600 22px var(--workspace-heading-family);line-height:1.25}
+.sentenceResetDialog>p{margin:0;color:#66727d;font-size:var(--workspace-font-body);line-height:1.65}
+.sentenceResetDialog .sentenceResetError{margin-top:12px;color:#a13f38;font-weight:650}
+.sentenceResetActions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:22px}
+.sentenceResetConfirmButton{display:inline-flex;align-items:center;justify-content:center;border:1px solid #a84840;border-radius:7px;background:#a84840;color:#fff;padding:9px 13px;font-size:var(--workspace-font-body);font-weight:750;cursor:pointer}
+.sentenceResetConfirmButton:hover:not(:disabled){border-color:#8f3933;background:#8f3933}
+.sentenceResetConfirmButton:disabled{opacity:.55;cursor:wait}
+.sentenceResetButton:focus-visible,.sentenceResetConfirmButton:focus-visible,.sentenceResetActions .ghostButton:focus-visible{outline:3px solid #dca296;outline-offset:2px}
+@media(max-width:520px){.sentenceResetDialog{padding:20px}.sentenceResetDialog h2{font-size:20px}.sentenceResetActions{align-items:stretch;flex-direction:column-reverse}.sentenceResetActions button{width:100%}}
