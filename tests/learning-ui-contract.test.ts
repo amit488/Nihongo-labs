@@ -185,7 +185,7 @@ test('the official Nihongo Labs emblem is shared across app surfaces, email and 
   const layout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
   const email = readFileSync(resolve(process.cwd(), 'supabase/templates/confirmation.html'), 'utf8');
 
-  assert.match(brand, /src="\\/nihongo-labs-logo\\.png"/);
+  assert.ok(brand.includes('src="/nihongo-labs-logo.png"'));
   assert.match(brand, /export function BrandMark/);
   assert.match(admin, /BrandMark size=\{37\}/);
   assert.match(quickRevision, /BrandMark size=\{38\}/);
