@@ -112,7 +112,10 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
       setProgressLoaded(true);
       if (body.migrationRequired) setNotice('Apply the new sentence construction migration to save attempts and enable progress tracking.');
     }).catch((error: unknown) => {
-      if (active) setNotice(error instanceof Error ? error.message : 'Sentence progress is temporarily unavailable.');
+      if (active) {
+        setNotice(error instanceof Error ? error.message : 'Sentence progress is temporarily unavailable.');
+        setProgressLoaded(true);
+      }
     });
     return () => { active = false; };
   }, [items, level, signedIn]);
@@ -296,7 +299,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
           type="button"
           className={styles.sentenceResetButton}
           onClick={() => { setResetError(''); setShowResetConfirm(true); }}
-          disabled={saving || resetting}
+          disabled={!progressLoaded || saving || resetting}
           aria-haspopup="dialog"
           aria-expanded={showResetConfirm}
         >
