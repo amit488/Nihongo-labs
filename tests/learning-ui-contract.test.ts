@@ -107,3 +107,27 @@ test('sentence construction reset confirms the full scope and clears only the si
   assert.match(learningStyles, /\.sentenceResetOverlay/);
   assert.match(learningStyles, /\.sentenceResetDialog/);
 });
+
+
+test('Quick Revision can be launched manually and visible-time scheduling works without a focus-state dependency', () => {
+  const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
+  const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
+
+  assert.match(quickRevision, /Start Quick Revision now/);
+  assert.match(quickRevision, /loadQuestionRef\\.current/);
+  assert.match(quickRevision, /document\\.visibilityState === 'visible'/);
+  assert.doesNotMatch(quickRevision, /document\\.hasFocus\\(\\)/);
+  assert.match(quickStyles, /\\.quickRevisionDock/);
+  assert.match(quickStyles, /\\.launcher/);
+});
+
+test('sentence reset confirmation is rendered in a body portal and uses a prominent destructive action', () => {
+  const sentence = readFileSync(resolve(process.cwd(), 'src/components/nihongo/sentence-construction.tsx'), 'utf8');
+  const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
+
+  assert.match(sentence, /createPortal\\([\\s\\S]*?document\\.body/);
+  assert.match(sentence, /resetCancelRef/);
+  assert.match(sentence, /resetConfirmRef/);
+  assert.match(learningStyles, /\\.sentenceResetOverlay\\{position:fixed;inset:0;z-index:1600/);
+  assert.match(learningStyles, /\\.sentenceResetButton\\{[^}]*background:#a84840[^}]*color:#fff/);
+});
