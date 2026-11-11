@@ -96,6 +96,7 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.ok(component.includes('nihongo:quick-revision:timer:v1'));
   assert.ok(component.includes('sessionElapsedMs?: unknown'));
   assert.ok(component.includes('nihongo:quick-revision-timer'));
+  assert.ok(component.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
   assert.ok(component.includes("isExcludedStudySection = active === 'reading' || active === 'exams'"));
   assert.ok(component.includes('}, [signedIn]);'));
   assert.ok(component.includes('studyTimerRef.current.textContent = `Study · ${minutes}:'));
