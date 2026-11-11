@@ -81,10 +81,10 @@ test('database monitoring exposes protected Cron schedule and previous run detai
   assert.match(route, /requireAdminApi/);
   assert.match(route, /get_admin_cron_monitoring/);
   assert.match(route, /Cache-Control.*private, no-store/);
-  assert.match(migration, /create table if not exists private\.cron_job_run_audit/);
+  assert.match(migration, /create table if not exists nihongo_admin_private\.cron_job_run_audit/);
   assert.match(migration, /cron_run_id bigint unique/);
   assert.match(migration, /get diagnostics v_deleted = row_count/);
-  assert.match(migration, /insert into private\.cron_job_run_audit/);
+  assert.match(migration, /insert into nihongo_admin_private\.cron_job_run_audit/);
   assert.match(migration, /r\.status = 'failed'/);
   assert.match(migration, /r\.return_message/);
   assert.match(migration, /Asia\/Kolkata/);
