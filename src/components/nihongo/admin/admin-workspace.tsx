@@ -146,7 +146,9 @@ export default function AdminWorkspace({ section }: { section: Section }) {
     try {
       const endpoint = section === 'overview' || section === 'analytics'
         ? '/api/admin/overview'
-        : section === 'users'
+        : section === 'database'
+          ? '/api/admin/database'
+          : section === 'users'
           ? '/api/admin/users?page=' + requestedPage + '&perPage=25' + (term ? '&q=' + encodeURIComponent(term) : '')
           : section === 'payments'
             ? '/api/admin/payments'
@@ -154,7 +156,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
       const response = await fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' });
       const body = await response.json() as AdminData;
       if (!response.ok) throw new Error(body.error || 'Could not load administrator data.');
-      setData(section === 'database' ? { database: body as unknown as DatabaseHealth, generatedAt: body.database?.generated_at } : body);
+      setData(section === 'database' ? { database: body as unknown as DatabaseHealth, generatedAt: (body as unknown as DatabaseHealth).generated_at } : body);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load administrator data.');
       setData(null);
