@@ -74,6 +74,9 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
   const [notice, setNotice] = useState('');
   const [stats, setStats] = useState<SentenceStats>(emptyStats);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const current = items[index] ?? null;
@@ -200,6 +203,37 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     }
   }
 
+  async function resetProgress() {
+    if (!signedIn || saving || resetting) return;
+    setResetting(true);
+    setResetError('');
+
+    try {
+      const response = await fetch('/api/learning/sentence-construction', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      const body = await response.json() as { deletedAttempts?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || 'Sentence construction progress could not be reset.');
+
+      setStats({ ...emptyStats, totalSentences: items.length });
+      setIndex(0);
+      setSelected([]);
+      setFeedback(null);
+      setShowMeaning(false);
+      setShowHint(false);
+      setStartedAt(Date.now());
+      setSessionCorrect(0);
+      setShowResetConfirm(false);
+      setNotice(`Sentence progress reset. ${body.deletedAttempts ?? 0} saved attempts were removed across N5 and N4.`);
+      await onProgressSaved();
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : 'Sentence construction progress could not be reset.');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   function nextSentence() {
     if (!current) return;
     const nextIndex = findNextUnsolvedSentenceIndex(items, stats.solvedSentenceIds, index);
@@ -212,12 +246,63 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     setNotice('');
   }
 
-  const heading = <SectionHeading
-    eyebrow={`SENTENCE PRACTICE · JLPT ${level}`}
-    title="Build a natural sentence."
-    description="Arrange the tiles, check your answer and learn from the grammar."
-    action={<div className={styles.headingActions}><JlptLevelSwitch value={level} onChange={changeLevel} label="Sentence construction JLPT level" /></div>}
-  />;
+  const heading = <>
+    <SectionHeading
+      eyebrow={`SENTENCE PRACTICE · JLPT ${level}`}
+      title="Build a natural sentence."
+      description="Arrange the tiles, check your answer and learn from the grammar."
+      action={<div className={styles.headingActions}>
+        <JlptLevelSwitch value={level} onChange={changeLevel} label="Sentence construction JLPT level" />
+        {signedIn ? <button
+          type="button"
+          className={styles.sentenceResetButton}
+          onClick={() => { setResetError(''); setShowResetConfirm(true); }}
+          disabled={!progressLoaded || saving || resetting}
+          aria-haspopup="dialog"
+        >Reset progress</button> : null}
+      </div>}
+    />
+    {showResetConfirm ? <div
+      className={styles.sentenceResetOverlay}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !resetting) {
+          setShowResetConfirm(false);
+          setResetError('');
+        }
+      }}
+    >
+      <section
+        className={styles.sentenceResetDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sentence-reset-title"
+        aria-describedby="sentence-reset-description"
+      >
+        <span className={styles.sentenceResetEyebrow}>SENTENCE CONSTRUCTION</span>
+        <h2 id="sentence-reset-title">Reset all sentence progress?</h2>
+        <p id="sentence-reset-description">
+          This permanently deletes all saved sentence attempts and solved questions for both N5 and N4.
+          Your sentence progress, accuracy and attempt counts in My Progress and Learning Intelligence will return to zero.
+          Other learning progress will not be affected. This action cannot be undone.
+        </p>
+        {resetError ? <p className={styles.sentenceResetError} role="alert">{resetError}</p> : null}
+        <div className={styles.sentenceResetActions}>
+          <button
+            type="button"
+            className={styles.ghostButton}
+            onClick={() => { setShowResetConfirm(false); setResetError(''); }}
+            disabled={resetting}
+          >Cancel</button>
+          <button
+            type="button"
+            className={styles.sentenceResetConfirmButton}
+            onClick={() => void resetProgress()}
+            disabled={resetting}
+          >{resetting ? 'Resetting…' : 'Yes, reset progress'}</button>
+        </div>
+      </section>
+    </div> : null}
+  </>;
 
   if (signedIn && !progressLoaded) {
     return <div className={styles.sentenceWorkspace}>
