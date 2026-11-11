@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { signOutAction } from '@/app/actions/auth';
+import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import styles from './admin.module.css';
 
 const navigation = [
@@ -27,12 +27,19 @@ export default function AdminShell({ children, email, roles }: {
 
   async function signOut() {
     setSigningOut(true);
-    const result = await signOutAction();
-    if (result.success) {
-      window.dispatchEvent(new Event('nihongo:auth-signed-out'));
-      router.replace('/login');
+    const client = getSupabaseBrowserClient();
+    if (!client) {
+      setSigningOut(false);
+      return;
     }
-    else setSigningOut(false);
+    const { error } = await client.auth.signOut();
+    if (error) {
+      setSigningOut(false);
+      return;
+    }
+    // Clear the browser's cookie-backed session and notify global auth UI.
+    window.dispatchEvent(new Event('nihongo:auth-signed-out'));
+    router.replace('/login');
   }
 
   return (
