@@ -41,7 +41,7 @@ begin
     from cron.job_run_details d
     join cron.job j on j.jobid = d.jobid
    where j.jobname = v_job_name
-     and d.status = 'running'
+     and d.status in ('starting', 'running')
    order by d.start_time desc
    limit 1;
 
@@ -155,7 +155,7 @@ as $$
                       case
                         when r.status = 'failed' then 'rolled_back'
                         when a.cron_run_id is not null then 'recorded'
-                        when r.status = 'running' then 'pending'
+                        when r.status in ('starting', 'running') then 'pending'
                         else 'not_recorded'
                       end,
                     'error_message',
