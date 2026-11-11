@@ -40,7 +40,7 @@ begin
     into v_cron_run_id, v_started_at
     from cron.job_run_details d
     join cron.job j on j.jobid = d.jobid
-   where j.jobname = v_job_name
+   where j.jobname::text = v_job_name
      and d.status in ('starting', 'running')
    order by d.start_time desc
    limit 1;
@@ -59,7 +59,7 @@ begin
    where jobid in (
      select jobid
        from cron.job
-      where jobname = v_job_name
+      where jobname::text = v_job_name
    )
      and end_time < clock_timestamp() - interval '8 days';
 
