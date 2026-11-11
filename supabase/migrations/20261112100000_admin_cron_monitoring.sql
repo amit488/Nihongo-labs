@@ -137,8 +137,8 @@ as $$
                   jsonb_build_object(
                     'run_id', r.runid,
                     'status', r.status,
-                    'started_at_ist', pg_catalog.timezone('Asia/Kolkata', r.start_time),
-                    'ended_at_ist', pg_catalog.timezone('Asia/Kolkata', r.end_time),
+                    'started_at_ist', pg_catalog.to_char(pg_catalog.timezone('Asia/Kolkata', r.start_time), 'YYYY-MM-DD"T"HH24:MI:SS.MS') || '+05:30',
+                    'ended_at_ist', pg_catalog.to_char(pg_catalog.timezone('Asia/Kolkata', r.end_time), 'YYYY-MM-DD"T"HH24:MI:SS.MS') || '+05:30',
                     'duration_ms',
                       case when r.end_time is null then null
                         else greatest(
