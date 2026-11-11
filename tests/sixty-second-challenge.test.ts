@@ -8,7 +8,7 @@ testCase('60-second challenge mixes learned content, both kana scripts and sente
   assert.match(component, /CHALLENGE_MS=60_000/);
   assert.match(component, /\/api\/learning\/sixty-second-challenge/);
   assert.match(component, /durationSeconds/);
-  assert.match(route, /'vocabulary' \| 'kanji' \| 'grammar' \| 'hiragana' \| 'katakana' \| 'sentence'/);
+  assert.match(route, /type Kind = 'vocabulary' \\| 'verb' \\| 'kana-word' \\| 'kanji' \\| 'grammar' \\| 'hiragana' \\| 'katakana' \\| 'sentence'/);
   assert.match(route, /getSentenceConstructionItems/);
   assert.match(route, /part_of_speech/);
   assert.match(route, /kana-word/);
