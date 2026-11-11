@@ -44,6 +44,9 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
   const responsePending = useRef(false);
   const dialogOpen = useRef(false);
   const activeMilliseconds = useRef(0);
+  const sessionElapsedMilliseconds = useRef(0);
+  const activeSectionRef = useRef(activeSection);
+  activeSectionRef.current = activeSection;
   const targetMilliseconds = useRef(FIRST_QUESTION_MS);
   const timerStorageKey = 'nihongo:quick-revision:timer:v1';
 
@@ -65,27 +68,57 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
   useEffect(() => {
     if (!signedIn) {
       activeMilliseconds.current = 0;
+      sessionElapsedMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
       dialogOpen.current = false;
       try { window.localStorage.removeItem(timerStorageKey); } catch { /* Storage may be unavailable. */ }
+      window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
+        detail: { sessionElapsedMs: 0, elapsedMs: 0, paused: true },
+      }));
       return;
     }
+
     let disposed = false;
     let requestInProgress = false;
-    const excludedSection = activeSection === 'reading' || activeSection === 'exams';
     let lastUpdatedAt = Date.now();
+    let wasSessionCounting = false;
+    let wasRevisionCounting = false;
 
-    // Persist one shared wall-clock accumulator so route remounts and other
-    // browser tabs continue the same signed-in countdown. Only reading and
-    // mock examinations pause it; background-tab visibility is irrelevant.
-    const readTimerState = () => {
+    type TimerState = {
+      elapsedMs: number;
+      sessionElapsedMs: number;
+      lastUpdatedAt: number;
+      targetMs: number;
+    };
+
+    const isSectionExcluded = () =>
+      activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams';
+    const isSessionEligible = () =>
+      !isSectionExcluded() &&
+      document.visibilityState === 'visible' &&
+      document.hasFocus();
+    const isRevisionEligible = () =>
+      isSessionEligible() &&
+      !dialogOpen.current &&
+      !requestInProgress &&
+      !responsePending.current;
+
+    const readTimerState = (): TimerState | null => {
       try {
         const raw = window.localStorage.getItem(timerStorageKey);
         if (!raw) return null;
-        const value = JSON.parse(raw) as { elapsedMs?: unknown; lastUpdatedAt?: unknown; targetMs?: unknown };
+        const value = JSON.parse(raw) as {
+          elapsedMs?: unknown;
+          sessionElapsedMs?: unknown;
+          lastUpdatedAt?: unknown;
+          targetMs?: unknown;
+        };
         if (typeof value.elapsedMs !== 'number' || !Number.isFinite(value.elapsedMs) || value.elapsedMs < 0) return null;
         return {
           elapsedMs: value.elapsedMs,
+          sessionElapsedMs: typeof value.sessionElapsedMs === 'number' &&
+            Number.isFinite(value.sessionElapsedMs) && value.sessionElapsedMs >= 0
+            ? value.sessionElapsedMs : value.elapsedMs,
           lastUpdatedAt: typeof value.lastUpdatedAt === 'number' && Number.isFinite(value.lastUpdatedAt)
             ? value.lastUpdatedAt : Date.now(),
           targetMs: typeof value.targetMs === 'number' && Number.isFinite(value.targetMs) && value.targetMs > 0
@@ -95,30 +128,86 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
         return null;
       }
     };
-    const writeTimerState = (now: number) => {
-      try {
-        window.localStorage.setItem(timerStorageKey, JSON.stringify({
+
+    const dispatchTimerUpdate = () => {
+      window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
+        detail: {
+          sessionElapsedMs: sessionElapsedMilliseconds.current,
           elapsedMs: activeMilliseconds.current,
-          lastUpdatedAt: now,
-          targetMs: targetMilliseconds.current,
-        }));
-      } catch { /* Keep the countdown working in memory if storage is unavailable. */ }
+          paused: !isSessionEligible(),
+          excluded: isSectionExcluded(),
+        },
+      }));
     };
+
+    const writeTimerState = (now: number) => {
+      // A hidden or unfocused tab must never overwrite the foreground tab's
+      // newer shared timer snapshot with stale data.
+      const shouldPersist = wasSessionCounting || isSessionEligible() || wasRevisionCounting || isRevisionEligible();
+      if (shouldPersist) {
+        try {
+          window.localStorage.setItem(timerStorageKey, JSON.stringify({
+            elapsedMs: activeMilliseconds.current,
+            sessionElapsedMs: sessionElapsedMilliseconds.current,
+            lastUpdatedAt: now,
+            targetMs: targetMilliseconds.current,
+          }));
+        } catch { /* Keep the timer working in memory if browser storage is unavailable. */ }
+      }
+      dispatchTimerUpdate();
+    };
+
     const savedTimer = readTimerState();
     if (savedTimer) {
       activeMilliseconds.current = savedTimer.elapsedMs;
+      sessionElapsedMilliseconds.current = savedTimer.sessionElapsedMs;
       targetMilliseconds.current = savedTimer.targetMs;
       lastUpdatedAt = savedTimer.lastUpdatedAt;
     } else {
       activeMilliseconds.current = 0;
+      sessionElapsedMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
-      writeTimerState(lastUpdatedAt);
     }
+    wasSessionCounting = isSessionEligible();
+    wasRevisionCounting = isRevisionEligible();
+    writeTimerState(lastUpdatedAt);
 
+    // Accumulate only time spent on this site in the active browser tab.
+    // Reading and Mock Exams pause both clocks; every other site route counts.
+    const checkpoint = (now = Date.now()) => {
+      const elapsed = Math.max(0, now - lastUpdatedAt);
+      if (wasSessionCounting) sessionElapsedMilliseconds.current += elapsed;
+      if (wasRevisionCounting) activeMilliseconds.current += elapsed;
+      lastUpdatedAt = now;
+      wasSessionCounting = isSessionEligible();
+      wasRevisionCounting = isRevisionEligible();
+      writeTimerState(now);
+    };
+
+    const syncFromOtherTab = (event: StorageEvent) => {
+      if (event.key !== timerStorageKey) return;
+      const saved = readTimerState();
+      if (!saved || saved.lastUpdatedAt <= lastUpdatedAt) return;
+      activeMilliseconds.current = saved.elapsedMs;
+      sessionElapsedMilliseconds.current = saved.sessionElapsedMs;
+      targetMilliseconds.current = saved.targetMs;
+      lastUpdatedAt = saved.lastUpdatedAt;
+      wasSessionCounting = isSessionEligible();
+      wasRevisionCounting = isRevisionEligible();
+      dispatchTimerUpdate();
+    };
+
+    const handleEligibilityChange = () => checkpoint(Date.now());
+    document.addEventListener('visibilitychange', handleEligibilityChange);
+    window.addEventListener('focus', handleEligibilityChange);
+    window.addEventListener('blur', handleEligibilityChange);
+    window.addEventListener('storage', syncFromOtherTab);
 
     const loadQuestion = async () => {
       if (requestInProgress || responsePending.current || dialogOpen.current || disposed) return;
+      checkpoint(Date.now());
       requestInProgress = true;
+      wasRevisionCounting = false;
       setLoading(true);
       setError('');
       try {
@@ -143,46 +232,30 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
           targetMilliseconds.current = activeMilliseconds.current + RETRY_WHEN_EMPTY_MS;
           return;
         }
+        checkpoint(Date.now());
         dialogOpen.current = true;
         setQuestion(body.question);
         setSelected('');
         setResult(null);
         questionStartedAt.current = performance.now();
         activeMilliseconds.current = 0;
-        lastUpdatedAt = Date.now();
-        writeTimerState(lastUpdatedAt);
+        wasRevisionCounting = false;
+        writeTimerState(Date.now());
       } catch (requestError) {
         if (!disposed) {
           setError(requestError instanceof Error ? requestError.message : 'Quick Revision is temporarily unavailable.');
           targetMilliseconds.current = activeMilliseconds.current + RETRY_WHEN_EMPTY_MS;
         }
       } finally {
-        if (!disposed) setLoading(false);
         requestInProgress = false;
+        checkpoint(Date.now());
+        if (!disposed) setLoading(false);
       }
     };
 
-    // The interruption is automatic on every signed-in learning section.
     const interval = window.setInterval(() => {
-      const now = Date.now();
-      const saved = readTimerState();
-      if (saved && saved.lastUpdatedAt > lastUpdatedAt) {
-        activeMilliseconds.current = saved.elapsedMs;
-        targetMilliseconds.current = saved.targetMs;
-        lastUpdatedAt = saved.lastUpdatedAt;
-      }
-      const elapsed = Math.max(0, now - lastUpdatedAt);
-      lastUpdatedAt = now;
-
-      if (!excludedSection && !dialogOpen.current && !responsePending.current) {
-        activeMilliseconds.current += elapsed;
-      }
-      // Advance the shared checkpoint even during excluded sections so that
-      // time spent reading or taking a mock exam is never added later.
-      writeTimerState(now);
-
-      if (!excludedSection && !dialogOpen.current && !responsePending.current &&
-          activeMilliseconds.current >= targetMilliseconds.current) {
+      checkpoint(Date.now());
+      if (isRevisionEligible() && activeMilliseconds.current >= targetMilliseconds.current) {
         void loadQuestion();
       }
     }, 1_000);
@@ -190,9 +263,28 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     return () => {
       disposed = true;
       window.clearInterval(interval);
-      writeTimerState(Date.now());
+      checkpoint(Date.now());
+      document.removeEventListener('visibilitychange', handleEligibilityChange);
+      window.removeEventListener('focus', handleEligibilityChange);
+      window.removeEventListener('blur', handleEligibilityChange);
+      window.removeEventListener('storage', syncFromOtherTab);
     };
-  }, [signedIn, activeSection]);
+  }, [signedIn]);
+
+  useEffect(() => {
+    // Keep the header counter in sync immediately when the user enters or
+    // leaves Reading or Mock Exams, without restarting either elapsed clock.
+    if (!signedIn) return;
+    window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
+      detail: {
+        sessionElapsedMs: sessionElapsedMilliseconds.current,
+        elapsedMs: activeMilliseconds.current,
+        paused: activeSection === 'reading' || activeSection === 'exams' ||
+          document.visibilityState !== 'visible' || !document.hasFocus(),
+        excluded: activeSection === 'reading' || activeSection === 'exams',
+      },
+    }));
+  }, [activeSection, signedIn]);
 
   async function submitAnswer(didNotRemember: boolean) {
     if (!question || responsePending.current || result) return;
@@ -236,10 +328,19 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     try {
       window.localStorage.setItem(timerStorageKey, JSON.stringify({
         elapsedMs: 0,
+        sessionElapsedMs: sessionElapsedMilliseconds.current,
         lastUpdatedAt: now,
         targetMs: targetMilliseconds.current,
       }));
     } catch { /* The in-memory timer remains available. */ }
+    window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
+      detail: {
+        sessionElapsedMs: sessionElapsedMilliseconds.current,
+        elapsedMs: 0,
+        paused: document.visibilityState !== 'visible' || !document.hasFocus(),
+        excluded: activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams',
+      },
+    }));
   }
 
   if (!signedIn) return null;
