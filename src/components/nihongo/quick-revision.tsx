@@ -46,8 +46,11 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
   const activeMilliseconds = useRef(0);
   const sessionElapsedMilliseconds = useRef(0);
   const activeSectionRef = useRef(activeSection);
-  activeSectionRef.current = activeSection;
   const targetMilliseconds = useRef(FIRST_QUESTION_MS);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
   const timerStorageKey = 'nihongo:quick-revision:timer:v1';
 
   useEffect(() => {
