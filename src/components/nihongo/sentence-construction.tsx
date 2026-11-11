@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import styles from './learning-app.module.css';
 import { JlptLevelSwitch, SectionHeading, type JlptLevel } from './learning-shared';
 import { getSentenceConstructionItems } from '@/lib/nihongo/sentence-construction-bank';
+import { findFirstUnsolvedSentenceIndex, findNextUnsolvedSentenceIndex } from '@/lib/nihongo/sentence-construction-progress';
 
 type SentenceStats = {
   totalSentences: number;
@@ -12,13 +13,14 @@ type SentenceStats = {
   accuracy: number;
   attemptedSentences: number;
   solvedSentences: number;
+  solvedSentenceIds: string[];
   migrationRequired?: boolean;
 };
 
 type Feedback = { correct: boolean; canonical: string; tip: string };
 const emptyStats: SentenceStats = {
   totalSentences: 80, totalAttempts: 0, correctAttempts: 0, accuracy: 0,
-  attemptedSentences: 0, solvedSentences: 0,
+  attemptedSentences: 0, solvedSentences: 0, solvedSentenceIds: [],
 };
 
 function stableHash(value: string) {
@@ -71,9 +73,11 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [stats, setStats] = useState<SentenceStats>(emptyStats);
+  const [progressLoaded, setProgressLoaded] = useState(false);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [sessionCorrect, setSessionCorrect] = useState(0);
-  const current = items[index] ?? items[0];
+  const current = items[index] ?? null;
+  const allSolved = signedIn && progressLoaded && items.length > 0 && stats.solvedSentenceIds.length >= items.length;
 
   const tileOrder = useMemo(() => {
     if (!current) return [];
@@ -83,7 +87,15 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
   useEffect(() => {
     let active = true;
-    if (!signedIn) return () => { active = false; };
+    if (!signedIn) {
+      setStats(emptyStats);
+      setIndex(0);
+      setProgressLoaded(true);
+      return () => { active = false; };
+    }
+
+    setProgressLoaded(false);
+    setNotice('');
     fetch('/api/learning/sentence-construction?level=' + level, {
       credentials: 'same-origin', cache: 'no-store',
     }).then(async (response) => {
@@ -91,21 +103,26 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
       if (!response.ok) throw new Error(body.error || 'Could not load sentence progress.');
       return body as SentenceStats;
     }).then((body) => {
-      if (active) {
-        setStats(body);
-        if (body.migrationRequired) setNotice('Apply the new sentence construction migration to save attempts and enable progress tracking.');
-      }
+      if (!active) return;
+      const solvedSentenceIds = body.solvedSentenceIds ?? [];
+      setStats({ ...emptyStats, ...body, solvedSentenceIds });
+      const firstUnsolvedIndex = findFirstUnsolvedSentenceIndex(items, solvedSentenceIds);
+      setIndex(firstUnsolvedIndex ?? items.length);
+      setStartedAt(Date.now());
+      setProgressLoaded(true);
+      if (body.migrationRequired) setNotice('Apply the new sentence construction migration to save attempts and enable progress tracking.');
     }).catch((error: unknown) => {
       if (active) setNotice(error instanceof Error ? error.message : 'Sentence progress is temporarily unavailable.');
     });
     return () => { active = false; };
-  }, [level, signedIn]);
+  }, [items, level, signedIn]);
 
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
     setLevel(next);
     void onPreferredLevelChange(next);
     setStats(emptyStats);
+    setProgressLoaded(false);
     setStartedAt(Date.now());
     setIndex(0);
     setSelected([]);
@@ -130,11 +147,11 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     if (!current || feedback || selected.length !== current.tokens.length || saving) return;
     const submittedTokens = selected.map((tokenIndex) => current.tokens[tokenIndex]);
     const localCorrect = submittedTokens.join('') === current.tokens.join('');
-    setFeedback({ correct: localCorrect, canonical: current.sentence, tip: current.tip });
-    setSessionCorrect((value) => value + (localCorrect ? 1 : 0));
     setNotice('');
 
     if (!signedIn) {
+      setFeedback({ correct: localCorrect, canonical: current.sentence, tip: current.tip });
+      setSessionCorrect((value) => value + (localCorrect ? 1 : 0));
       setNotice('Sign in to save this attempt to My progress and Learning Intelligence.');
       return;
     }
@@ -154,11 +171,34 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
       });
       const body = await response.json() as { correct?: boolean; error?: string };
       if (!response.ok) throw new Error(body.error || 'Your attempt could not be saved.');
-      setFeedback({ correct: Boolean(body.correct), canonical: current.sentence, tip: current.tip });
+
+      const isCorrect = Boolean(body.correct);
+      setFeedback({ correct: isCorrect, canonical: current.sentence, tip: current.tip });
+      setSessionCorrect((value) => value + (isCorrect ? 1 : 0));
+      if (isCorrect) {
+        setStats((previous) => {
+          const solvedSentenceIds = Array.from(new Set([...previous.solvedSentenceIds, current.id]));
+          return { ...previous, solvedSentenceIds, solvedSentences: solvedSentenceIds.length };
+        });
+      }
+
       const statsResponse = await fetch('/api/learning/sentence-construction?level=' + level, {
         credentials: 'same-origin', cache: 'no-store',
       });
-      if (statsResponse.ok) setStats(await statsResponse.json() as SentenceStats);
+      if (statsResponse.ok) {
+        const refreshedStats = await statsResponse.json() as SentenceStats;
+        setStats((previous) => {
+          const solvedSentenceIds = Array.from(new Set([
+            ...previous.solvedSentenceIds,
+            ...(refreshedStats.solvedSentenceIds ?? []),
+          ]));
+          return {
+            ...refreshedStats,
+            solvedSentenceIds,
+            solvedSentences: Math.max(refreshedStats.solvedSentences, solvedSentenceIds.length),
+          };
+        });
+      }
       await onProgressSaved();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Your attempt could not be saved.');
@@ -169,7 +209,8 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
   function nextSentence() {
     if (!current) return;
-    setIndex((value) => (value + 1) % items.length);
+    const nextIndex = findNextUnsolvedSentenceIndex(items, stats.solvedSentenceIds, index);
+    setIndex(nextIndex ?? items.length);
     setStartedAt(Date.now());
     setSelected([]);
     setFeedback(null);
@@ -178,24 +219,52 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     setNotice('');
   }
 
+  const heading = <SectionHeading
+    eyebrow={`SENTENCE PRACTICE · JLPT ${level}`}
+    title="Build a natural sentence."
+    description="Arrange the tiles, check your answer and learn from the grammar."
+    action={<div className={styles.headingActions}><JlptLevelSwitch value={level} onChange={changeLevel} label="Sentence construction JLPT level" /></div>}
+  />;
+
+  if (signedIn && !progressLoaded) {
+    return <div className={styles.sentenceWorkspace}>
+      {heading}
+      <section className={styles.sentenceCard}>
+        <p className={styles.sentenceNotice} role="status">{notice || 'Restoring your saved sentence progress…'}</p>
+      </section>
+    </div>;
+  }
+
+  if (allSolved) {
+    return <div className={styles.sentenceWorkspace}>
+      {heading}
+      <section className={styles.sentenceCard}>
+        <div className={styles.sentenceQuickStats}>
+          <span><strong>{stats.solvedSentences}</strong> / {items.length} solved</span>
+          <span><strong>{stats.accuracy}%</strong> accuracy</span>
+          <span><strong>{stats.totalAttempts}</strong> attempts</span>
+        </div>
+        <div className={styles.sentenceFeedbackCorrect} role="status">
+          <strong>Excellent work — all {items.length} {level} sentences are solved.</strong>
+          <p>Choose the other JLPT level to continue practising. Your completed sentences will stay completed.</p>
+        </div>
+      </section>
+    </div>;
+  }
+
   if (!current) return null;
   const visibleStats = signedIn ? stats : emptyStats;
   const built = selected.map((tokenIndex) => current.tokens[tokenIndex]);
 
   return <div className={styles.sentenceWorkspace}>
-    <SectionHeading
-      eyebrow={`SENTENCE PRACTICE · JLPT ${level}`}
-      title="Build a natural sentence."
-      description="Arrange the tiles, check your answer and learn from the grammar."
-      action={<div className={styles.headingActions}><JlptLevelSwitch value={level} onChange={changeLevel} label="Sentence construction JLPT level" /></div>}
-    />
+    {heading}
 
     <section className={styles.sentenceCard}>
       <div className={styles.sentenceCardMeta}>
         <div className={styles.sentenceQuickStats}>
           <span><strong>{visibleStats.solvedSentences}</strong> / {items.length} solved</span>
           <span><strong>{visibleStats.accuracy}%</strong> accuracy</span>
-          <span><strong>{visibleStats.totalAttempts}</strong> attempts</span>
+          <span title="Every submitted answer counts as one attempt, including incorrect retries. A sentence is solved once after a correct answer."><strong>{visibleStats.totalAttempts}</strong> attempts</span>
         </div>
         <div className={styles.sentenceCompactTrack} role="progressbar" aria-label={`${level} sentence set progress`} aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={visibleStats.solvedSentences}>
           <span style={{ width: `${Math.min(100, visibleStats.solvedSentences / Math.max(1, items.length) * 100)}%` }} />
@@ -216,7 +285,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
       <div className={styles.sentenceAnswer} aria-live="polite">
         {built.length ? built.map((token, position) => (
           <button type="button" key={`${position}-${selected[position]}`} className={styles.sentenceAnswerTile}
-            onClick={() => removeToken(position)} disabled={Boolean(feedback)} aria-label={`Remove ${token}`}>{token}<span>×</span></button>
+            onClick={() => removeToken(position)} disabled={Boolean(feedback) || saving} aria-label={`Remove ${token}`}>{token}<span>×</span></button>
         )) : <span className={styles.sentencePlaceholder}>Tap the tiles below to build your answer…</span>}
       </div>
 
@@ -225,12 +294,12 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
         {tileOrder.map((tokenIndex) => {
           const used = selected.includes(tokenIndex);
           return <button type="button" key={tokenIndex} className={styles.sentenceTile}
-            onClick={() => addToken(tokenIndex)} disabled={used || Boolean(feedback)} aria-pressed={used}>{used ? <span className={styles.sentenceTileUsed}>{current.tokens[tokenIndex]}</span> : current.tokens[tokenIndex]}</button>;
+            onClick={() => addToken(tokenIndex)} disabled={used || Boolean(feedback) || saving} aria-pressed={used}>{used ? <span className={styles.sentenceTileUsed}>{current.tokens[tokenIndex]}</span> : current.tokens[tokenIndex]}</button>;
         })}
       </div>
 
       <div className={styles.sentenceUtilityRow}>
-        <button type="button" className={styles.textButton} onClick={() => { setSelected([]); setFeedback(null); setNotice(''); }} disabled={Boolean(feedback)}>Reset tiles</button>
+        <button type="button" className={styles.textButton} onClick={() => { setSelected([]); setFeedback(null); setNotice(''); }} disabled={Boolean(feedback) || saving}>Reset tiles</button>
         <div>
           <button type="button" className={styles.ghostButton} onClick={() => setShowHint((value) => !value)}>{showHint ? 'Hide grammar hint' : 'Grammar hint'}</button>
           <button type="button" className={styles.ghostButton} onClick={() => setShowMeaning((value) => !value)}>{showMeaning ? 'Hide answer' : 'Reveal answer'}</button>
@@ -257,7 +326,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
     <div className={styles.sentenceSessionNote}>
       <strong>{sessionCorrect} correct this session</strong>
-      <span>{signedIn ? 'Saved attempts flow into My progress and Learning Intelligence.' : 'Sign in to save attempts to My progress and Learning Intelligence.'}</span>
+      <span>{signedIn ? 'Every check counts as an attempt, including retries. A sentence is marked solved once after a correct answer.' : 'Sign in to save attempts to My progress and Learning Intelligence.'}</span>
     </div>
   </div>;
 }
