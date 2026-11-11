@@ -260,6 +260,17 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         <div><div className={styles.eyebrow}>{heading.eyebrow}</div><h1>{heading.title}</h1><p>{heading.description}</p></div>
         <div className={styles.headingMeta}><span className={styles.liveDot} /> Connected to Supabase <small>{data?.generatedAt ? 'Updated ' + timeLabel(data.generatedAt) : 'Live data'}</small></div>
       </div>
+      {section === 'cron' ? <div className={styles.cronToolbar}>
+        <label htmlFor="cron-run-limit">Show records
+          <select id="cron-run-limit" value={cronRunLimit} onChange={(event) => setCronRunLimit(event.target.value)}>
+            <option value="10">Last 10</option>
+            <option value="25">Last 25</option>
+            <option value="50">Last 50</option>
+            <option value="all">All available</option>
+          </select>
+        </label>
+        <Link href="/admin/database" className={styles.cronBackLink}>← Back to database health</Link>
+      </div> : null}
       {error ? <div className={styles.error} role="alert">{error}<button type="button" onClick={() => void load(search, userPage)}>Retry</button></div> : null}
       {loading && !data ? <div className={styles.loading}><span />Loading live administrator data…</div> : null}
 
@@ -282,10 +293,20 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         </section>
         <section className={styles.panel}>
           <div className={styles.panelHeading}>
+            <div><span className={styles.eyebrow}>SCHEDULED MAINTENANCE</span><h2>Cron jobs</h2></div>
+            <Link href="/admin/database/cron" className={styles.cronViewLink}>View job runs →</Link>
+          </div>
+          <p className={styles.panelFoot}>Review scheduled jobs, their IST schedules, recent execution results, cleanup counts and any database errors on the dedicated run-history page.</p>
+        </section>
+      </> : null}
+
+      {section === 'cron' && data ? (
+        <section className={styles.panel}>
+          <div className={styles.panelHeading}>
             <div><span className={styles.eyebrow}>SCHEDULED MAINTENANCE</span><h2>Cron job monitoring</h2></div>
             <span className={styles.panelMeta}>Run times shown in Asia/Kolkata (IST)</span>
           </div>
-          {data.database.cron_monitoring?.jobs.length ? data.database.cron_monitoring.jobs.map((job) => (
+          {data.cron_monitoring?.jobs.length ? data.cron_monitoring.jobs.map((job) => (
             <article className={styles.cronJob} key={job.job_id}>
               <div className={styles.cronJobHeader}>
                 <div><strong>{job.job_name}</strong><small>Job ID {job.job_id}</small></div>
@@ -297,12 +318,12 @@ export default function AdminWorkspace({ section }: { section: Section }) {
                 <small>Configured cron expression: {job.schedule_expression}</small>
               </div>
               <div className={styles.panelHeading}>
-                <div><span className={styles.eyebrow}>RECENT EXECUTIONS</span><h2>Previous runs</h2></div>
-                <span className={styles.panelMeta}>Latest {job.runs.length} of up to 50</span>
+                <div><span className={styles.eyebrow}>EXECUTION HISTORY</span><h2>Previous runs</h2></div>
+                <span className={styles.panelMeta}>Showing {job.runs.length} {cronRunLimit === 'all' ? 'available' : 'of selected'} records</span>
               </div>
               {job.runs.length ? <div className={styles.tableWrap}>
                 <table>
-                  <thead><tr><th>Started (IST)</th><th>Finished (IST)</th><th>Status</th><th>Rows deleted</th><th>Duration</th><th>Error message</th></tr></thead>
+                  <thead><tr><th>Started (IST)</th><th>Finished (IST)</th><th>Status</th><th>Records deleted</th><th>Duration</th><th>Error message</th></tr></thead>
                   <tbody>{job.runs.map((run) => (
                     <tr key={run.run_id}>
                       <td>{istTimeLabel(run.started_at_ist)}</td>
@@ -311,7 +332,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
                       <td>{run.deleted_rows_state === 'rolled_back'
                         ? '0 (rolled back)'
                         : run.deleted_rows_state === 'pending'
-                          ? 'Running'
+                          ? 'Pending'
                           : run.deleted_rows === null
                             ? 'Not recorded'
                             : run.deleted_rows.toLocaleString('en-IN')}</td>
@@ -321,11 +342,11 @@ export default function AdminWorkspace({ section }: { section: Section }) {
                   ))}</tbody>
                 </table>
               </div> : <Empty>No execution history is available for this job yet.</Empty>}
-              <p className={styles.panelFoot}>Successful runs before Cron row-count monitoring was installed will show “Not recorded”. Failed transactions show zero committed deletions; the PostgreSQL error is taken from Cron’s execution history.</p>
+              <p className={styles.panelFoot}>“Not recorded” means the execution predates cleanup-count logging or could not be correlated with its audit entry. New scheduled executions use the updated timestamp-based audit match. Failed transactions commit zero deleted records; PostgreSQL supplies the error message.</p>
             </article>
           )) : <Empty>The heartbeat-retention Cron job was not found in cron.job.</Empty>}
         </section>
-      </> : null}
+      ) : null}
 
       {(section === 'overview' || section === 'analytics') && data ? <>
         <div className={styles.metricGrid}>
