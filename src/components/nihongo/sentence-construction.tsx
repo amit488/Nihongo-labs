@@ -87,15 +87,8 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
 
   useEffect(() => {
     let active = true;
-    if (!signedIn) {
-      setStats(emptyStats);
-      setIndex(0);
-      setProgressLoaded(true);
-      return () => { active = false; };
-    }
+    if (!signedIn) return () => { active = false; };
 
-    setProgressLoaded(false);
-    setNotice('');
     fetch('/api/learning/sentence-construction?level=' + level, {
       credentials: 'same-origin', cache: 'no-store',
     }).then(async (response) => {
