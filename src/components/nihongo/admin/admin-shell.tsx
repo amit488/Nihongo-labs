@@ -11,7 +11,7 @@ const navigation = [
   { href: '/admin/users', label: 'Learners', icon: '◉' },
   { href: '/admin/payments', label: 'Payments', icon: '₹' },
   { href: '/admin/inbox', label: 'Inbox', icon: '✉' },
-  { href: '/admin/analytics', label: 'Learning analytics', icon: '⌁' },
+  { href: '/admin/analytics', label: 'Learning analytics', icon: '⌁' },\n  { href: '/admin/database', label: 'Database health', icon: '▤' },
 ];
 
 export default function AdminShell({ children, email, roles }: {
