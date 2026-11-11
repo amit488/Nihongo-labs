@@ -67,7 +67,8 @@ type TicketRow = {
 type DatabaseTable = { schema: string; name: string; estimated_rows: number; total_bytes: number; data_bytes: number; index_bytes: number };
 type DatabaseHealth = { database_name: string; database_size_bytes: number; storage_limit_bytes: number | null; storage_limit_source: string; table_count: number; empty_table_count: number; populated_table_count: number; estimated_row_count: number; tables: DatabaseTable[]; generated_at: string };
 type AdminData = {
-  generatedAt?: string;\n  database?: DatabaseHealth;
+  generatedAt?: string;
+  database?: DatabaseHealth;
   metrics?: AdminMetrics;
   content?: Record<string, number>;
   weeklyActivity?: ActivityDay[];
@@ -91,7 +92,8 @@ const headings: Record<Section, { eyebrow: string; title: string; description: s
   users: { eyebrow: 'LEARNER DIRECTORY', title: 'Your learners', description: 'Find registered learners and review their account and subscription details.' },
   payments: { eyebrow: 'FINANCIAL OPERATIONS', title: 'Payments', description: 'Review captured transactions, refunds and payment status from your billing ledger.' },
   inbox: { eyebrow: 'CUSTOMER EXPERIENCE', title: 'Contact & support inbox', description: 'Review suggestions, complaints and support requests from your learners.' },
-  analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },\n  database: { eyebrow: 'DATABASE OPERATIONS', title: 'Database health', description: 'Monitor storage consumption, table inventory and the largest data tables.' },
+  analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },
+  database: { eyebrow: 'DATABASE OPERATIONS', title: 'Database health', description: 'Monitor storage consumption, table inventory and the largest data tables.' },
 };
 
 function money(minor: number, currency = 'INR') {
