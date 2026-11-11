@@ -69,20 +69,6 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
     return () => { document.body.style.overflow = previousOverflow; };
   }, [question]);
 
-  // A prompt belongs to one authenticated session only. Close and discard its
-  // question/result immediately if auth disappears or the session changes.
-  useEffect(() => {
-    if (signedIn && sessionId) return;
-    dialogOpen.current = false;
-    responsePending.current = false;
-    questionStartedAt.current = 0;
-    setQuestion(null);
-    setSelected('');
-    setResult(null);
-    setError('');
-    setLoading(false);
-  }, [signedIn, sessionId]);
-
   useEffect(() => {
     if (!signedIn || !sessionId) {
       activeMilliseconds.current = 0;
