@@ -27,7 +27,7 @@ The local role assignment affects only the local Supabase project. Repeat it del
 - **Learners:** paginated Auth user records enriched with profile, role and latest subscription details. Search currently scans the first 1,000 Auth users; the UI explicitly labels that limit.
 - **Payments:** latest 100 payment ledger rows, including provider, amount, captured/refunded totals, payment state and account email.
 - **Inbox:** recent contact messages and support tickets. Contact items can be marked read or closed; changes are written to the audit log.
-- **Learning analytics:** persisted active learners, study minutes, lesson completions and quiz completions for the last seven days, plus content inventory counts.
+- **Learning analytics:** persisted active learners, study minutes, lesson completions and quiz completions for the last seven days, plus content inventory counts.\n- **Database health:** current PostgreSQL database size, total/empty/populated public tables, estimated total rows, per-table data/index/total sizes, and the largest table by estimated row count. Counts use PostgreSQL statistics to avoid expensive full-table scans; they are estimates and may lag until `ANALYZE` runs.\n\nSet `SUPABASE_DATABASE_STORAGE_LIMIT_BYTES` in the server environment to the database storage allowance for your Supabase plan. The database connection does not expose the project plan quota automatically, so capacity is intentionally shown as unconfigured until this value is supplied. The database inventory RPC is executable only by `service_role` and is called only from the protected admin API.
 
 Metrics are read from the existing `profiles`, `user_daily_activity`, `subscriptions`, `payments`, `contact_messages`, `support_tickets`, and learning-content tables. Empty databases display zero counts and empty states; sample revenue or learner activity is not fabricated.
 
@@ -49,7 +49,7 @@ Apply the additive dashboard indexes using the normal Supabase migration workflo
 npx supabase migration up --local
 ```
 
-The migration only adds indexes with `if not exists`; it does not create a second set of business tables or rewrite existing migration history.
+The existing dashboard migration only adds indexes with `if not exists`. The database-health migration adds one read-only, service-role-only RPC; it does not create business tables or rewrite existing migration history.
 
 ## Current scope and next extensions
 
