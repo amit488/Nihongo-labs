@@ -70,3 +70,30 @@ test('database health API is protected and the inventory RPC is service-role-onl
   assert.match(workspace, /estimated_rows/);
   assert.match(shell, /\/admin\/database/);
 });
+
+
+test('database monitoring exposes protected Cron schedule and previous run details in IST', () => {
+  const route = read('src/app/api/admin/database/route.ts');
+  const migration = read('supabase/migrations/20261112100000_admin_cron_monitoring.sql');
+  const workspace = read('src/components/nihongo/admin/admin-workspace.tsx');
+  const styles = read('src/components/nihongo/admin/admin.module.css');
+
+  assert.match(route, /requireAdminApi/);
+  assert.match(route, /get_admin_cron_monitoring/);
+  assert.match(route, /Cache-Control.*private, no-store/);
+  assert.match(migration, /create table if not exists private\.cron_job_run_audit/);
+  assert.match(migration, /cron_run_id bigint unique/);
+  assert.match(migration, /get diagnostics v_deleted = row_count/);
+  assert.match(migration, /insert into private\.cron_job_run_audit/);
+  assert.match(migration, /d\.status = 'failed'/);
+  assert.match(migration, /r\.return_message/);
+  assert.match(migration, /Asia\/Kolkata/);
+  assert.match(migration, /Every hour at minute 45 \(IST\)/);
+  assert.match(workspace, /Cron job monitoring/);
+  assert.match(workspace, /Schedule \(IST\)/);
+  assert.match(workspace, /Rows deleted/);
+  assert.match(workspace, /Error message/);
+  assert.match(workspace, /timeZone: 'Asia\/Kolkata'/);
+  assert.match(styles, /cronError/);
+  assert.match(styles, /status_succeeded/);
+});
