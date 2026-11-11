@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
 import { QuickRevision, QuickRevisionStats } from './quick-revision';
+import { SixtySecondChallenge } from './sixty-second-challenge';
 import Brand from './brand';
 import LearningIntelligence from './learning-intelligence';
 import LearningPlans from './learning-plans';
@@ -710,6 +711,7 @@ export default function LearningApp({ section = [] }: Props) {
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
       <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'sentences' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
+      <SixtySecondChallenge signedIn={signedIn} disabled={active === 'practice' || active === 'sentences' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
     </div>
   );
 }
