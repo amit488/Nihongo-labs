@@ -55,14 +55,14 @@ test('question and answer endpoints remain protected by server-verified Supabase
 
 
 test('anonymous Supabase users cannot activate Quick Revision or access learner endpoints', () => {
-  assert.match(globalController, /session\\.user\\?\\.is_anonymous/);
-  assert.match(globalController, /!data\\.user \\|\\| data\\.user\\.is_anonymous/);
-  assert.match(supabaseServer, /!data\\.user \\|\\| data\\.user\\.is_anonymous/);
+  assert.ok(globalController.includes('session?.user?.is_anonymous'));
+  assert.ok(globalController.includes('data.user.is_anonymous'));
+  assert.ok(supabaseServer.includes('data.user.is_anonymous'));
 });
 
 test('learner and admin logout clear the browser Supabase client session', () => {
-  assert.match(learnerApp, /await client\\.auth\\.signOut\\(\\)/);
-  assert.match(adminShell, /await client\\.auth\\.signOut\\(\\)/);
-  assert.doesNotMatch(learnerApp, /signOutAction/);
-  assert.doesNotMatch(adminShell, /signOutAction/);
+  assert.ok(learnerApp.includes('await client.auth.signOut()'));
+  assert.ok(adminShell.includes('await client.auth.signOut()'));
+  assert.ok(!learnerApp.includes('signOutAction'));
+  assert.ok(!adminShell.includes('signOutAction'));
 });
