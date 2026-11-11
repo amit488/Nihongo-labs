@@ -93,8 +93,8 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   assert.match(component, /studyTimerRef = useRef<HTMLSpanElement>\\(null\\)/);
   assert.match(component, /nihongo-labs:study-session:v1:/);
   assert.match(component, /elapsedMilliseconds/);
-  assert.match(component, /isExcludedStudySection = active === 'reading' \\|\\| active === 'exams'/);
-  assert.match(component, /isExcludedStudySection \\? 0 : Math\\.floor\\(sessionMilliseconds \\/ 1000\\)/);
+  assert.ok(component.includes("isExcludedStudySection = active === 'reading' || active === 'exams'"));
+  assert.ok(component.includes('isExcludedStudySection ? 0 : Math.floor(sessionMilliseconds / 1000)'));
   assert.match(component, /studyTimerRef\\.current\\.textContent = `Study · \\$\\{minutes\\}:/);
   assert.match(component, /<span ref=\\{studyTimerRef\\} className=/);
   assert.doesNotMatch(component, /setLiveStudySeconds/);
