@@ -38,7 +38,7 @@ export async function GET() {
     const hiragana=pick([...kanaRows],24);
     const katakana=pick([...kanaRows],24);
     for(const [character,reading] of hiragana) questions.push({id:'hiragana:'+character,kind:'hiragana',level:'N5',prompt:character,question:'Recognise this Hiragana character.',options:makeOptions(reading,kanaRows.map(x=>x[1])),answer:reading,explanation:character+' is read '+reading+'.'});
-    for(const [character,reading] of katakana) { const katakanaChar=String.fromCharCode(character.charCodeAt(0)+0x60); questions.push({id:'katakana:'+katakanaChar,kind:'katakana',level:'N5',prompt:katakanaChar,question:'Recognise this Katakana character.',options:makeOptions(reading,kanaRows.map(x=>x[1])),answer:reading,explanation:katakanaChar+' is read '+reading+'.'); }
+    for(const [character,reading] of katakana) { const katakanaChar=String.fromCharCode(character.charCodeAt(0)+0x60); questions.push({id:'katakana:'+katakanaChar,kind:'katakana',level:'N5',prompt:katakanaChar,question:'Recognise this Katakana character.',options:makeOptions(reading,kanaRows.map(x=>x[1])),answer:reading,explanation:katakanaChar+' is read '+reading+'.'}); }
     for(const item of pick(getSentenceConstructionItems('N5').concat(getSentenceConstructionItems('N4')),30)) {
       const correct=item.tokens.join(' ');
       const alternatives=pick(getSentenceConstructionItems(item.level).filter(x=>x.id!==item.id),3).map(x=>x.tokens.join(' '));
@@ -56,41 +56,43 @@ export async function POST(request:NextRequest) {
     const input=await readJson(request,finishSchema);
     const ids=[...new Set(input.answers.map(a=>a.questionId))];
     if(ids.length!==input.answers.length) throw new HttpError(400,'Duplicate challenge questions are not allowed.');
-    const result=await GET();
-    const payload=await result.json() as {questions:Omit<Question,'answer'>[]};
-    // Rebuild the authoritative key from published learner-owned content; the client never submits a score.
-    const db=context.supabase;
     const categories:Record<Kind,{answered:number;correct:number}>={vocabulary:{answered:0,correct:0},kanji:{answered:0,correct:0},grammar:{answered:0,correct:0},hiragana:{answered:0,correct:0},katakana:{answered:0,correct:0},sentence:{answered:0,correct:0}};
     const review=[];
     for(const answer of input.answers) {
-      const question=payload.questions.find(q=>q.id===answer.questionId);
-      if(!question||!question.options.includes(answer.selectedOption)) continue;
-      let correctAnswer='';
-      const [kind,id]=question.id.split(':');
+      const [kind,id]=answer.questionId.split(':') as [Kind,string];
+      if(!kind||!id||!['vocabulary','kanji','grammar','hiragana','katakana','sentence'].includes(kind)) continue;
+      let correctAnswer='',prompt='',question='',level='N5',explanation='';
       if(kind==='sentence') {
-        const item=getSentenceConstructionItems(question.level as 'N5'|'N4').find(x=>x.id===id);
-        correctAnswer=item?.tokens.join(' ')??'';
+        const item=getSentenceConstructionItems('N5').concat(getSentenceConstructionItems('N4')).find(x=>x.id===id);
+        if(!item) continue;
+        correctAnswer=item.tokens.join(' '); prompt=item.meaning; question='Choose the correctly ordered Japanese sentence.'; level=item.level; explanation=item.tip;
       } else if(kind==='hiragana'||kind==='katakana') {
         const char=kind==='katakana'?String.fromCharCode(id.charCodeAt(0)-0x60):id;
-        correctAnswer=kanaRows.find(x=>x[0]===char)?.[1]??'';
+        const row=kanaRows.find(x=>x[0]===char);
+        if(!row) continue;
+        correctAnswer=row[1]; prompt=id; question='Recognise this '+(kind==='hiragana'?'Hiragana':'Katakana')+' character.'; explanation=id+' is read '+correctAnswer+'.';
       } else if(kind==='vocabulary') {
-        const {data}=await db.from('user_vocabulary_progress').select('vocabulary_entries!inner(id,meaning,publication_status)').eq('user_id',context.user.id).eq('vocabulary_id',id).eq('vocabulary_entries.publication_status','published').maybeSingle();
+        const {data}=await db.from('user_vocabulary_progress').select('vocabulary_entries!inner(word,kana,meaning,jlpt_level,publication_status)').eq('user_id',context.user.id).eq('vocabulary_id',id).eq('vocabulary_entries.publication_status','published').maybeSingle();
         const item=Array.isArray(data?.vocabulary_entries)?data?.vocabulary_entries[0]:data?.vocabulary_entries;
-        correctAnswer=(item as {meaning:string}|null)?.meaning??'';
+        if(!item) continue;
+        const row=item as {word:string;kana:string;meaning:string;jlpt_level:string};
+        correctAnswer=row.meaning; prompt=row.word+'（'+row.kana+'）'; question='Choose the meaning of this vocabulary item.'; level=row.jlpt_level; explanation=prompt+' means '+correctAnswer+'.';
       } else if(kind==='kanji') {
-        const {data}=await db.from('kanji_review_state').select('kanji_entries!inner(id,meaning,publication_status)').eq('user_id',context.user.id).eq('kanji_id',id).eq('status','known').eq('kanji_entries.publication_status','published').maybeSingle();
+        const {data}=await db.from('kanji_review_state').select('kanji_entries!inner(character,meaning,jlpt_level,publication_status)').eq('user_id',context.user.id).eq('kanji_id',id).eq('status','known').eq('kanji_entries.publication_status','published').maybeSingle();
         const item=Array.isArray(data?.kanji_entries)?data?.kanji_entries[0]:data?.kanji_entries;
-        correctAnswer=(item as {meaning:string}|null)?.meaning??'';
-      } else if(kind==='grammar') {
-        const {data}=await db.from('user_grammar_progress').select('grammar_points!inner(id,pattern,publication_status)').eq('user_id',context.user.id).eq('grammar_id',id).eq('grammar_points.publication_status','published').maybeSingle();
+        if(!item) continue;
+        const row=item as {character:string;meaning:string;jlpt_level:string};
+        correctAnswer=row.meaning; prompt=row.character; question='Choose the meaning of this kanji.'; level=row.jlpt_level; explanation=row.character+' means '+correctAnswer+'.';
+      } else {
+        const {data}=await db.from('user_grammar_progress').select('grammar_points!inner(title,pattern,explanation,jlpt_level,publication_status)').eq('user_id',context.user.id).eq('grammar_id',id).eq('grammar_points.publication_status','published').maybeSingle();
         const item=Array.isArray(data?.grammar_points)?data?.grammar_points[0]:data?.grammar_points;
-        correctAnswer=(item as {pattern:string}|null)?.pattern??'';
+        if(!item) continue;
+        const row=item as {title:string;pattern:string;explanation:string;jlpt_level:string};
+        correctAnswer=row.pattern; prompt=row.explanation; question='Which grammar pattern matches this explanation?'; level=row.jlpt_level; explanation=row.pattern+' — '+row.explanation;
       }
-      if(!correctAnswer) continue;
       const correct=answer.selectedOption===correctAnswer;
-      const bucket=categories[question.kind];
-      bucket.answered++; if(correct) bucket.correct++;
-      review.push({kind:question.kind,level:question.level,question:question.question,prompt:question.prompt,selected:answer.selectedOption,correctAnswer,correct,explanation:question.kind==='sentence'?getSentenceConstructionItems(question.level as 'N5'|'N4').find(x=>x.id===id)?.tip:question.kind==='hiragana'||question.kind==='katakana'?id+' is read '+correctAnswer+'.':question.prompt});
+      const bucket=categories[kind]; bucket.answered++; if(correct) bucket.correct++;
+      review.push({kind,level,question,prompt,selected:answer.selectedOption,correctAnswer,correct,explanation});
     }
     const total=review.length, score=total?Math.round(review.filter(x=>x.correct).length/total*100):0;
     const {data:attempt,error}=await db.from('sixty_second_challenge_attempts').insert({user_id:context.user.id,score_percentage:score,total_answered:total,total_correct:review.filter(x=>x.correct).length,duration_seconds:input.durationSeconds,category_scores:categories,answer_review:review}).select('id,created_at').single();
