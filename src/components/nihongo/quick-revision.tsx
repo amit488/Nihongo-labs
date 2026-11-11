@@ -75,7 +75,8 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
       sessionElapsedMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
       dialogOpen.current = false;
-      try { window.localStorage.removeItem(timerStorageKey); } catch { /* Storage may be unavailable. */ }
+      // GlobalQuickRevision owns session teardown and clears persistent state
+      // only after a confirmed sign-out, not during initial auth resolution.
       window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
         detail: { sessionElapsedMs: 0, elapsedMs: 0, paused: true },
       }));
@@ -149,7 +150,18 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
     const writeTimerState = (now: number) => {
       // A hidden or unfocused tab must never overwrite the foreground tab's
       // newer shared timer snapshot with stale data.
-      const shouldPersist = isBrowserTabActive() || wasSessionCounting || wasRevisionCounting;
+      let sessionIsCurrent = false;
+      try {
+        const rawSession = window.localStorage.getItem('nihongo:quick-revision:session:v1');
+        if (rawSession) {
+          const storedSession = JSON.parse(rawSession) as { sessionId?: unknown };
+          sessionIsCurrent = storedSession.sessionId === sessionId;
+        }
+      } catch {
+        sessionIsCurrent = false;
+      }
+      const shouldPersist = sessionIsCurrent &&
+        (isBrowserTabActive() || wasSessionCounting || wasRevisionCounting);
       if (shouldPersist) {
         try {
           window.localStorage.setItem(timerStorageKey, JSON.stringify({
