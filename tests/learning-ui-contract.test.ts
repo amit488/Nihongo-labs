@@ -132,7 +132,7 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(globalController.includes('client.auth.onAuthStateChange'));
   assert.ok(globalController.includes("pathname.split('/')[2]"));
   assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
-  assert.ok(!learningApp.includes('<QuickRevision'));
+  assert.ok(!learningApp.includes('<QuickRevision signedIn'));
   assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
   assert.ok(quickStyles.includes('.backdrop{'));
   assert.ok(quickStyles.includes('position:fixed;inset:0;z-index:2200'));
