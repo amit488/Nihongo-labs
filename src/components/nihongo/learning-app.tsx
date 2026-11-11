@@ -709,7 +709,7 @@ export default function LearningApp({ section = [] }: Props) {
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>
       </main>
-      <QuickRevision signedIn={signedIn} disabled={active === 'practice' || active === 'sentences' || active === 'exams' || (active === 'kana' && kanaQuiz)} />
+      <QuickRevision signedIn={signedIn} />
     </div>
   );
 }
