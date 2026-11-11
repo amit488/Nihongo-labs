@@ -33,7 +33,7 @@ const RETRY_WHEN_EMPTY_MS = 60_000;
 const NEXT_QUESTION_MIN_MS = 4 * 60_000;
 const NEXT_QUESTION_RANGE_MS = 1 * 60_000;
 
-export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; activeSection: string }) {
+export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn: boolean; sessionId: string | null; activeSection: string }) {
   const [question, setQuestion] = useState<QuickQuestion | null>(null);
   const [selected, setSelected] = useState('');
   const [result, setResult] = useState<QuickResult | null>(null);
@@ -70,7 +70,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
   }, [question]);
 
   useEffect(() => {
-    if (!signedIn) {
+    if (!signedIn || !sessionId) {
       activeMilliseconds.current = 0;
       sessionElapsedMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
@@ -91,6 +91,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     type TimerState = {
       elapsedMs: number;
       sessionElapsedMs: number;
+      sessionId: string;
       lastUpdatedAt: number;
       targetMs: number;
     };
@@ -113,6 +114,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
         const value = JSON.parse(raw) as {
           elapsedMs?: unknown;
           sessionElapsedMs?: unknown;
+          sessionId?: unknown;
           lastUpdatedAt?: unknown;
           targetMs?: unknown;
         };
@@ -122,6 +124,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
           sessionElapsedMs: typeof value.sessionElapsedMs === 'number' &&
             Number.isFinite(value.sessionElapsedMs) && value.sessionElapsedMs >= 0
             ? value.sessionElapsedMs : value.elapsedMs,
+          sessionId: typeof value.sessionId === 'string' ? value.sessionId : '',
           lastUpdatedAt: typeof value.lastUpdatedAt === 'number' && Number.isFinite(value.lastUpdatedAt)
             ? value.lastUpdatedAt : Date.now(),
           targetMs: typeof value.targetMs === 'number' && Number.isFinite(value.targetMs) && value.targetMs > 0
@@ -152,6 +155,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
           window.localStorage.setItem(timerStorageKey, JSON.stringify({
             elapsedMs: activeMilliseconds.current,
             sessionElapsedMs: sessionElapsedMilliseconds.current,
+            sessionId,
             lastUpdatedAt: now,
             targetMs: targetMilliseconds.current,
           }));
@@ -161,12 +165,13 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     };
 
     const savedTimer = readTimerState();
-    if (savedTimer) {
+    if (savedTimer?.sessionId === sessionId) {
       activeMilliseconds.current = savedTimer.elapsedMs;
       sessionElapsedMilliseconds.current = savedTimer.sessionElapsedMs;
       targetMilliseconds.current = savedTimer.targetMs;
       lastUpdatedAt = savedTimer.lastUpdatedAt;
     } else {
+      // A timer snapshot from an earlier login session must never be reused.
       activeMilliseconds.current = 0;
       sessionElapsedMilliseconds.current = 0;
       targetMilliseconds.current = FIRST_QUESTION_MS;
@@ -190,7 +195,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
     const syncFromOtherTab = (event: StorageEvent) => {
       if (event.key !== timerStorageKey) return;
       const saved = readTimerState();
-      if (!saved || saved.lastUpdatedAt <= lastUpdatedAt) return;
+      if (!saved || saved.sessionId !== sessionId || saved.lastUpdatedAt <= lastUpdatedAt) return;
       activeMilliseconds.current = saved.elapsedMs;
       sessionElapsedMilliseconds.current = saved.sessionElapsedMs;
       targetMilliseconds.current = saved.targetMs;
@@ -275,12 +280,12 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
       window.removeEventListener('storage', syncFromOtherTab);
       window.removeEventListener('nihongo:study-section-changed', handleSectionChange);
     };
-  }, [signedIn]);
+  }, [signedIn, sessionId]);
 
   useEffect(() => {
     // Keep the header counter in sync immediately when the user enters or
     // leaves Reading or Mock Exams, without restarting either elapsed clock.
-    if (!signedIn) return;
+    if (!signedIn || !sessionId) return;
     window.dispatchEvent(new CustomEvent('nihongo:quick-revision-timer', {
       detail: {
         sessionElapsedMs: sessionElapsedMilliseconds.current,
@@ -290,7 +295,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
         excluded: activeSection === 'reading' || activeSection === 'exams',
       },
     }));
-  }, [activeSection, signedIn]);
+  }, [activeSection, signedIn, sessionId]);
 
   async function submitAnswer(didNotRemember: boolean) {
     if (!question || responsePending.current || result) return;
@@ -335,6 +340,7 @@ export function QuickRevision({ signedIn, activeSection }: { signedIn: boolean; 
       window.localStorage.setItem(timerStorageKey, JSON.stringify({
         elapsedMs: 0,
         sessionElapsedMs: sessionElapsedMilliseconds.current,
+        sessionId,
         lastUpdatedAt: now,
         targetMs: targetMilliseconds.current,
       }));
