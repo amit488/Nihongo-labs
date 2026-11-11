@@ -4,7 +4,7 @@ import { getSentenceConstructionItems } from '@/lib/nihongo/sentence-constructio
 import { requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 
-type Kind = 'vocabulary' | 'kanji' | 'grammar' | 'hiragana' | 'katakana' | 'sentence';
+type Kind = 'vocabulary' | 'verb' | 'kana-word' | 'kanji' | 'grammar' | 'hiragana' | 'katakana' | 'sentence';
 type Question = { id: string; kind: Kind; level: string; prompt: string; question: string; options: string[]; answer: string; explanation: string };
 const kanaRows = [
   ['あ','a'],['い','i'],['う','u'],['え','e'],['お','o'],['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko'],['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so'],['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to'],['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no'],['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho'],['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo'],['や','ya'],['ゆ','yu'],['よ','yo'],['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro'],['わ','wa'],['を','wo'],['ん','n'],
@@ -32,7 +32,12 @@ export async function GET() {
     const v=(vocab.data??[]).flatMap(row=>{const x=rel(row.vocabulary_entries as never) as {id:string;word:string;kana:string;meaning:string;part_of_speech:string|null;jlpt_level:string;publication_status:string}|null;return x?[x]:[];});
     const k=(kanji.data??[]).flatMap(row=>{const x=rel(row.kanji_entries as never) as {id:string;character:string;meaning:string;jlpt_level:string;publication_status:string}|null;return x?[x]:[];});
     const g=(grammar.data??[]).flatMap(row=>{const x=rel(row.grammar_points as never) as {id:string;title:string;pattern:string;explanation:string;jlpt_level:string;publication_status:string}|null;return x?[x]:[];});
-    for(const x of pick(v,30)) questions.push({id:'vocabulary:'+x.id,kind:'vocabulary',level:x.jlpt_level,prompt:x.word+(x.kana?'（'+x.kana+'）':''),question:x.part_of_speech?.toLowerCase()==='verb'?'What does this Japanese verb mean?':'Choose the meaning of this word.',options:makeOptions(x.meaning,v.map(y=>y.meaning)),answer:x.meaning,explanation:x.word+' means '+x.meaning+'.'});
+    for(const x of pick(v,30)) {
+      const isVerb=x.part_of_speech?.toLowerCase()==='verb';
+      const kind=isVerb?'verb':'vocabulary';
+      questions.push({id:kind+':'+x.id,kind,level:x.jlpt_level,prompt:x.word+(x.kana?'（'+x.kana+'）':''),question:isVerb?'What does this Japanese verb mean?':'Choose the meaning of this word.',options:makeOptions(x.meaning,v.map(y=>y.meaning)),answer:x.meaning,explanation:x.word+' means '+x.meaning+'.'});
+      if(x.kana) questions.push({id:'kana-word:'+x.id,kind:'kana-word',level:x.jlpt_level,prompt:x.word,question:'Choose the kana reading of this word.',options:makeOptions(x.kana,v.map(y=>y.kana)),answer:x.kana,explanation:x.word+' is read '+x.kana+'.'});
+    }
     for(const x of pick(k,20)) questions.push({id:'kanji:'+x.id,kind:'kanji',level:x.jlpt_level,prompt:x.character,question:'Choose the meaning of this kanji.',options:makeOptions(x.meaning,k.map(y=>y.meaning)),answer:x.meaning,explanation:x.character+' means '+x.meaning+'.'});
     for(const x of pick(g,20)) questions.push({id:'grammar:'+x.id,kind:'grammar',level:x.jlpt_level,prompt:x.explanation,question:'Which grammar pattern matches this explanation?',options:makeOptions(x.pattern,g.map(y=>y.pattern)),answer:x.pattern,explanation:x.pattern+' — '+x.explanation});
     const hiragana=pick([...kanaRows],24);
@@ -57,11 +62,11 @@ export async function POST(request:NextRequest) {
     const db=context.supabase;
     const ids=[...new Set(input.answers.map(a=>a.questionId))];
     if(ids.length!==input.answers.length) throw new HttpError(400,'Duplicate challenge questions are not allowed.');
-    const categories:Record<Kind,{answered:number;correct:number}>={vocabulary:{answered:0,correct:0},kanji:{answered:0,correct:0},grammar:{answered:0,correct:0},hiragana:{answered:0,correct:0},katakana:{answered:0,correct:0},sentence:{answered:0,correct:0}};
+    const categories:Record<Kind,{answered:number;correct:number}>={vocabulary:{answered:0,correct:0},verb:{answered:0,correct:0},'kana-word':{answered:0,correct:0},kanji:{answered:0,correct:0},grammar:{answered:0,correct:0},hiragana:{answered:0,correct:0},katakana:{answered:0,correct:0},sentence:{answered:0,correct:0}};
     const review=[];
     for(const answer of input.answers) {
       const [kind,id]=answer.questionId.split(':') as [Kind,string];
-      if(!kind||!id||!['vocabulary','kanji','grammar','hiragana','katakana','sentence'].includes(kind)) continue;
+      if(!kind||!id||!['vocabulary','verb','kana-word','kanji','grammar','hiragana','katakana','sentence'].includes(kind)) continue;
       let correctAnswer='',prompt='',question='',level='N5',explanation='';
       if(kind==='sentence') {
         const item=getSentenceConstructionItems('N5').concat(getSentenceConstructionItems('N4')).find(x=>x.id===id);
@@ -72,12 +77,14 @@ export async function POST(request:NextRequest) {
         const row=kanaRows.find(x=>x[0]===char);
         if(!row) continue;
         correctAnswer=row[1]; prompt=id; question='Recognise this '+(kind==='hiragana'?'Hiragana':'Katakana')+' character.'; explanation=id+' is read '+correctAnswer+'.';
-      } else if(kind==='vocabulary') {
-        const {data}=await db.from('user_vocabulary_progress').select('vocabulary_entries!inner(word,kana,meaning,jlpt_level,publication_status)').eq('user_id',context.user.id).eq('vocabulary_id',id).eq('vocabulary_entries.publication_status','published').maybeSingle();
+      } else if(kind==='vocabulary'||kind==='verb'||kind==='kana-word') {
+        const {data}=await db.from('user_vocabulary_progress').select('vocabulary_entries!inner(word,kana,meaning,jlpt_level,publication_status,part_of_speech)').eq('user_id',context.user.id).eq('vocabulary_id',id).eq('vocabulary_entries.publication_status','published').maybeSingle();
         const item=Array.isArray(data?.vocabulary_entries)?data?.vocabulary_entries[0]:data?.vocabulary_entries;
         if(!item) continue;
         const row=item as {word:string;kana:string;meaning:string;jlpt_level:string};
-        correctAnswer=row.meaning; prompt=row.word+'（'+row.kana+'）'; question='Choose the meaning of this vocabulary item.'; level=row.jlpt_level; explanation=prompt+' means '+correctAnswer+'.';
+        const verb=(row as typeof row & {part_of_speech?:string}).part_of_speech?.toLowerCase()==='verb';
+        if(kind==='verb'&&!verb) continue;
+        correctAnswer=kind==='kana-word'?row.kana:row.meaning; prompt=row.word+'（'+row.kana+'）'; question=kind==='kana-word'?'Choose the kana reading of this word.':kind==='verb'?'What does this Japanese verb mean?':'Choose the meaning of this vocabulary item.'; level=row.jlpt_level; explanation=kind==='kana-word'?row.word+' is read '+row.kana+'.':prompt+' means '+row.meaning+'.';
       } else if(kind==='kanji') {
         const {data}=await db.from('kanji_review_state').select('kanji_entries!inner(character,meaning,jlpt_level,publication_status)').eq('user_id',context.user.id).eq('kanji_id',id).eq('status','known').eq('kanji_entries.publication_status','published').maybeSingle();
         const item=Array.isArray(data?.kanji_entries)?data?.kanji_entries[0]:data?.kanji_entries;
