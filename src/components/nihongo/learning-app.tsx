@@ -274,19 +274,7 @@ export default function LearningApp({ section = [] }: Props) {
   }, [active]);
 
   useEffect(() => {
-    if (!signedIn) {
-      const previousKey = studySessionStorageKeyRef.current;
-      if (previousKey) {
-        try { window.localStorage.removeItem(previousKey); } catch { /* Storage may be unavailable. */ }
-      }
-      studySessionStorageKeyRef.current = null;
-      if (studyTimerRef.current) {
-        studyTimerRef.current.textContent = 'Study · 0:00';
-        studyTimerRef.current.setAttribute('aria-label', 'Active study time 0 minutes and 0 seconds');
-      }
-      return;
-    }
-    let sessionMilliseconds = 0;
+    if (!signedIn) return;
 
     type BrowserLockManager = {
       request(
