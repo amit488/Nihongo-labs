@@ -242,10 +242,10 @@
 
 
 /* Confirm destructive sentence-progress resets clearly before deleting history. */
-.sentenceResetButton{border:1px solid #e7cfc9;background:#fff;color:#a45149;border-radius:7px;padding:8px 11px;font-size:var(--workspace-font-secondary);font-weight:750;cursor:pointer;white-space:nowrap;transition:background .18s,border-color .18s}
-.sentenceResetButton:hover:not(:disabled){background:#fff5f2;border-color:#d8aaa2}
-.sentenceResetButton:disabled{opacity:.45;cursor:not-allowed}
-.sentenceResetOverlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(35,44,55,.56)}
+.sentenceResetButton{display:inline-flex;align-items:center;gap:7px;border:1px solid #a84840;background:#a84840;color:#fff;border-radius:9px;padding:9px 13px;font-size:var(--workspace-font-secondary);font-weight:850;cursor:pointer;white-space:nowrap;box-shadow:0 3px 9px rgba(168,72,64,.2);transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
+.sentenceResetButton:hover:not(:disabled){transform:translateY(-1px);background:#8f3933;border-color:#8f3933;box-shadow:0 6px 14px rgba(168,72,64,.25)}
+.sentenceResetButton:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.sentenceResetOverlay{position:fixed;inset:0;z-index:1600;display:grid;place-items:center;padding:20px;background:rgba(35,44,55,.62);backdrop-filter:blur(4px)}
 .sentenceResetDialog{width:min(100%,480px);max-height:calc(100vh - 40px);overflow:auto;padding:25px;border:1px solid #eadedb;border-radius:15px;background:#fff;box-shadow:0 24px 70px rgba(24,32,40,.28)}
 .sentenceResetEyebrow{color:#a45149;font-size:var(--workspace-font-micro);font-weight:850;letter-spacing:1.2px}
 .sentenceResetDialog h2{margin:9px 0 10px;color:#303a45;font:600 22px var(--workspace-heading-family);line-height:1.25}
