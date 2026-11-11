@@ -122,5 +122,14 @@ export default function GlobalQuickRevision() {
     };
   }, []);
 
-  return <QuickRevision signedIn={signedIn} sessionId={sessionId} activeSection={activeSection} />;
+  // Remount the modal controller when auth ends or a different login starts.
+  // This discards any pending question/result from the previous user session.
+  return (
+    <QuickRevision
+      key={signedIn && sessionId ? sessionId : 'signed-out'}
+      signedIn={signedIn}
+      sessionId={sessionId}
+      activeSection={activeSection}
+    />
+  );
 }
