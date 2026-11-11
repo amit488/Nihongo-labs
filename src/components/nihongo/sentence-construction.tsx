@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './learning-app.module.css';
 import { JlptLevelSwitch, SectionHeading, type JlptLevel } from './learning-shared';
 import { getSentenceConstructionItems } from '@/lib/nihongo/sentence-construction-bank';
@@ -77,6 +77,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState('');
+  const resetCancelRef = useRef<HTMLButtonElement>(null);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const current = items[index] ?? null;
@@ -112,6 +113,20 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
     });
     return () => { active = false; };
   }, [items, level, signedIn]);
+
+  useEffect(() => {
+    if (!showResetConfirm) return;
+    resetCancelRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !resetting) {
+        setShowResetConfirm(false);
+        setResetError('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showResetConfirm, resetting]);
 
   function changeLevel(next: JlptLevel) {
     if (next === level) return;
@@ -290,6 +305,7 @@ export default function SentenceConstruction({ signedIn, romaji, preferredLevel,
           <button
             type="button"
             className={styles.ghostButton}
+            ref={resetCancelRef}
             onClick={() => { setShowResetConfirm(false); setResetError(''); }}
             disabled={resetting}
           >Cancel</button>
