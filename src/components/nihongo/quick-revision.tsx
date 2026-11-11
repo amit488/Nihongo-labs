@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import styles from './quick-revision.module.css';
+import { BrandMark } from './brand';
 
 type ContentType = 'vocabulary' | 'kanji' | 'grammar';
 type QuickQuestion = {
@@ -393,7 +394,7 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
             <div className={styles.eyebrow}>QUICK REVISION</div>
             <div className={styles.meta}>{question.level} · {question.contentType}</div>
           </div>
-          <span className={styles.brandMark}>日</span>
+          <BrandMark size={38} className={styles.brandMark} />
         </div>
 
         {!result ? (
