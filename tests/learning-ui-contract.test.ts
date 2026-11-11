@@ -109,16 +109,25 @@ test('sentence construction reset confirms the full scope and clears only the si
 });
 
 
-test('Quick Revision can be launched manually and visible-time scheduling works without a focus-state dependency', () => {
+test('Quick Revision is automatic, full-screen and repeats on a four-to-five-minute cadence', () => {
   const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
   const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
+  const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
 
-  assert.ok(quickRevision.includes('Start Quick Revision now'));
-  assert.ok(quickRevision.includes('loadQuestionRef.current'));
+  assert.ok(quickRevision.includes('const FIRST_QUESTION_MS = 5 * 60_000'));
+  assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
+  assert.ok(quickRevision.includes('const NEXT_QUESTION_RANGE_MS = 1 * 60_000'));
+  assert.ok(quickRevision.includes('window.setInterval'));
   assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
-  assert.ok(!quickRevision.includes('document.hasFocus()'));
-  assert.ok(quickStyles.includes('.quickRevisionDock'));
-  assert.ok(quickStyles.includes('.launcher'));
+  assert.ok(!quickRevision.includes('Start Quick Revision'));
+  assert.ok(!quickRevision.includes('loadQuestionRef'));
+  assert.ok(!quickRevision.includes('disabled?: boolean'));
+  assert.ok(learningApp.includes('<QuickRevision signedIn={signedIn} />'));
+  assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
+  assert.ok(quickStyles.includes('.backdrop{'));
+  assert.ok(quickStyles.includes('position:fixed;inset:0;z-index:2200'));
+  assert.ok(!quickStyles.includes('.launcher'));
+  assert.ok(!quickStyles.includes('.quickRevisionDock'));
 });
 
 test('sentence reset confirmation is rendered in a body portal and uses a prominent destructive action', () => {
