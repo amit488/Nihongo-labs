@@ -11,6 +11,8 @@ testCase('60-second challenge mixes learned content, both kana scripts and sente
   assert.match(route, /'vocabulary' \| 'kanji' \| 'grammar' \| 'hiragana' \| 'katakana' \| 'sentence'/);
   assert.match(route, /getSentenceConstructionItems/);
   assert.match(route, /part_of_speech/);
+  assert.match(route, /kana-word/);
+  assert.match(route, /kind==='verb'/);
   assert.match(route, /Recognise this Hiragana/);
   assert.match(route, /Recognise this Katakana/);
   assert.match(route, /Choose the correctly ordered Japanese sentence/);
