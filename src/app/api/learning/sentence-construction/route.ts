@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const totalSentences = getSentenceConstructionItems(level as 'N5' | 'N4').length;
     if (error) {
       if (['42P01', 'PGRST205'].includes(error.code ?? '')) {
-        return NextResponse.json({ level, totalSentences, totalAttempts: 0, correctAttempts: 0, accuracy: 0, attemptedSentences: 0, solvedSentences: 0, solvedSentenceIds: [], migrationRequired: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+        return NextResponse.json({ level, totalSentences, totalAttempts: 0, correctAttempts: 0, accuracy: 0, attemptedSentences: 0, solvedSentences: 0, migrationRequired: true }, { headers: { 'Cache-Control': 'private, no-store' } });
       }
       throw new HttpError(500, 'Could not load sentence construction progress.', error.message);
     }
@@ -52,7 +52,6 @@ export async function GET(request: NextRequest) {
       accuracy: rows.length ? Math.round(correctAttempts / rows.length * 100) : 0,
       attemptedSentences: uniqueAttempted.size,
       solvedSentences: uniqueSolved.size,
-      solvedSentenceIds: Array.from(uniqueSolved),
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     return jsonError(error);
