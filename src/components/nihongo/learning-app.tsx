@@ -13,9 +13,8 @@ import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
-import { createPreviewSnapshot, getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
-import { grammar as demoGrammar, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
-import type { GrammarItem } from '@/lib/nihongo/demo-content';
+import { createPreviewSnapshot, getPublishedFlashcards, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
+import { vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
 type GlobalSearchResult = { id: string; kind: string; level: string; title: string; detail: string; href: string };
@@ -77,7 +76,6 @@ export default function LearningApp({ section = [] }: Props) {
     dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0,
     premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
   });
-  const [grammarData, setGrammarData] = useState<GrammarItem[]>(demoGrammar);
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
   const refreshLearnerSnapshot = useCallback(async () => {
@@ -275,18 +273,9 @@ export default function LearningApp({ section = [] }: Props) {
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, [refreshLearnerSnapshot]);
 
-  const grammarContentLoaded = useRef(false);
   const flashcardContentLoaded = useRef(false);
 
   useEffect(() => {
-    if (active === 'grammar' && !grammarContentLoaded.current) {
-      grammarContentLoaded.current = true;
-      void getPublishedGrammar().then((rows) => {
-        setGrammarData(rows);
-      }).catch((error) => {
-        console.error('[Nihongo Labs grammar content bootstrap]', error);
-      });
-    }
     if (active === 'flashcards' && !flashcardContentLoaded.current) {
       flashcardContentLoaded.current = true;
       void getPublishedFlashcards().then((rows) => setFlashcardData(rows)).catch((error) => {
@@ -757,7 +746,7 @@ export default function LearningApp({ section = [] }: Props) {
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
-          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>

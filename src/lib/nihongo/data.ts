@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from './supabase';
-import { grammar, kanji, vocabulary, type VocabularyItem } from './demo-content';
+import { grammar, kanji, vocabulary, type GrammarItem, type VocabularyItem } from './demo-content';
 
 export type LearnerSnapshot = {
   displayName: string;
@@ -51,7 +51,7 @@ type DashboardResponse = {
   flashcardSettings?: { show_romaji?: boolean | null; show_furigana?: boolean | null } | null;
 };
 type BillingStatusResponse = { hasPremium?: boolean };
-type ContentResponse<T> = { items: T[] };
+type ContentResponse<T> = { items: T[]; hasMore?: boolean; nextOffset?: number; total?: number };
 type VocabularyContentRow = {
   id: string; word: string; kana: string; romaji: string | null; meaning: string;
   part_of_speech: string | null; example_sentence: string | null;
@@ -208,9 +208,29 @@ export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
   });
 }
 
-export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
-  const { items } = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?kind=grammar&level=${level}&limit=250`);
-  return items.map((row) => ({
+export type GrammarContentPage = {
+  items: GrammarItem[];
+  hasMore: boolean;
+  nextOffset: number;
+  total: number;
+};
+
+export async function getPublishedGrammar(
+  level: 'N5' | 'N4' = 'N5',
+  options: { limit?: number; offset?: number; search?: string; view?: 'all' | 'learned' } = {},
+): Promise<GrammarContentPage> {
+  const limit = options.limit ?? 10;
+  const offset = options.offset ?? 0;
+  const params = new URLSearchParams({
+    kind: 'grammar',
+    level,
+    limit: String(limit),
+    offset: String(offset),
+    view: options.view ?? 'all',
+  });
+  if (options.search?.trim()) params.set('q', options.search.trim());
+  const response = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?${params.toString()}`);
+  const items = response.items.map((row) => ({
     id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
     formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',
     meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
@@ -218,6 +238,12 @@ export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
       japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
     })) : [],
   }));
+  return {
+    items,
+    hasMore: response.hasMore ?? false,
+    nextOffset: response.nextOffset ?? offset + items.length,
+    total: response.total ?? offset + items.length,
+  };
 }
 
 export type LearnerFlashcard = {

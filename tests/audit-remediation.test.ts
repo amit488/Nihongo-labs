@@ -150,6 +150,7 @@ test('admin monthly collection is rendered as a currency-separated breakdown', (
 test('database content loaders propagate failures to the learning section instead of silently returning demo data', () => {
   const data = read('src/lib/nihongo/data.ts');
   const app = read('src/components/nihongo/learning-app.tsx');
+  const features = read('src/components/nihongo/learning-features.tsx');
   for (const name of ['getPublishedVocabulary', 'getPublishedKanji', 'getPublishedGrammar', 'getPublishedFlashcards', 'getReadingPassages']) {
     const start = data.indexOf(`export async function ${name}`);
     assert.ok(start >= 0, name);
@@ -157,7 +158,8 @@ test('database content loaders propagate failures to the learning section instea
     const block = data.slice(start, next < 0 ? data.length : next);
     assert.doesNotMatch(block, /catch\s*\(/, `${name} must not swallow request failures`);
   }
-  assert.match(app, /grammar content bootstrap.*error/);
+  assert.match(features, /console\.error\('\[Nihongo Labs grammar content\]'/);
+  assert.match(features, /setListError\('Grammar content could not be loaded/);
   assert.match(app, /flashcard content bootstrap.*error/);
   assert.doesNotMatch(data, /apiGet<BillingStatusResponse>\([^\n]+\)\.catch/);
 });
