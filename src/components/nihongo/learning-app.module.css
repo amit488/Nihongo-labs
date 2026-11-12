@@ -257,3 +257,31 @@
 .sentenceResetConfirmButton:disabled{opacity:.55;cursor:wait}
 .sentenceResetButton:focus-visible,.sentenceResetConfirmButton:focus-visible,.sentenceResetActions .ghostButton:focus-visible{outline:3px solid #dca296;outline-offset:2px}
 @media(max-width:520px){.sentenceResetDialog{padding:20px}.sentenceResetDialog h2{font-size:20px}.sentenceResetActions{align-items:stretch;flex-direction:column-reverse}.sentenceResetActions button{width:100%}}
+
+/* N5/N4 grammar curriculum and lesson drills */
+.grammarMistakes{margin:18px 0;padding:14px 16px;border:1px solid var(--line);border-radius:9px;background:#fbf8f5}
+.grammarMistakes strong{font-size:var(--type-size-card-title);font-weight:700}
+.grammarMistakes ul{margin:8px 0 0;padding-left:19px;color:var(--muted)}
+.grammarMistakes li{font-size:var(--type-size-body);line-height:var(--type-line-body);margin:4px 0}
+.grammarDrill{margin-top:20px;border:1px solid var(--line);border-radius:11px;padding:17px;background:#fcfcfd}
+.grammarDrillHeader{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grammarDrillHeader strong{display:block;margin-top:4px;font-size:var(--type-size-card-title)}
+.grammarDrillHeader>span{font-size:var(--type-size-caption);color:var(--muted)}
+.grammarDrill>p{font-size:var(--type-size-body-large);font-weight:650;line-height:var(--type-line-body);margin:16px 0 10px}
+.grammarDrillChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.grammarDrillChoices button{min-height:45px;padding:10px 12px;text-align:left;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:var(--type-size-body);cursor:pointer;overflow-wrap:anywhere}
+.grammarDrillChoices button:hover:not(:disabled),.grammarDrillChoices .grammarDrillChoiceSelected{border-color:#c7695e;background:#faf0ee}
+.grammarDrillChoices button:disabled{cursor:default;opacity:.9}
+.grammarDrillCorrect,.grammarDrillIncorrect{margin-top:12px;padding:12px;border-radius:8px;background:#f1f7f2;border:1px solid #d9eadc}
+.grammarDrillIncorrect{background:#fff6f0;border-color:#f1dfd1}
+.grammarDrillCorrect p,.grammarDrillIncorrect p{margin:6px 0;font-size:var(--type-size-body)}
+.grammarDrillCorrect small,.grammarDrillIncorrect small{font-size:var(--type-size-secondary);line-height:var(--type-line-body);color:var(--muted)}
+.grammarDrillActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:13px}
+.grammarProgressPanel{margin:18px 0;padding:19px 21px;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+.grammarProgressLevels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.grammarProgressLevel{border:1px solid var(--line);border-radius:10px;padding:14px}
+.grammarProgressTop{display:flex;justify-content:space-between;gap:9px;align-items:center;margin-bottom:11px}
+.grammarProgressTop strong{font-size:var(--type-size-body-large)}
+.grammarProgressTop span,.grammarProgressLevel footer{font-size:var(--type-size-secondary);color:var(--muted)}
+.grammarProgressLevel footer{display:flex;justify-content:space-between;gap:8px;margin-top:9px}
+@media(max-width:760px){.grammarProgressLevels{grid-template-columns:1fr}.grammarDrillChoices{grid-template-columns:1fr}.grammarProgressTop,.grammarProgressLevel footer{align-items:flex-start;flex-wrap:wrap}}
