@@ -44,8 +44,11 @@ export async function POST(request: NextRequest) {
     if (grammarError || !grammar) throw new HttpError(404, 'Grammar point not found or unavailable.');
 
     const { error } = await context.supabase.from('user_grammar_progress')
-      .insert({ user_id: context.user.id, grammar_id: input.grammarId });
-    if (error && error.code !== '23505') throw new HttpError(500, 'Could not mark grammar as understood.', error.message);
+      .upsert(
+        { user_id: context.user.id, grammar_id: input.grammarId },
+        { onConflict: 'user_id,grammar_id', ignoreDuplicates: true },
+      );
+    if (error) throw new HttpError(500, 'Could not mark grammar as understood.', error.message);
 
     return NextResponse.json({ learned: true });
   } catch (error) {
