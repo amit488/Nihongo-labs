@@ -190,8 +190,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
         setDrillResult({ correct: Boolean(body.correct), answer: body.answer || activeDrill.answer, explanation: body.explanation || activeDrill.explanation });
         await onProgressSaved();
       } else {
-        const correct = drillAnswer.normalize('NFKC').trim().toLocaleLowerCase() === activeDrill.answer.normalize('NFKC').trim().toLocaleLowerCase();
-        setDrillResult({ correct, answer: activeDrill.answer, explanation: activeDrill.explanation });
+        setNotice('Sign in to submit grammar practice and save your progress.');
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not check this answer.');
@@ -258,7 +257,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
       {activeDrill ? <section className={styles.grammarDrill} aria-label="Grammar practice">
         <div className={styles.grammarDrillHeader}>
           <div><div className={styles.eyebrow}>CHECK YOUR UNDERSTANDING</div><strong>Practice {drillIndex + 1} of {drillQuestions.length}</strong></div>
-          <span>{signedIn ? 'Attempts saved to your account' : 'Preview practice'}</span>
+          <span>{signedIn ? 'Attempts saved to your account' : 'Sign in to submit answers'}</span>
         </div>
         <p>{activeDrill.prompt}</p>
         <div className={styles.grammarDrillChoices}>
