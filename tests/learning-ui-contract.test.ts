@@ -224,6 +224,8 @@ test('grammar catalogue is fetched in ten-set pages and learned sets have their 
   assert.ok(grammarApi.includes("query = query.not('id', 'in', `(${learnedIds.join(',')})`)"));
   assert.ok(grammarApi.includes("'Cache-Control': learner.ok ? 'private, no-store'"));
   assert.match(features, /view === 'all' && !isLearned/);
+  assert.match(features, /aria-busy=\{loadingMore\}/);
+  assert.match(features, /aria-label=\{view === 'learned'/);
   assert.ok(learningStyles.includes('height:clamp(280px,68vh,720px);min-height:0;overflow-y:auto;overscroll-behavior-y:contain;'));
   assert.ok(learningStyles.includes('@media(max-width:780px){.lessonList{height:clamp(260px,55vh,520px)}}'));
   assert.ok(n5ExamplesMigration.includes('grammar.jlpt_level::text = item.jlpt_level'));
