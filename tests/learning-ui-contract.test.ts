@@ -149,6 +149,8 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   const flushPosition = learningApp.indexOf('await studyTimeFlushRef.current?.();');
   const signOutPosition = learningApp.indexOf('const { error } = await client.auth.signOut();', flushPosition);
   assert.ok(flushPosition >= 0 && signOutPosition > flushPosition, 'final study time must flush before auth sign-out');
+  assert.ok(learningApp.includes('stoppingForSignOut = false;'));
+  assert.ok(learningApp.includes('resumeStudyTime?.();'));
   assert.ok(globalController.includes("sessionId={sessionId}"));
   assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
   assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
