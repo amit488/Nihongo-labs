@@ -29,7 +29,7 @@ The code does not create another database, recreate the original schema, or chan
 - Grammar practice and mixed question bank
 - Quiz attempt creation, safe option delivery, server-side grading and detailed feedback
 - Correct-answer keys remain in `private.quiz_answer_keys` and are only read through a service-role-only RPC
-- Lesson progress and completion counters saved atomically, daily activity, server-rate-limited study heartbeat, streak and dashboard calculations
+- Lesson progress and completion counters saved atomically, daily activity counters, streak and dashboard calculations
 - Vocabulary SM-2 review and due queue
 - FSRS-6 (pinned `ts-fsrs@5.4.2`) flashcard scheduling, learning-step state, due queue, session/review persistence and atomic database-enforced daily new/review caps
 - Timed quiz/exam runner and attempt history
