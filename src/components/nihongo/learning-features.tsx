@@ -205,12 +205,22 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
         else next.add(item.id);
         return next;
       });
-      if (view === 'learned' && isLearned) {
+      const shouldRemoveFromCurrentList = (view === 'all' && !isLearned) || (view === 'learned' && isLearned);
+      if (shouldRemoveFromCurrentList) {
+        // Ignore an in-flight page response so it cannot re-add the set we just moved.
+        listRequestRef.current += 1;
+        setLoadingMore(false);
+        const currentIndex = grammarItems.findIndex((row) => row.id === item.id);
         const remainingItems = grammarItems.filter((row) => row.id !== item.id);
+        const nextItem = remainingItems[Math.min(currentIndex, remainingItems.length - 1)];
         setGrammarItems(remainingItems);
-        setSelected(remainingItems[0]?.id || '');
+        setSelected(nextItem?.id || '');
         setListTotal((current) => Math.max(0, current - 1));
         setNextOffset((current) => Math.max(0, current - 1));
+        setDrillIndex(0);
+        setDrillAnswer('');
+        setDrillResult(null);
+        setShowExample(true);
       }
       setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
       await onProgressSaved();
@@ -312,8 +322,8 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
           ? <EmptyState title="Grammar sets could not be loaded" description={listError} />
           : !filteredGrammarItems.length
             ? <EmptyState
-                title={search.trim() ? `No grammar matches for “${search}”` : view === 'learned' ? 'No learned grammar sets yet' : `No published ${level} grammar yet`}
-                description={search.trim() ? 'Try another word, pattern or explanation.' : view === 'learned' ? 'Mark a grammar set as understood and it will appear here.' : 'Published grammar points for this level will appear here when they are added to the curriculum.'}
+                title={search.trim() ? `No grammar matches for “${search}”` : view === 'learned' ? 'No learned grammar sets yet' : signedIn && learnedIds.size > 0 ? 'You’ve learned every available grammar set' : `No published ${level} grammar yet`}
+                description={search.trim() ? 'Try another word, pattern or explanation.' : view === 'learned' ? 'Mark a grammar set as understood and it will appear here.' : signedIn && learnedIds.size > 0 ? 'Every published grammar set is now in your Learned tab. Move one back whenever you want to study it again.' : 'Published grammar points for this level will appear here when they are added to the curriculum.'}
               />
             : <div className={styles.splitLayout}>
                 <div className={styles.lessonList}>
