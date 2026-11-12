@@ -2,25 +2,64 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-const n5sql=readFileSync(resolve(process.cwd(),'supabase/migrations/20261112120000_n5_n4_grammar_curriculum.sql'),'utf8');
-const n4sql=readFileSync(resolve(process.cwd(),'supabase/migrations/20261112121000_n4_grammar_curriculum.sql'),'utf8');
-function validate(sql:string,tag:string,level:string){
- const block=sql.match(new RegExp('\\\\$'+tag+'\\\\$([\\\\s\\\\S]*?)\\\\$'+tag+'\\\\$::jsonb'));
- assert.ok(block,level+' seed JSON is present');
- const rows=JSON.parse(block[1]);
- assert.equal(rows.length,100,level+' has exactly 100 sets');
- assert.equal(new Set(rows.map((r:{pattern:string})=>r.pattern)).size,100,level+' patterns are unique');
- for(const row of rows){
-  assert.ok(row.title&&row.pattern&&row.meaning&&row.explanation&&row.formation);
-  const ex=row.examples[0];assert.ok(ex?.japanese&&ex?.romaji&&ex?.meaning);
-  assert.equal(row.practice_questions.length,4);
-  for(const q of row.practice_questions){assert.equal(q.options.length,4);assert.ok(q.options.includes(q.answer));}
- }
+
+const n5Sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112120000_n5_n4_grammar_curriculum.sql'), 'utf8');
+const n4Sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112121000_n4_grammar_curriculum.sql'), 'utf8');
+
+function readSeed(sql: string, tag: string) {
+  const opening = `$${tag}$`;
+  const closing = `$${tag}$::jsonb`;
+  const start = sql.indexOf(opening);
+  assert.notEqual(start, -1, `Missing ${tag} seed block`);
+  const jsonStart = start + opening.length;
+  const end = sql.indexOf(closing, jsonStart);
+  assert.notEqual(end, -1, `Missing ${tag} JSON terminator`);
+  return JSON.parse(sql.slice(jsonStart, end)) as Array<{
+    jlpt_level: string;
+    title: string;
+    pattern: string;
+    meaning: string;
+    explanation: string;
+    formation: string;
+    examples: Array<{ japanese: string; romaji: string; meaning: string }>;
+    common_mistakes: string[];
+    practice_questions: Array<{
+      id: string;
+      prompt: string;
+      options: string[];
+      answer: string;
+      explanation: string;
+    }>;
+  }>;
 }
-test('N5 and N4 each contain 100 grammar sets with four drills per set',()=>{
- validate(n5sql,'n5_json','N5');validate(n4sql,'n4_json','N4');
+
+function validateLevel(rows: ReturnType<typeof readSeed>, level: string) {
+  assert.equal(rows.length, 100, `${level} must have exactly 100 grammar sets`);
+  assert.equal(new Set(rows.map((row) => row.pattern)).size, 100, `${level} patterns must be unique`);
+  for (const row of rows) {
+    assert.ok(row.title && row.pattern && row.meaning && row.explanation && row.formation);
+    assert.ok(row.common_mistakes.length > 0);
+    assert.ok(row.examples.length > 0);
+    for (const example of row.examples) {
+      assert.ok(example.japanese && example.romaji && example.meaning);
+    }
+    assert.equal(row.practice_questions.length, 4, `${level} ${row.pattern} must have four practice questions`);
+    for (const question of row.practice_questions) {
+      assert.ok(question.id && question.prompt && question.explanation);
+      assert.equal(question.options.length, 4);
+      assert.ok(question.options.includes(question.answer));
+    }
+  }
+}
+
+test('N5 and N4 each contain 100 complete grammar sets and four practice questions per set', () => {
+  validateLevel(readSeed(n5Sql, 'n5_json'), 'N5');
+  validateLevel(readSeed(n4Sql, 'n4_json'), 'N4');
 });
-test('grammar attempts are protected by learner-scoped row-level security',()=>{
- assert.match(n5sql,/user_grammar_practice_attempts enable row level security/i);
- assert.match(n5sql,/auth\\.uid\\(\\)/i);
+
+test('grammar practice attempts are protected by learner-scoped row-level security', () => {
+  assert.ok(n5Sql.includes('create table if not exists public.user_grammar_practice_attempts'));
+  assert.ok(n5Sql.includes('enable row level security'));
+  assert.ok(n5Sql.includes('auth.uid()'));
+  assert.ok(n5Sql.includes('user_grammar_practice_attempts_insert_own'));
 });
