@@ -51,6 +51,14 @@ test('grammar migration publishes an extensive ordered N5-to-N4 curriculum', () 
       [...levelRows].map((row) => row.sort_order).sort((a, b) => a - b),
     );
     assert.equal(new Set(levelRows.map((row) => row.pattern)).size, levelRows.length);
+    const difficultyRank = { Beginner: 0, Core: 1, Challenge: 2 };
+    for (let index = 1; index < levelRows.length; index += 1) {
+      assert.ok(
+        difficultyRank[levelRows[index - 1].difficulty as keyof typeof difficultyRank]
+          <= difficultyRank[levelRows[index].difficulty as keyof typeof difficultyRank],
+        'grammar lessons must progress from beginner to core to challenge',
+      );
+    }
   }
   for (const row of rows) {
     assert.ok(row.title.trim().length > 0);
