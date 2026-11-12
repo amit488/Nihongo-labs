@@ -83,12 +83,12 @@ async function apiGet<T>(path: string): Promise<T> {
 }
 
 export const createPreviewSnapshot = (): LearnerSnapshot => ({
-  displayName: 'Learner', timeZone: 'Asia/Kolkata', preferredJlptLevel: 'N5',
+  displayName: 'Learner', preferredJlptLevel: 'N5',
   grammarCount: grammar.length, grammarUnderstood: 0,
   vocabularyCount: vocabulary.length, vocabularyMastered: 0,
   kanjiCount: kanji.length, kanjiMastered: 0,
   grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
-  activeDays: [], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
+  lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
   mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
   streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, premiumActive: false, showRomaji: true, showFurigana: true, source: 'preview',
 });
