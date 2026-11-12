@@ -69,7 +69,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_quiz_id uuid;
   v_question_count integer;
@@ -178,7 +178,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_session_deck uuid;
   v_card_deck uuid;
@@ -356,7 +356,7 @@ returns public.lesson_progress
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_current public.lesson_progress%rowtype;
   v_next_status text;
