@@ -204,10 +204,15 @@ test('progress and intelligence routes use database-side aggregation', () => {
 test('manual dashboard RPC matches the latest timer-free retirement migration', () => {
   const canonical = readFileSync(resolve(process.cwd(), 'supabase', 'migrations', '20261112140000_remove_study_timer_and_quick_revision.sql'), 'utf8');
   const manual = readSql('011_backend_rpc.sql');
-  const extract = (source: string) => source.match(/create or replace function public\\.get_learning_dashboard\\(\\)[\\s\\S]*?\\$\\$;/i)?.[0]?.replace(/\\s+/g, ' ').trim();
-  assert.ok(extract(canonical), 'canonical dashboard function is missing');
-  assert.equal(extract(manual), extract(canonical), 'manual backend SQL has drifted from the canonical timer-free dashboard function');
+  const extract = (source: string) => {
+    const start = source.indexOf('create or replace function public.get_learning_dashboard()');
+    const end = source.indexOf('$$;', start);
+    assert.ok(start >= 0 && end > start, 'dashboard RPC is missing');
+    return source.slice(start, end + 3).trim().split(/\s+/).join(' ');
+  };
+  assert.equal(extract(manual), extract(canonical), 'manual backend SQL has drifted from the timer-free dashboard function');
 });
+
 test('security and performance migration protects learner state and privileged RPCs', () => {
   const path = resolve(process.cwd(), 'supabase', 'migrations', '20261112123000_security_integrity_performance.sql');
   assert.equal(existsSync(path), true, 'security/integrity migration is missing');
