@@ -78,6 +78,7 @@ export default function GlobalQuickRevision() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isAuthRoute = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/');
   const authRevision = useRef(0);
+  const signedInRef = useRef(false);
   // Authentication screens are not study time and must never trigger revision questions.
   const activeSection = isAuthRoute ? 'auth' : pathname.startsWith('/learn')
     ? pathname.split('/')[2] || 'overview'
@@ -93,6 +94,7 @@ export default function GlobalQuickRevision() {
     // Quick Revision UI back on for a signed-out visitor.
     const finishSignOut = () => {
       authRevision.current += 1;
+      signedInRef.current = false;
       clearSignedInSession();
       setSessionId(null);
       setSignedIn(false);
@@ -105,9 +107,7 @@ export default function GlobalQuickRevision() {
       } catch {
         // The next fresh browser tab still receives a new storage session.
       }
-      const currentPath = window.location.pathname;
-      const isAuthScreen = currentPath === '/login' || currentPath === '/signup' || currentPath.startsWith('/auth/');
-      if (isAuthScreen || hasKeepSignedInPreference()) return;
+      if (!signedInRef.current || hasKeepSignedInPreference()) return;
       const pendingFlushes: Promise<unknown>[] = [];
       window.dispatchEvent(new CustomEvent('nihongo:prepare-session-end', {
         detail: { register: (flush: Promise<unknown>) => pendingFlushes.push(flush) },
@@ -143,6 +143,7 @@ export default function GlobalQuickRevision() {
       }
       if (session?.user) {
         authRevision.current += 1;
+        signedInRef.current = true;
         const nextSessionId = startOrResumeSession(session.user.id);
         setSessionId(nextSessionId);
         setSignedIn(true);
@@ -157,6 +158,7 @@ export default function GlobalQuickRevision() {
         return;
       }
       const nextSessionId = startOrResumeSession(data.user.id);
+      signedInRef.current = true;
       setSessionId(nextSessionId);
       setSignedIn(true);
     }).catch(() => {
