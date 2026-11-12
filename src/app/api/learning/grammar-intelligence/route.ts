@@ -67,7 +67,7 @@ export async function GET() {
 
     const { data, error } = await context.supabase.rpc('get_grammar_intelligence');
     if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
-      throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence and Quick Revision migrations first.', error?.message);
+      throw new HttpError(500, 'Could not load grammar mistake insights. Apply the learning intelligence migration first.', error?.message);
     }
 
     const payload = data as GrammarIntelligencePayload;
