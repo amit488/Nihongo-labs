@@ -17,7 +17,7 @@ test('admin pages are protected by database roles and reuse existing authenticat
   const authAction = read('src/app/actions/auth.ts');
   const authForm = read('src/components/nihongo/auth-form.tsx');
   assert.match(authAction, /redirectTo: administrator \? '\/admin' : '\/learn'/);
-  assert.match(authForm, /router\.push\(result\.redirectTo/);
+  assert.match(authForm, /window\.location\.assign\(result\.redirectTo/);
 });
 
 test('admin APIs verify roles on the server and disable caching for private data', () => {
