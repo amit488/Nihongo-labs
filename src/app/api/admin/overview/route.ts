@@ -11,7 +11,6 @@ type DashboardAggregates = {
   weeklyActivity?: Array<{
     date: string;
     activeLearners: number | string;
-    studySeconds: number | string;
     lessonsCompleted: number | string;
     quizzesCompleted: number | string;
   }>;
@@ -94,7 +93,6 @@ export async function GET() {
       date: day.date,
       label: new Date(`${day.date}T00:00:00.000Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }),
       activeLearners: Number(day.activeLearners ?? 0),
-      studyMinutes: Math.round(Number(day.studySeconds ?? 0) / 60),
       lessonsCompleted: Number(day.lessonsCompleted ?? 0),
       quizzesCompleted: Number(day.quizzesCompleted ?? 0),
     }));
