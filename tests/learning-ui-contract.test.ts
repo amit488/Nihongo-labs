@@ -196,3 +196,25 @@ test('the official Nihongo Labs emblem is shared across app surfaces, email and 
   assert.ok(email.includes('{{ .SiteURL }}/nihongo-labs-logo.png'));
   assert.ok(existsSync(resolve(process.cwd(), 'public/nihongo-labs-logo.png')));
 });
+
+
+test('grammar catalogue is fetched in ten-set pages and learned sets have their own server-side view', () => {
+  const grammarApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/content/route.ts'), 'utf8');
+  const grammarLoader = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/data.ts'), 'utf8');
+  const features = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-features.tsx'), 'utf8');
+
+  assert.match(grammarApi, /kind === 'grammar'/);
+  assert.match(grammarApi, /\.range\(offset, offset \+ limit\)/);
+  assert.match(grammarApi, /select\(grammarFields, \{ count: 'exact' \}\)/);
+  assert.match(grammarApi, /view === 'learned'/);
+  assert.match(grammarApi, /requireUser\(\)/);
+  assert.match(grammarApi, /from\('user_grammar_progress'\)/);
+  assert.match(grammarApi, /hasMore, nextOffset: offset \+ items\.length, total:/);
+  assert.match(grammarLoader, /const limit = options\.limit \?\? 10/);
+  assert.match(features, /limit: 10/);
+  assert.match(features, /role="tab"/);
+  assert.match(features, /All sets/);
+  assert.match(features, /Learned/);
+  assert.match(features, /Load 10 more sets/);
+  assert.match(features, /view,/);
+});
