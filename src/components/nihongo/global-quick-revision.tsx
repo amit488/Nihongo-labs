@@ -89,12 +89,15 @@ export default function GlobalQuickRevision() {
       if (event.persisted) return;
       authRevision.current += 1;
       clearSignedInSession();
-      if (shouldKeepSignedInInBrowser()) return;
-
-      // Let the learning workspace flush its final partial heartbeat first.
-      // The global fallback still signs out admin and other authenticated pages.
+      // Every real document close ends the study timer and flushes pending activity.
       const detail: { beforeSessionEnd?: () => Promise<void> } = {};
       window.dispatchEvent(new CustomEvent('nihongo:before-auth-session-end', { detail }));
+      if (shouldKeepSignedInInBrowser()) {
+        void detail.beforeSessionEnd?.().catch(() => undefined);
+        return;
+      }
+
+      // The global fallback also signs out admin and other authenticated pages.
       void (async () => {
         try { await detail.beforeSessionEnd?.(); } catch { /* The server sign-out is still attempted. */ }
         try {
