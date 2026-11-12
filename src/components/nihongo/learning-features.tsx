@@ -11,7 +11,7 @@ import { EmptyState, JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLeve
 
 type FeatureSection = 'grammar' | 'practice' | 'vocabulary' | 'kanji' | 'kana' | 'flashcards' | 'reading' | 'exams' | 'sentences' | 'subscription';
 export type LearningFeatureProps = {
-  active: FeatureSection; grammarItems: GrammarItem[]; vocabularyItems: VocabularyItem[];
+  active: FeatureSection; vocabularyItems: VocabularyItem[];
   flashcardItems: LearnerFlashcard[]; signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; search: string;
   focusedVocabularyId?: string; focusedVocabularyLevel?: JlptLevel;
   kanaMode: 'hiragana' | 'katakana'; setKanaMode: (value: 'hiragana' | 'katakana') => void;
@@ -41,49 +41,111 @@ type MembershipSubscription = {
 type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
-function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
+function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>(preferredLevel);
-  const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
-  const [selected, setSelected] = useState(items[0]?.id || '');
+  const [grammarItems, setGrammarItems] = useState<GrammarItem[]>([]);
+  const [selected, setSelected] = useState('');
+  const [view, setView] = useState<'all' | 'learned'>('all');
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [listTotal, setListTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [listError, setListError] = useState('');
   const [showExample, setShowExample] = useState(true);
   const [saved, setSaved] = useState<string[]>([]);
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
   const [savingLearned, setSavingLearned] = useState(false);
   const [notice, setNotice] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [drillIndex, setDrillIndex] = useState(0);
   const [drillAnswer, setDrillAnswer] = useState('');
   const [drillResult, setDrillResult] = useState<{ correct: boolean; answer: string; explanation: string } | null>(null);
   const [drillSaving, setDrillSaving] = useState(false);
-  const filteredGrammarItems = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase();
-    if (!term) return grammarItems;
-    return grammarItems.filter((row) => [row.title, row.pattern, row.explanation, row.formation]
-      .filter(Boolean).join(' ').toLocaleLowerCase().includes(term));
-  }, [grammarItems, search]);
+  const listRequestRef = useRef(0);
+  const filteredGrammarItems = grammarItems;
   const item = filteredGrammarItems.find((row) => row.id === selected) || filteredGrammarItems[0];
   const drillQuestions = item?.practiceQuestions ?? [];
   const activeDrill = drillQuestions[drillIndex];
   const commonMistakes = item?.commonMistakes ?? [];
 
   useEffect(() => {
-    let active = true;
-    void getPublishedGrammar(level).then((rows) => {
-      if (!active) return;
-      setGrammarItems(rows);
-      setSelected(rows[0]?.id || '');
-      setShowExample(true);
+    const requestId = ++listRequestRef.current;
+    setGrammarItems([]);
+    setSelected('');
+    setNextOffset(0);
+    setHasMore(false);
+    setListTotal(0);
+    setListError('');
+    setLoading(true);
+    setLoadingMore(false);
+
+    if (view === 'learned' && !signedIn) {
       setLoading(false);
-    }).catch((error) => {
-      console.error('[Nihongo Labs grammar content]', error);
-      if (!active) return;
-      setGrammarItems([]);
-      setSelected('');
-      setNotice('Grammar content could not be loaded. Please try again.');
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [level, items]);
+      return () => {
+        if (listRequestRef.current === requestId) listRequestRef.current += 1;
+      };
+    }
+
+    const timer = window.setTimeout(() => {
+      void getPublishedGrammar(level, {
+        limit: 10,
+        offset: 0,
+        search: search.trim(),
+        view,
+      }).then((page) => {
+        if (requestId !== listRequestRef.current) return;
+        setGrammarItems(page.items);
+        setSelected(page.items[0]?.id || '');
+        setHasMore(page.hasMore);
+        setNextOffset(page.nextOffset);
+        setListTotal(page.total);
+        setShowExample(true);
+        setLoading(false);
+      }).catch((error) => {
+        console.error('[Nihongo Labs grammar content]', error);
+        if (requestId !== listRequestRef.current) return;
+        setGrammarItems([]);
+        setSelected('');
+        setListError('Grammar content could not be loaded. Please try again.');
+        setLoading(false);
+      });
+    }, search.trim() ? 220 : 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (listRequestRef.current === requestId) listRequestRef.current += 1;
+    };
+  }, [level, view, signedIn, search]);
+
+  async function loadMore() {
+    if (!hasMore || loadingMore || (view === 'learned' && !signedIn)) return;
+    const requestId = ++listRequestRef.current;
+    setLoadingMore(true);
+    setListError('');
+    try {
+      const page = await getPublishedGrammar(level, {
+        limit: 10,
+        offset: nextOffset,
+        search: search.trim(),
+        view,
+      });
+      if (requestId !== listRequestRef.current) return;
+      setGrammarItems((current) => {
+        const existing = new Set(current.map((row) => row.id));
+        return [...current, ...page.items.filter((row) => !existing.has(row.id))];
+      });
+      setHasMore(page.hasMore);
+      setNextOffset(page.nextOffset);
+      setListTotal(page.total);
+    } catch (error) {
+      console.error('[Nihongo Labs grammar pagination]', error);
+      if (requestId === listRequestRef.current) {
+        setListError(error instanceof Error ? error.message : 'Could not load more grammar sets.');
+      }
+    } finally {
+      if (requestId === listRequestRef.current) setLoadingMore(false);
+    }
+  }
 
   async function toggleSave() {
     if (!item) return;
@@ -108,7 +170,10 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
   }
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn) {
+      setLearnedIds(new Set());
+      return;
+    }
     let active = true;
     fetch(`/api/learning/grammar-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ grammarIds?: string[] }> : null)
@@ -142,6 +207,13 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
         else next.add(item.id);
         return next;
       });
+      if (view === 'learned' && isLearned) {
+        const remainingItems = grammarItems.filter((row) => row.id !== item.id);
+        setGrammarItems(remainingItems);
+        setSelected(remainingItems[0]?.id || '');
+        setListTotal((current) => Math.max(0, current - 1));
+        setNextOffset((current) => Math.max(0, current - 1));
+      }
       setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
       await onProgressSaved();
     } catch (error) {
@@ -152,7 +224,10 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
   }
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn) {
+      setSaved([]);
+      return;
+    }
     let active = true;
     fetch('/api/learning/bookmarks', { credentials: 'same-origin', cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<unknown> : null)
@@ -182,7 +257,6 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
     setLoading(true);
     setNotice('');
   }
-
 
   async function checkDrill() {
     if (!item || !activeDrill || !drillAnswer || drillSaving || drillResult) return;
@@ -220,73 +294,102 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
         <JlptLevelSwitch value={level} onChange={changeLevel} label="Grammar JLPT level" />
         <button type="button" className={styles.ghostButton} onClick={() => setRomaji(!romaji)}>{romaji ? 'Hide' : 'Show'} romaji</button>
       </div>} />
-    {loading ? <div className={styles.panel} role="status">Loading {level} grammar…</div> : !filteredGrammarItems.length
-      ? <EmptyState title={search.trim() ? `No grammar matches for “${search}”` : `No published ${level} grammar yet`} description={search.trim() ? "Try another word, pattern or explanation." : "Published grammar points for this level will appear here when they are added to the curriculum."} />
-      : <div className={styles.splitLayout}>
-        <div className={styles.lessonList}>{filteredGrammarItems.map((row, index) => (
-          <button type="button" key={row.id} onClick={() => { setSelected(row.id); setShowExample(true); }}
-            className={`${styles.lessonRow} ${item.id === row.id ? styles.lessonRowActive : ''}`}>
-            <span className={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</span>
-            <span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span>
-            <span className={styles.lessonArrow}>→</span>
-          </button>
-        ))}</div>
-        <div className={styles.lessonDetail}>
-          <div className={styles.eyebrow}>GRAMMAR NOTE · JLPT {level}</div>
-          <div className={styles.patternChip}>{item.pattern}</div>
-          <h2>{item.title}</h2>
-          <p>{item.explanation}</p>
-          <div className={styles.formationBox}><span>FORMATION</span><strong>{item.formation}</strong></div>
-          <div className={styles.exampleHeader}><strong>Examples in context</strong>
-            <button type="button" onClick={() => setShowExample((value) => !value)}>{showExample ? 'Hide' : 'Show'} examples</button>
-          </div>
-          {showExample ? item.examples.map((example, index) => (
-            <div className={styles.exampleCard} key={index}>
-              <strong className={styles.japaneseText}>{example.japanese}</strong>
-              {romaji ? <small>{example.romaji}</small> : null}
-              <p>{example.meaning}</p>
-            </div>
-          )) : null}
-          {signedIn ? (
-            <button type="button" className={styles.ghostButton} disabled={savingLearned} onClick={() => void toggleUnderstood()}>
-              {savingLearned ? 'Saving…' : learnedIds.has(item.id) ? 'Understood ✓ · Remove' : 'Mark as understood'}
-            </button>
-          ) : null}
-          <button type="button" className={styles.primaryButton} onClick={() => void toggleSave()}>
-            {signedIn && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
-            <span>{signedIn && saved.includes(item.id) ? '★' : '☆'}</span>
-          </button>
-          {notice ? <small className={styles.mutedMeta}>{notice}</small> : null}
-        </div>
-      </div>}
-  
-      {commonMistakes.length ? <section className={styles.grammarMistakes}>
-        <strong>Common mistakes to avoid</strong>
-        <ul>{commonMistakes.map((mistake, index) => <li key={index}>{mistake}</li>)}</ul>
-      </section> : null}
-      {activeDrill ? <section className={styles.grammarDrill} aria-label="Grammar practice">
-        <div className={styles.grammarDrillHeader}>
-          <div><div className={styles.eyebrow}>CHECK YOUR UNDERSTANDING</div><strong>Practice {drillIndex + 1} of {drillQuestions.length}</strong></div>
-          <span>{signedIn ? 'Attempts saved to your account' : 'Sign in to submit answers'}</span>
-        </div>
-        <p>{activeDrill.prompt}</p>
-        <div className={styles.grammarDrillChoices}>
-          {activeDrill.options.map((option) => <button type="button" key={option}
-            disabled={Boolean(drillResult) || drillSaving}
-            aria-pressed={drillAnswer === option}
-            className={drillAnswer === option ? styles.grammarDrillChoiceSelected : ''}
-            onClick={() => setDrillAnswer(option)}>{option}</button>)}
-        </div>
-        {drillResult ? <div className={drillResult.correct ? styles.grammarDrillCorrect : styles.grammarDrillIncorrect}>
-          <strong>{drillResult.correct ? 'Correct' : 'Not quite'}</strong>
-          <p>Answer: {drillResult.answer}</p><small>{drillResult.explanation}</small>
-        </div> : null}
-        <div className={styles.grammarDrillActions}>
-          <button type="button" className={styles.primaryButton} disabled={!drillAnswer || drillSaving || Boolean(drillResult)} onClick={() => void checkDrill()}>{drillSaving ? 'Checking…' : 'Check answer'}</button>
-          {drillResult ? <button type="button" className={styles.ghostButton} onClick={nextDrill}>Next question →</button> : null}
-        </div>
-      </section> : null}
-</>;
+    <div className={styles.grammarViewTabs} role="tablist" aria-label="Grammar set views">
+      <button type="button" role="tab" aria-selected={view === 'all'}
+        className={`${styles.grammarViewTab} ${view === 'all' ? styles.grammarViewTabActive : ''}`}
+        onClick={() => setView('all')}>
+        All sets <span>{view === 'all' ? listTotal : ''}</span>
+      </button>
+      <button type="button" role="tab" aria-selected={view === 'learned'}
+        className={`${styles.grammarViewTab} ${view === 'learned' ? styles.grammarViewTabActive : ''}`}
+        onClick={() => setView('learned')}>
+        Learned <span>{view === 'learned' ? listTotal : signedIn ? learnedIds.size : ''}</span>
+      </button>
+    </div>
+    {view === 'learned' && !signedIn
+      ? <EmptyState title="Sign in to view learned grammar" description="Grammar sets you mark as understood are collected here, so you can revisit them separately." />
+      : loading
+        ? <div className={styles.panel} role="status">Loading {level} {view === 'learned' ? 'learned' : ''} grammar sets…</div>
+        : listError && !filteredGrammarItems.length
+          ? <EmptyState title="Grammar sets could not be loaded" description={listError} />
+          : !filteredGrammarItems.length
+            ? <EmptyState
+                title={search.trim() ? `No grammar matches for “${search}”` : view === 'learned' ? 'No learned grammar sets yet' : `No published ${level} grammar yet`}
+                description={search.trim() ? 'Try another word, pattern or explanation.' : view === 'learned' ? 'Mark a grammar set as understood and it will appear here.' : 'Published grammar points for this level will appear here when they are added to the curriculum.'}
+              />
+            : <div className={styles.splitLayout}>
+                <div className={styles.lessonList}>
+                  {filteredGrammarItems.map((row, index) => (
+                    <button type="button" key={row.id} onClick={() => { setSelected(row.id); setShowExample(true); setDrillIndex(0); setDrillAnswer(''); setDrillResult(null); }}
+                      className={`${styles.lessonRow} ${item?.id === row.id ? styles.lessonRowActive : ''}`}>
+                      <span className={styles.lessonNumber}>{String(index + 1).padStart(2, '0')}</span>
+                      <span className={styles.lessonDetails}><strong>{row.title}</strong><small>{row.category} · {row.difficulty}</small></span>
+                      <span className={styles.lessonArrow}>→</span>
+                    </button>
+                  ))}
+                  <div className={styles.grammarListFooter}>
+                    <small className={styles.grammarListMeta}>Showing {grammarItems.length} of {listTotal} sets</small>
+                    {hasMore ? <button type="button" className={styles.grammarLoadMore} disabled={loadingMore} onClick={() => void loadMore()}>
+                      {loadingMore ? 'Loading more…' : 'Load 10 more sets'}
+                    </button> : null}
+                    {listError ? <small className={styles.mutedMeta} role="alert">{listError}</small> : null}
+                  </div>
+                </div>
+                <div className={styles.lessonDetail}>
+                  <div className={styles.eyebrow}>GRAMMAR NOTE · JLPT {level}</div>
+                  <div className={styles.patternChip}>{item?.pattern}</div>
+                  <h2>{item?.title}</h2>
+                  <p>{item?.explanation}</p>
+                  <div className={styles.formationBox}><span>FORMATION</span><strong>{item?.formation}</strong></div>
+                  <div className={styles.exampleHeader}><strong>Examples in context</strong>
+                    <button type="button" onClick={() => setShowExample((value) => !value)}>{showExample ? 'Hide' : 'Show'} examples</button>
+                  </div>
+                  {showExample ? item?.examples.map((example, index) => (
+                    <div className={styles.exampleCard} key={index}>
+                      <strong className={styles.japaneseText}>{example.japanese}</strong>
+                      {romaji ? <small>{example.romaji}</small> : null}
+                      <p>{example.meaning}</p>
+                    </div>
+                  )) : null}
+                  {signedIn ? (
+                    <button type="button" className={styles.ghostButton} disabled={savingLearned} onClick={() => void toggleUnderstood()}>
+                      {savingLearned ? 'Saving…' : item && learnedIds.has(item.id) ? 'Understood ✓ · Remove' : 'Mark as understood'}
+                    </button>
+                  ) : null}
+                  <button type="button" className={styles.primaryButton} onClick={() => void toggleSave()}>
+                    {signedIn && item && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
+                    <span>{signedIn && item && saved.includes(item.id) ? '★' : '☆'}</span>
+                  </button>
+                  {notice ? <small className={styles.mutedMeta}>{notice}</small> : null}
+                </div>
+              </div>}
+    {commonMistakes.length ? <section className={styles.grammarMistakes}>
+      <strong>Common mistakes to avoid</strong>
+      <ul>{commonMistakes.map((mistake, index) => <li key={index}>{mistake}</li>)}</ul>
+    </section> : null}
+    {activeDrill ? <section className={styles.grammarDrill} aria-label="Grammar practice">
+      <div className={styles.grammarDrillHeader}>
+        <div><div className={styles.eyebrow}>CHECK YOUR UNDERSTANDING</div><strong>Practice {drillIndex + 1} of {drillQuestions.length}</strong></div>
+        <span>{signedIn ? 'Attempts saved to your account' : 'Sign in to submit answers'}</span>
+      </div>
+      <p>{activeDrill.prompt}</p>
+      <div className={styles.grammarDrillChoices}>
+        {activeDrill.options.map((option) => <button type="button" key={option}
+          disabled={Boolean(drillResult) || drillSaving}
+          aria-pressed={drillAnswer === option}
+          className={drillAnswer === option ? styles.grammarDrillChoiceSelected : ''}
+          onClick={() => setDrillAnswer(option)}>{option}</button>)}
+      </div>
+      {drillResult ? <div className={drillResult.correct ? styles.grammarDrillCorrect : styles.grammarDrillIncorrect}>
+        <strong>{drillResult.correct ? 'Correct' : 'Not quite'}</strong>
+        <p>Answer: {drillResult.answer}</p><small>{drillResult.explanation}</small>
+      </div> : null}
+      <div className={styles.grammarDrillActions}>
+        <button type="button" className={styles.primaryButton} disabled={!drillAnswer || drillSaving || Boolean(drillResult)} onClick={() => void checkDrill()}>{drillSaving ? 'Checking…' : 'Check answer'}</button>
+        {drillResult ? <button type="button" className={styles.ghostButton} onClick={nextDrill}>Next question →</button> : null}
+      </div>
+    </section> : null}
+  </>;
 }
 function Practice({ signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
   return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={preferredLevel} onLevelChange={(level) => { void onPreferredLevelChange(level); }} onProgressSaved={onProgressSaved} />;
@@ -1359,7 +1462,7 @@ function Membership({signedIn}:{signedIn:boolean}) {
 
 export function LearningFeature(props: LearningFeatureProps) {
   switch (props.active) {
-    case 'grammar': return <GrammarStudio items={props.grammarItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
+    case 'grammar': return <GrammarStudio romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'practice': return <Practice signedIn={props.signedIn} romaji={props.romaji} setRomaji={props.setRomaji} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'vocabulary': return <Vocabulary items={props.vocabularyItems} romaji={props.romaji} setRomaji={props.setRomaji} signedIn={props.signedIn} search={props.search} focusedVocabularyId={props.focusedVocabularyId} focusedVocabularyLevel={props.focusedVocabularyLevel} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
     case 'kanji': return <KanjiStudio search={props.search} preferredLevel={props.preferredLevel} onPreferredLevelChange={props.onPreferredLevelChange} onProgressSaved={props.onProgressSaved} />;
