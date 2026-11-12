@@ -25,6 +25,7 @@ test('admin APIs verify roles on the server and disable caching for private data
   const users = read('src/app/api/admin/users/route.ts');
   const payments = read('src/app/api/admin/payments/route.ts');
   const messages = read('src/app/api/admin/messages/route.ts');
+  const auditMigration = read('supabase/migrations/20261112123000_security_integrity_performance.sql');
   for (const route of [overview, users, payments, messages]) {
     assert.match(route, /requireAdminApi/);
     assert.match(route, /createAdminSupabase/);
@@ -32,7 +33,9 @@ test('admin APIs verify roles on the server and disable caching for private data
   assert.match(overview, /Cache-Control.*private, no-store/);
   assert.match(users, /Cache-Control.*private, no-store/);
   assert.match(messages, /assertSameOrigin/);
-  assert.match(messages, /audit_logs/);
+  // The route calls one trusted RPC; that transaction writes the audit row in SQL.
+  assert.match(messages, /admin_update_inbox_status_with_audit/);
+  assert.match(auditMigration, /insert into public\.audit_logs/);
 });
 
 test('admin browser UI calls protected live endpoints and contains no service credentials', () => {

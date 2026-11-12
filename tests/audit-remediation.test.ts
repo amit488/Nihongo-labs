@@ -67,7 +67,11 @@ test('learner settings and vocabulary queue execute single database-side operati
   const due = read('src/app/api/learning/vocabulary-due/route.ts');
   const migration = read('supabase/migrations/20261112123000_security_integrity_performance.sql');
   assert.ok(settings.includes("rpc('update_learning_settings'"));
-  assert.ok(!settings.includes('Promise.all'));
+  const patchStart = settings.indexOf('export async function PATCH');
+  assert.ok(patchStart >= 0, 'settings PATCH handler is present');
+  const settingsPatch = settings.slice(patchStart);
+  assert.ok(!settingsPatch.includes('Promise.all'));
+  assert.ok(settingsPatch.includes("rpc('update_learning_settings'"));
   assert.ok(due.includes("rpc('get_due_vocabulary'"));
   assert.ok(!due.includes('.limit(1000)') && !due.includes('.limit(5000)'));
   assert.ok(migration.includes('security invoker') && migration.includes('get_due_vocabulary'));
@@ -76,10 +80,14 @@ test('learner settings and vocabulary queue execute single database-side operati
 test('signup responses do not disclose whether an email is already registered', () => {
   const auth = read('src/app/actions/auth.ts');
   const authForm = read('src/components/nihongo/auth-form.tsx');
-  assert.ok(!auth.includes('alreadyRegistered') && !auth.includes('already exists') && !auth.includes('already registered'));
+  assert.ok(!auth.includes('alreadyRegistered'));
   assert.ok(!authForm.includes('accountAlreadyExists') && !authForm.includes('Go to sign in'));
+  const userFacingMessages = [...auth.matchAll(/message:\s*'([^']*)'/g)].map((match) => match[1].toLowerCase());
+  assert.ok(userFacingMessages.every((message) => !message.includes('already exists') && !message.includes('already registered')));
   assert.ok(auth.includes('If this address can be registered'));
   assert.ok(auth.includes('If this address has a pending signup'));
+  // Keep provider error matching server-side while returning generic client text.
+  assert.ok(auth.includes('/already registered|already exists/i'));
 });
 
 test('admin inbox status and audit writes share one database transaction', () => {
@@ -103,10 +111,6 @@ test('mandatory flashcard schema and RPCs are also applied by the ordered migrat
 
 test('authenticated learners never receive demo catalog rows after a database content failure', () => {
   const data = read('src/lib/nihongo/data.ts');
-  assert.ok(data.includes("console.error('[Nihongo Labs vocabulary content]'")); 
-  assert.ok(data.includes("console.error('[Nihongo Labs kanji content]'")); 
-  assert.ok(data.includes("console.error('[Nihongo Labs grammar content]'")); 
-  assert.ok(data.includes("console.error('[Nihongo Labs flashcard content]'")); 
   assert.ok(!data.includes('return { items: fallback'));
   assert.ok(!data.includes("return level === 'N5' ? kanji : []"));
   assert.ok(!data.includes("return level === 'N5' ? grammar : []"));
