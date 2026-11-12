@@ -317,7 +317,7 @@ export default function LearningApp({ section = [] }: Props) {
     let currentSend: Promise<void> | null = null;
     let retryAfter = 0;
     let retryTimer: number | null = null;
-    let stopActiveLoop: (() => void) | null = null;
+    let stopActiveLoop: ((flushPending?: boolean) => void) | null = null;
 
     // Count only while this site tab is visible and focused; Reading and Mock Exams are exempt.
     const isEligible = () => !isExcludedStudySectionRef.current &&
@@ -581,14 +581,18 @@ export default function LearningApp({ section = [] }: Props) {
         }
       };
 
-      const stop = () => {
+      const stop = (flushPending = true) => {
         if (stopped) return;
         stopped = true;
         window.clearInterval(timer);
         sample();
         stopActiveLoop = null;
-        // Keep the cross-tab lock until the final partial batch has been sent.
-        void sendPendingTime(true).finally(releaseLock);
+        if (flushPending) {
+          // Keep the cross-tab lock until the final partial batch has been sent.
+          void sendPendingTime(true).finally(releaseLock);
+        } else {
+          releaseLock();
+        }
       };
 
       stopActiveLoop = stop;
@@ -644,12 +648,35 @@ export default function LearningApp({ section = [] }: Props) {
       else stopActiveLoop?.();
     };
     const handleBeforeAuthSessionEnd = (event: Event) => {
-      const detail = (event as CustomEvent<{ beforeSessionEnd?: () => Promise<void> }>).detail;
+      const detail = (event as CustomEvent<{ finishStudySession?: (signOut: boolean) => void }>).detail;
       if (!detail) return;
-      detail.beforeSessionEnd = async () => {
-        // Stop the timer and wait for its final partial heartbeat before
-        // the global pagehide controller revokes a non-remembered session.
-        await studyTimeFlushRef.current?.();
+      detail.finishStudySession = (signOut) => {
+        stoppingForSignOut = signOut;
+        // Sample the final foreground interval without starting a separate
+        // heartbeat request that could race the session-ending request.
+        stopActiveLoop?.(false);
+        const pending = getOrCreateRequest();
+        const hasPendingBatch = Boolean(
+          pending.requestId && pending.requestCreatedAt && pending.requestSeconds,
+        );
+        const body = {
+          endSession: signOut,
+          ...(hasPendingBatch ? {
+            seconds: pending.requestSeconds,
+            requestId: pending.requestId,
+            requestCreatedAt: pending.requestCreatedAt,
+          } : {}),
+        };
+        // One keepalive request records any final study-time batch and, when
+        // required, revokes the Supabase session after the heartbeat succeeds.
+        void fetch('/api/auth/session-end', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          cache: 'no-store',
+          keepalive: true,
+        }).catch(() => undefined);
       };
     };
 
