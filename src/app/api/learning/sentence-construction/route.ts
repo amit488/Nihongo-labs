@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!item) throw new HttpError(404, 'Sentence challenge not found.');
 
     const isCorrect = input.submittedTokens.join('') === item.tokens.join('');
-    const { error } = await context.supabase.from('sentence_construction_attempts').insert({
+    const { error } = await createAdminSupabase().from('sentence_construction_attempts').insert({
       user_id: context.user.id,
       sentence_id: item.id,
       jlpt_level: item.level,

@@ -21,6 +21,12 @@ type AdminMetrics = {
   monthlyGrossMinor: number;
   monthlyRefundedMinor: number;
   monthlyNetMinor: number;
+  monthlyPaymentsByCurrency?: Array<{
+    currency: string;
+    grossMinor: number;
+    refundedMinor: number;
+    netMinor: number;
+  }>;
   openMessages: number;
   openTickets: number;
 };
@@ -354,7 +360,16 @@ export default function AdminWorkspace({ section }: { section: Section }) {
           <Metric label="Registered learners" value={Number(data.metrics?.usersTotal ?? 0).toLocaleString('en-IN')} note={`+${data.metrics?.newUsersThisMonth ?? 0} this month`} icon="◉" />
           <Metric label="Active learners · 7 days" value={Number(data.metrics?.activeLearnersSevenDays ?? 0).toLocaleString('en-IN')} note="Learners with recorded study activity" icon="⌁" />
           <Metric label="Active subscriptions" value={Number(data.metrics?.subscriptionsActive ?? 0).toLocaleString('en-IN')} note="Active and trial subscriptions" icon="◇" />
-          <Metric label="Net collected · month" value={money(data.metrics?.monthlyNetMinor ?? 0)} note={`Gross ${money(data.metrics?.monthlyGrossMinor ?? 0)} · refunds ${money(data.metrics?.monthlyRefundedMinor ?? 0)}`} icon="₹" />
+          <Metric
+            label="Net collected · month"
+            value={(data.metrics?.monthlyPaymentsByCurrency ?? []).length
+              ? (data.metrics?.monthlyPaymentsByCurrency ?? []).map((row) => money(row.netMinor, row.currency)).join(' · ')
+              : money(data.metrics?.monthlyNetMinor ?? 0)}
+            note={(data.metrics?.monthlyPaymentsByCurrency ?? []).length
+              ? (data.metrics?.monthlyPaymentsByCurrency ?? []).map((row) => `${row.currency}: gross ${money(row.grossMinor, row.currency)} · refunds ${money(row.refundedMinor, row.currency)}`).join(' | ')
+              : `Gross ${money(data.metrics?.monthlyGrossMinor ?? 0)} · refunds ${money(data.metrics?.monthlyRefundedMinor ?? 0)}`}
+            icon="¤"
+          />
           <Metric label="New contact messages" value={Number(data.metrics?.openMessages ?? 0).toLocaleString('en-IN')} note="Waiting for a first review" icon="✉" />
           <Metric label="Open support tickets" value={Number(data.metrics?.openTickets ?? 0).toLocaleString('en-IN')} note="Open, in progress or waiting" icon="?" />
         </div>

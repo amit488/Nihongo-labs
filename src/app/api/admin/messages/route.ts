@@ -41,21 +41,15 @@ export async function PATCH(request: NextRequest) {
       : ['open', 'in_progress', 'waiting_for_user', 'resolved', 'closed'];
     if (!allowed.includes(input.status)) throw new HttpError(400, 'Invalid status for this inbox item.');
 
-    const table = input.kind === 'contact' ? 'contact_messages' : 'support_tickets';
-    const patch = input.kind === 'contact'
-      ? { status: input.status }
-      : { status: input.status, updated_at: new Date().toISOString(), ...(input.status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) };
-    const { error } = await admin.from(table).update(patch).eq('id', input.id);
-    if (error) throw error;
-
-    const { error: auditError } = await admin.from('audit_logs').insert({
-      actor_user_id: context.user.id,
-      action: 'admin.inbox.status_updated',
-      target_table: table,
-      target_id: input.id,
-      details: { status: input.status },
+    const { error } = await admin.rpc('admin_update_inbox_status_with_audit', {
+      _kind: input.kind,
+      _record_id: input.id,
+      _status: input.status,
+      _actor_user_id: context.user.id,
     });
-    if (auditError) console.error('[Nihongo Labs admin audit]', auditError);
+    if (error) throw new HttpError(error.code === 'P0002' ? 404 : 500,
+      error.code === 'P0002' ? 'Inbox item not found.' : 'Could not update inbox status and audit event.',
+      error.message);
 
     return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {

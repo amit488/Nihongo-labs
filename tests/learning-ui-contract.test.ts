@@ -42,6 +42,7 @@ test('heartbeat retries retain an immutable eight-day batch and preserve newer q
 test('global search is backed by published learning content and opens the matching study area', () => {
   const searchApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/search/route.ts'), 'utf8');
   const features = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-features.tsx'), 'utf8');
+  const kanjiStudio = readFileSync(resolve(process.cwd(), 'src/components/nihongo/kanji-studio.tsx'), 'utf8');
   assert.ok(dashboard.includes('api/learning/search'));
   assert.match(dashboard, /searchResults\.map/);
   assert.match(dashboard, /metaKey \|\| event\.ctrlKey/);
@@ -50,7 +51,7 @@ test('global search is backed by published learning content and opens the matchi
   assert.match(searchApi, /from\('kanji_entries'\)/);
   assert.match(searchApi, /from\('lessons'\)/);
   assert.match(features, /filteredGrammarItems/);
-  assert.match(features, /useState\(search\)/);
+  assert.match(kanjiStudio, /useState\(search\)/);
 });
 
 test('JLPT progress switches to the selected level and uses its own tracked data', () => {

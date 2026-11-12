@@ -82,7 +82,7 @@ export type ReadingPassage = {
 };
 
 async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(path, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+  const response = await fetch(path, { method: 'GET', credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(12_000) });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${response.status}).`);
@@ -108,7 +108,7 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
   if (!resolvedUser) return createPreviewSnapshot();
   const [dashboard, billing] = await Promise.all([
     apiGet<DashboardResponse>('/api/learning/dashboard'),
-    apiGet<BillingStatusResponse>('/api/billing/status').catch(() => ({ hasPremium: false })),
+    apiGet<BillingStatusResponse>('/api/billing/status'),
   ]);
   return {
     displayName: dashboard.profile?.displayName || resolvedUser.email?.split('@')[0] || 'Learner',
@@ -157,24 +157,19 @@ export async function getPublishedVocabulary(
   });
   if (search.trim()) params.set('q', search.trim());
 
-  try {
-    const response = await apiGet<ContentResponse<VocabularyContentRow> & { hasMore?: boolean; nextOffset?: number }>(
-      `/api/learning/content?${params.toString()}`,
-    );
-    const rows = response.items ?? [];
-    return {
-      items: rows.map((row) => ({
-        id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
-        partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
-        exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
-      })),
-      hasMore: Boolean(response.hasMore),
-      nextOffset: Number(response.nextOffset ?? offset + rows.length),
-    };
-  } catch {
-    const fallback = offset === 0 && level === 'N5' && !search.trim() ? vocabulary.slice(0, limit) : [];
-    return { items: fallback, hasMore: false, nextOffset: offset + fallback.length };
-  }
+  const response = await apiGet<ContentResponse<VocabularyContentRow> & { hasMore?: boolean; nextOffset?: number }>(
+    `/api/learning/content?${params.toString()}`,
+  );
+  const rows = response.items ?? [];
+  return {
+    items: rows.map((row) => ({
+      id: row.id, word: row.word, kana: row.kana, romaji: row.romaji || '', meaning: row.meaning,
+      partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
+      exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
+    })),
+    hasMore: Boolean(response.hasMore),
+    nextOffset: Number(response.nextOffset ?? offset + rows.length),
+  };
 }
 
 export async function getPublishedVocabularyById(
@@ -194,39 +189,35 @@ export async function getPublishedVocabularyById(
       partOfSpeech: row.part_of_speech || 'Word', example: row.example_sentence || '',
       exampleRomaji: row.example_reading || '', exampleMeaning: row.example_translation || '',
     };
-  } catch {
+  } catch (error) {
+    console.error('[Nihongo Labs vocabulary card]', error);
     return null;
   }
 }
 
 export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
-  try {
-    const { items } = await apiGet<ContentResponse<KanjiContentRow>>(`/api/learning/content?kind=kanji&level=${level}&limit=250`);
-    if (!items.length) return level === 'N5' ? kanji : [];
-    return items.map((row) => {
-      const first = Array.isArray(row.example_words) ? row.example_words[0] : {};
-      return {
-        id: row.id, character: row.character, meaning: row.meaning,
-        onYomi: row.on_yomi || [], kunYomi: row.kun_yomi || [], strokes: row.stroke_count || 0,
-        radical: row.radical || '', example: first?.word || first?.vocabulary || '',
-        exampleMeaning: first?.meaning || first?.translation || '',
-      };
-    });
-  } catch { return level === 'N5' ? kanji : []; }
+  const { items } = await apiGet<ContentResponse<KanjiContentRow>>(`/api/learning/content?kind=kanji&level=${level}&limit=250`);
+  return items.map((row) => {
+    const first = Array.isArray(row.example_words) ? row.example_words[0] : {};
+    return {
+      id: row.id, character: row.character, meaning: row.meaning,
+      onYomi: row.on_yomi || [], kunYomi: row.kun_yomi || [], strokes: row.stroke_count || 0,
+      radical: row.radical || '', example: first?.word || first?.vocabulary || '',
+      exampleMeaning: first?.meaning || first?.translation || '',
+    };
+  });
 }
+
 export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
-  try {
-    const { items } = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?kind=grammar&level=${level}&limit=250`);
-    if (!items.length) return level === 'N5' ? grammar : [];
-    return items.map((row) => ({
-      id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
-      formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',
-      meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
-      examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
-        japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
-      })) : [],
-    }));
-  } catch { return level === 'N5' ? grammar : []; }
+  const { items } = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?kind=grammar&level=${level}&limit=250`);
+  return items.map((row) => ({
+    id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
+    formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',
+    meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
+    examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
+      japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
+    })) : [],
+  }));
 }
 
 export type LearnerFlashcard = {
@@ -246,18 +237,15 @@ export type LearnerFlashcard = {
 };
 
 export async function getPublishedFlashcards(level: 'N5' | 'N4' = 'N5'): Promise<LearnerFlashcard[]> {
-  try {
-    const { items } = await apiGet<ContentResponse<FlashcardContentRow>>(`/api/learning/content?kind=flashcards&level=${level}&limit=20`);
-    return items.map((card) => ({
-      id: card.id, deckId: card.deckId, deckTitle: card.deckTitle, deckSlug: card.deckSlug,
-      front: card.front_text, reading: card.front_reading || '', romaji: card.front_romaji || '',
-      back: card.back_text, backReading: card.back_reading || '', backRomaji: card.back_romaji || '',
-      example: card.example_sentence || '', meaning: card.example_translation || '', hint: card.hint || '',
-    }));
-  } catch { return []; }
+  const { items } = await apiGet<ContentResponse<FlashcardContentRow>>(`/api/learning/content?kind=flashcards&level=${level}&limit=20`);
+  return items.map((card) => ({
+    id: card.id, deckId: card.deckId, deckTitle: card.deckTitle, deckSlug: card.deckSlug,
+    front: card.front_text, reading: card.front_reading || '', romaji: card.front_romaji || '',
+    back: card.back_text, backReading: card.back_reading || '', backRomaji: card.back_romaji || '',
+    example: card.example_sentence || '', meaning: card.example_translation || '', hint: card.hint || '',
+  }));
 }
 
 export async function getReadingPassages(level: 'N5' | 'N4' = 'N5'): Promise<ReadingPassage[]> {
-  try { return (await apiGet<ContentResponse<ReadingPassage>>(`/api/learning/content?kind=reading&level=${level}&limit=50`)).items; }
-  catch { return []; }
+  return (await apiGet<ContentResponse<ReadingPassage>>(`/api/learning/content?kind=reading&level=${level}&limit=50`)).items;
 }

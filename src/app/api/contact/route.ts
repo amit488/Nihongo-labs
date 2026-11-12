@@ -1,6 +1,7 @@
+import { createHmac } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerSupabase } from '@/lib/nihongo/server/supabase';
+import { createAdminSupabase, createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 
 const contactMessageSchema = z.object({
@@ -11,9 +12,40 @@ const contactMessageSchema = z.object({
   website: z.string().max(200).optional(),
 }).strict();
 
+function getClientAddress(request: Request): string {
+  // Prefer headers supplied by the trusted edge proxy. The final X-Forwarded-For
+  // element is used as the proxy-appended client hop; ingress must overwrite or
+  // append this header rather than pass arbitrary client input through unchanged.
+  const forwarded = request.headers.get('x-forwarded-for');
+  const forwardedAddress = forwarded?.split(',').map((value) => value.trim()).filter(Boolean).at(-1);
+  return request.headers.get('cf-connecting-ip')?.trim()
+    || request.headers.get('x-real-ip')?.trim()
+    || forwardedAddress
+    || 'unknown';
+}
+
+async function enforceContactRateLimit(request: Request): Promise<void> {
+  const secret = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) throw new HttpError(503, 'Contact form is temporarily unavailable.');
+  const bucketKey = createHmac('sha256', secret)
+    .update(`contact:${getClientAddress(request)}`)
+    .digest('hex');
+  const { data, error } = await createAdminSupabase().rpc('consume_api_rate_limit', {
+    _bucket_key: bucketKey,
+    _max_hits: 5,
+    _window_seconds: 3600,
+  });
+  if (error) {
+    console.error('[Nihongo Labs contact rate limit]', error);
+    throw new HttpError(503, 'Contact form is temporarily unavailable.');
+  }
+  if (data !== true) throw new HttpError(429, 'Too many messages. Please try again later.');
+}
+
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
+    await enforceContactRateLimit(request);
     const input = await readJson(request, contactMessageSchema, 16 * 1024);
 
     // Quietly accept honeypot submissions without storing them.

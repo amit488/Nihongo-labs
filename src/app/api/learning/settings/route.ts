@@ -42,13 +42,13 @@ export async function PATCH(request: NextRequest) {
     if (input.showRomaji !== undefined) flashcardPatch.show_romaji = input.showRomaji;
     if (input.showFurigana !== undefined) flashcardPatch.show_furigana = input.showFurigana;
 
-    const results = await Promise.all([
-      Object.keys(profilePatch).length ? context.supabase.from('profiles').update(profilePatch).eq('id', context.user.id) : Promise.resolve({ error: null }),
-      Object.keys(preferencePatch).length ? context.supabase.from('user_preferences').update(preferencePatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
-      Object.keys(flashcardPatch).length ? context.supabase.from('user_flashcard_settings').update(flashcardPatch).eq('user_id', context.user.id) : Promise.resolve({ error: null }),
-    ]);
-    const failure = results.map((result) => result.error).find((error) => error !== null);
-    if (failure) throw new HttpError(500, 'Could not save account settings.', failure.message);
+    const { error } = await context.supabase.rpc('update_learning_settings', {
+      _user_id: context.user.id,
+      _profile_patch: profilePatch,
+      _preferences_patch: preferencePatch,
+      _flashcards_patch: flashcardPatch,
+    });
+    if (error) throw new HttpError(500, 'Could not save account settings.', error.message);
     return NextResponse.json({ saved: true });
   } catch (error) { return jsonError(error); }
 }

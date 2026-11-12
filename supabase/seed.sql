@@ -1,0 +1,2 @@
+-- Nihongo Labs starter curriculum is installed by ordered migrations.
+-- Keep this file for optional, project-specific seed data only.
