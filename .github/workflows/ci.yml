@@ -28,6 +28,8 @@ jobs:
     env:
       # Build-time placeholders only. CI does not connect to Supabase or Razorpay.
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      # Avoid collisions with a pre-existing Postgres container on the hosted runner.
+      SUPABASE_DB_PORT: 55432
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
       SUPABASE_SECRET_KEY: ci-placeholder
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
