@@ -210,7 +210,7 @@ The included seed is a **starter N5 corpus**, not a claim to contain every word 
 - Your merchant's Razorpay test/live keys, recurring Plan IDs and webhook secret
 - A production SMTP sender, legal/tax terms, domain and payment-provider account
 
-These are account credentials/settings, not missing source modules. No live services were called, no database was modified, no migration executed, and no Git push was performed while assembling this source package.
+These are account credentials/settings, not missing source modules. This PR changes repository source only: it does not modify your local Supabase instance, a hosted database, or a deployment. GitHub CI validates the ordered migrations against its own temporary Supabase database. When you are ready to apply the migrations to your local project, review the branch and run `npx supabase migration up --local` from your working copy.
 
 
 ## Learning Intelligence
