@@ -90,27 +90,22 @@ export default function GlobalQuickRevision() {
       authRevision.current += 1;
       clearSignedInSession();
       // Every real document close ends the study timer and flushes pending activity.
-      const detail: { beforeSessionEnd?: () => Promise<void> } = {};
+      const detail: { finishStudySession?: (signOut: boolean) => void } = {};
       window.dispatchEvent(new CustomEvent('nihongo:before-auth-session-end', { detail }));
-      if (shouldKeepSignedInInBrowser()) {
-        void detail.beforeSessionEnd?.().catch(() => undefined);
-        return;
+      const signOut = !shouldKeepSignedInInBrowser();
+      if (detail.finishStudySession) {
+        detail.finishStudySession(signOut);
+      } else if (signOut) {
+        // Admin and other authenticated pages have no study-time heartbeat to flush.
+        void fetch('/api/auth/session-end', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endSession: true }),
+          cache: 'no-store',
+          keepalive: true,
+        }).catch(() => undefined);
       }
-
-      // The global fallback also signs out admin and other authenticated pages.
-      void (async () => {
-        try { await detail.beforeSessionEnd?.(); } catch { /* The server sign-out is still attempted. */ }
-        try {
-          await fetch('/api/auth/session-end', {
-            method: 'POST',
-            credentials: 'same-origin',
-            cache: 'no-store',
-            keepalive: true,
-          });
-        } catch {
-          // The non-remembered Supabase cookie is also a browser-session cookie.
-        }
-      })();
     };
     const handleAppSignIn = () => {
       authRevision.current += 1;
