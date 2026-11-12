@@ -158,7 +158,7 @@ test('database content loaders propagate failures to the learning section instea
     const block = data.slice(start, next < 0 ? data.length : next);
     assert.doesNotMatch(block, /catch\s*\(/, `${name} must not swallow request failures`);
   }
-  assert.match(features, /console\.error\\('\[Nihongo Labs grammar content\]'/);
+  assert.match(features, /console\.error\('\[Nihongo Labs grammar content\]'/);
   assert.match(features, /setListError\('Grammar content could not be loaded/);
   assert.match(app, /flashcard content bootstrap.*error/);
   assert.doesNotMatch(data, /apiGet<BillingStatusResponse>\([^\n]+\)\.catch/);
