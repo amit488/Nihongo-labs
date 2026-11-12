@@ -34,6 +34,10 @@ const RETRY_WHEN_EMPTY_MS = 60_000;
 const NEXT_QUESTION_MIN_MS = 4 * 60_000;
 const NEXT_QUESTION_RANGE_MS = 1 * 60_000;
 
+function isExcludedStudySection(section: string): boolean {
+  return section === 'reading' || section === 'exams' || section === 'auth';
+}
+
 export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn: boolean; sessionId: string | null; activeSection: string }) {
   const [question, setQuestion] = useState<QuickQuestion | null>(null);
   const [selected, setSelected] = useState('');
@@ -98,8 +102,7 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
       targetMs: number;
     };
 
-    const isSectionExcluded = () =>
-      activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams';
+    const isSectionExcluded = () => isExcludedStudySection(activeSectionRef.current);
     const isBrowserTabActive = () =>
       document.visibilityState === 'visible' && document.hasFocus();
     const isSessionEligible = () => !isSectionExcluded() && isBrowserTabActive();
@@ -194,7 +197,7 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
     writeTimerState(lastUpdatedAt);
 
     // Accumulate only time spent on this site in the active browser tab.
-    // Reading and Mock Exams pause both clocks; every other site route counts.
+    // Reading, Mock Exams, and authentication screens pause both clocks.
     const checkpoint = (now = Date.now()) => {
       const elapsed = Math.max(0, now - lastUpdatedAt);
       if (wasSessionCounting) sessionElapsedMilliseconds.current += elapsed;
@@ -245,7 +248,7 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
           reason?: string;
         };
         if (!response.ok) throw new Error(body.error || 'Quick Revision could not load a question.');
-        if (disposed) return;
+        if (disposed || !isSessionEligible()) return;
         if (!body.available || !body.question) {
           setError(body.reason === 'no-learned-items'
             ? 'Quick Revision has not found any saved learned vocabulary, known kanji or understood grammar for this account yet.'
@@ -303,9 +306,9 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
       detail: {
         sessionElapsedMs: sessionElapsedMilliseconds.current,
         elapsedMs: activeMilliseconds.current,
-        paused: activeSection === 'reading' || activeSection === 'exams' ||
+        paused: isExcludedStudySection(activeSection) ||
           document.visibilityState !== 'visible' || !document.hasFocus(),
-        excluded: activeSection === 'reading' || activeSection === 'exams',
+        excluded: isExcludedStudySection(activeSection),
       },
     }));
   }, [activeSection, signedIn, sessionId]);
@@ -362,13 +365,15 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
       detail: {
         sessionElapsedMs: sessionElapsedMilliseconds.current,
         elapsedMs: 0,
-        paused: document.visibilityState !== 'visible' || !document.hasFocus(),
-        excluded: activeSectionRef.current === 'reading' || activeSectionRef.current === 'exams',
+        paused: isExcludedStudySection(activeSectionRef.current) ||
+          document.visibilityState !== 'visible' || !document.hasFocus(),
+        excluded: isExcludedStudySection(activeSectionRef.current),
       },
     }));
   }
 
   if (!signedIn || !sessionId) return null;
+  if (activeSection === 'auth') return null;
   if (!question) {
     return error ? <div className={styles.errorToast} role="status" aria-live="polite">{error}</div> : null;
   }

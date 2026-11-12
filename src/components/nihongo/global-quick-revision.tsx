@@ -59,7 +59,9 @@ export default function GlobalQuickRevision() {
   const [signedIn, setSignedIn] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const authRevision = useRef(0);
-  const activeSection = pathname.startsWith('/learn')
+  // Authentication screens are not study time and must never trigger revision questions.
+  const isAuthRoute = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/');
+  const activeSection = isAuthRoute ? 'auth' : pathname.startsWith('/learn')
     ? pathname.split('/')[2] || 'overview'
     : 'site';
 
