@@ -53,9 +53,16 @@ test('retirement migration removes site-wide timer and Quick Revision without re
   assert.ok(migration.includes('drop table if exists public.quick_revision_attempts'));
   assert.ok(migration.includes('drop table if exists public.quick_revision_state'));
   assert.ok(migration.includes('create or replace function public.get_learning_dashboard()'));
-  assert.match(migration, /create or replace function public\\.finalize_quiz_attempt\\([\\s\\S]*?_activity_date date\\s*\\)/);
-  assert.match(migration, /create or replace function public\\.persist_flashcard_review\\([\\s\\S]*?_activity_date date,\\s*_daily_new_limit integer/);
-  assert.match(migration, /create or replace function public\\.persist_lesson_progress\\([\\s\\S]*?_activity_date date\\s*\\)/);
+  const signature = (name: string) => {
+    const start = migration.indexOf(`create or replace function public.${name}(`);
+    const end = migration.indexOf('\\n)', start);
+    assert.ok(start >= 0 && end > start, `${name} RPC signature is missing`);
+    return migration.slice(start, end + 2);
+  };
+  for (const name of ['finalize_quiz_attempt', 'persist_flashcard_review', 'persist_lesson_progress']) {
+    assert.ok(signature(name).includes('_activity_date date'), `${name} must retain its activity date`);
+    assert.ok(!signature(name).includes('_study_seconds'), `${name} must not accept study-time seconds`);
+  }
   assert.ok(migration.includes('public.user_grammar_progress'));
   assert.ok(migration.includes('create or replace function public.get_vocabulary_intelligence'));
   assert.ok(migration.includes('create or replace function public.get_grammar_intelligence'));
