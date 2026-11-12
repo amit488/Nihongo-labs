@@ -33,7 +33,7 @@ export async function saveLessonProgress(
     _status: input.status,
     _last_position_seconds: input.lastPositionSeconds,
     _activity_date: localDateKey(new Date(), timezone),
-    _study_seconds: Math.min(Math.max(0, Math.floor(input.studySeconds ?? 0)), 3600),
+    _study_seconds: 0,
   });
   if (error) {
     if (error.code === 'P0002') throw new HttpError(404, 'Lesson not found or not published.');
