@@ -220,7 +220,8 @@ export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
     if (!items.length) return level === 'N5' ? grammar : [];
     return items.map((row) => ({
       id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
-      formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',\n      meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
+      formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',
+      meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
       examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
         japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
       })) : [],
