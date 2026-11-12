@@ -70,23 +70,21 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
 
   useEffect(() => {
     const requestId = ++listRequestRef.current;
-    setGrammarItems([]);
-    setSelected('');
-    setNextOffset(0);
-    setHasMore(false);
-    setListTotal(0);
-    setListError('');
-    setLoading(true);
-    setLoadingMore(false);
-
-    if (view === 'learned' && !signedIn) {
-      setLoading(false);
-      return () => {
-        if (listRequestRef.current === requestId) listRequestRef.current += 1;
-      };
-    }
-
     const timer = window.setTimeout(() => {
+      setGrammarItems([]);
+      setSelected('');
+      setNextOffset(0);
+      setHasMore(false);
+      setListTotal(0);
+      setListError('');
+      setLoading(true);
+      setLoadingMore(false);
+
+      if (view === 'learned' && !signedIn) {
+        setLoading(false);
+        return;
+      }
+
       void getPublishedGrammar(level, {
         limit: 10,
         offset: 0,
@@ -171,8 +169,8 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
 
   useEffect(() => {
     if (!signedIn) {
-      setLearnedIds(new Set());
-      return;
+      const clearTimer = window.setTimeout(() => setLearnedIds(new Set()), 0);
+      return () => window.clearTimeout(clearTimer);
     }
     let active = true;
     fetch(`/api/learning/grammar-progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
@@ -225,8 +223,8 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
 
   useEffect(() => {
     if (!signedIn) {
-      setSaved([]);
-      return;
+      const clearTimer = window.setTimeout(() => setSaved([]), 0);
+      return () => window.clearTimeout(clearTimer);
     }
     let active = true;
     fetch('/api/learning/bookmarks', { credentials: 'same-origin', cache: 'no-store' })
