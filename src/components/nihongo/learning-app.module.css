@@ -361,3 +361,6 @@
 }
 
 @media(max-width:780px){.lessonList{height:clamp(260px,55vh,520px)}}
+
+/* Countdown box used by independently timed practice quizzes and mock exams. */
+.timerBox{background:#fff5ee;border:1px solid #f1e3d8;border-radius:9px;padding:8px 13px;display:flex;flex-direction:column;align-items:center;gap:4px}.timerBox small{font-size:15px;letter-spacing:1px;color:#af866c}.timerBox strong{font-family:var(--workspace-heading-family);font-size:21px;font-weight:500;color:#9c6648}
