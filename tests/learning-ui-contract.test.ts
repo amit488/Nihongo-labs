@@ -143,6 +143,10 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
   assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
   assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
+  assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
+  assert.ok(globalController.includes("window.removeEventListener('pagehide', handlePageHide)"));
+  assert.ok(globalController.includes('if (event.persisted) return;'));
+  assert.ok(globalController.includes('clearSignedInSession();'));
   assert.ok(globalController.includes("window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
   assert.ok(authForm.includes("window.dispatchEvent(new Event('nihongo:auth-signed-in'))"));
   assert.ok(globalController.includes("detail: { sessionElapsedMs: 0, elapsedMs: 0, paused: true, reset: true }"));
