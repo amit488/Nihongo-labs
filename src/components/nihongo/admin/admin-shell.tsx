@@ -38,8 +38,6 @@ export default function AdminShell({ children, email, roles }: {
       setSigningOut(false);
       return;
     }
-    // Clear the browser's cookie-backed session and notify global auth UI.
-    window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     router.replace('/login');
   }
 
