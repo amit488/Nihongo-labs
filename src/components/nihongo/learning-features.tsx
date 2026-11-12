@@ -326,7 +326,7 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
                 description={search.trim() ? 'Try another word, pattern or explanation.' : view === 'learned' ? 'Mark a grammar set as understood and it will appear here.' : signedIn && learnedIds.size > 0 ? 'Every published grammar set is now in your Learned tab. Move one back whenever you want to study it again.' : 'Published grammar points for this level will appear here when they are added to the curriculum.'}
               />
             : <div className={styles.splitLayout}>
-                <div className={styles.lessonList}>
+                <div className={styles.lessonList} role="region" aria-label={view === 'learned' ? 'Learned grammar sets' : 'All grammar sets'} aria-busy={loadingMore}>
                   {filteredGrammarItems.map((row, index) => (
                     <button type="button" key={row.id} onClick={() => { setSelected(row.id); setShowExample(true); setDrillIndex(0); setDrillAnswer(''); setDrillResult(null); }}
                       className={`${styles.lessonRow} ${item?.id === row.id ? styles.lessonRowActive : ''}`}>
