@@ -47,7 +47,7 @@ export async function getDashboard(userClient: SupabaseClient) {
   if (error || !data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(500, 'Could not load learning dashboard.', error?.message);
   return data as {
     profile: { displayName: string; timezone: string };
-    preferences: { daily_study_goal_minutes: number; preferred_jlpt_level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'; show_romaji: boolean; show_furigana: boolean };
+    preferences: { preferred_jlpt_level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'; show_romaji: boolean; show_furigana: boolean };
     progress: Record<string, unknown> & { mastery: Record<string, number> };
     streak: number; due: { vocabulary: number; flashcards: number; total: number };
     recentAttempts: Array<Record<string, unknown> & { score_percentage: number | null }>;
