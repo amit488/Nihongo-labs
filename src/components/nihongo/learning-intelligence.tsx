@@ -49,7 +49,7 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
     </div>
     <div className={styles.columns}>
       <div className={styles.panel}>
-        <div className={styles.panelTitle}><h3>Grammar mistake patterns</h3><span>QUIZZES + REVISION + SENTENCES</span></div>
+        <div className={styles.panelTitle}><h3>Grammar mistake patterns</h3><span>QUIZZES + SENTENCES</span></div>
         {!grammar?.topics.length?<p className={styles.empty}>No grammar mistake patterns yet. Complete grammar practice to start building your profile. For detailed reports, tag quiz questions with skill labels.</p>:
           grammar.topics.slice(0,5).map(topic=><article className={styles.topic} key={topic.tag}>
             <div><strong>{topic.label}</strong><small>{topic.misses} missed · {topic.attempts} attempts</small></div>
