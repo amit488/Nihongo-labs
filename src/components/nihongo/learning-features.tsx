@@ -187,7 +187,8 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
         });
         const body = await response.json() as { correct?: boolean; answer?: string; explanation?: string; error?: string };
         if (!response.ok) throw new Error(body.error || 'Could not save this answer.');
-        setDrillResult({ correct: Boolean(body.correct), answer: body.answer || activeDrill.answer, explanation: body.explanation || activeDrill.explanation });
+        if (typeof body.answer !== 'string') throw new Error('The checked answer was not returned by the server.');
+        setDrillResult({ correct: Boolean(body.correct), answer: body.answer, explanation: body.explanation || activeDrill.explanation });
         await onProgressSaved();
       } else {
         setNotice('Sign in to submit grammar practice and save your progress.');
