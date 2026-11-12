@@ -276,7 +276,7 @@ test('keep-me-signed-in controls Supabase persistence and close-time sign-out', 
   assert.ok(sessionEndRoute.includes('context.supabase.auth.signOut()'));
   assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
   assert.ok(learningApp.includes("window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd)"));
-  assert.ok(learningApp.includes('await studyTimeFlushRef.current?.();'));
+  assert.ok(learningApp.includes('const resumeStudyTime = await studyTimeFlushRef.current?.();'));
   assert.ok(sessionEndRoute.includes('supabase.auth.signOut()'));
   assert.ok(sessionEndRoute.includes('assertSameOrigin(request)'));
 });
