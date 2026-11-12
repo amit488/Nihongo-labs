@@ -5,15 +5,19 @@ import { resolve } from 'node:path';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
-test('overview bootstrap does not eagerly fetch grammar or flashcard catalogues', () => {
+test('overview avoids the grammar catalogue and Grammar Studio fetches only paginated sets', () => {
   const app = read('src/components/nihongo/learning-app.tsx');
+  const features = read('src/components/nihongo/learning-features.tsx');
   const bootstrapStart = app.indexOf('const load = async () => {');
   const listenerStart = app.indexOf('const { data: listener }', bootstrapStart);
   assert.ok(bootstrapStart >= 0 && listenerStart > bootstrapStart);
   const bootstrap = app.slice(bootstrapStart, listenerStart);
   assert.ok(!bootstrap.includes('getPublishedGrammar'));
   assert.ok(!bootstrap.includes('getPublishedFlashcards'));
-  assert.ok(app.includes("active === 'grammar' && !grammarContentLoaded.current"));
+  assert.ok(!app.includes('getPublishedGrammar'));
+  assert.ok(!app.includes('grammarContentLoaded'));
+  assert.ok(features.includes('getPublishedGrammar(level, {'));
+  assert.ok(features.includes('limit: 10'));
   assert.ok(app.includes("active === 'flashcards' && !flashcardContentLoaded.current"));
 });
 
