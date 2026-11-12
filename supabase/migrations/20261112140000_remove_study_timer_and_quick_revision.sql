@@ -157,7 +157,7 @@ begin
     )
   );
 end;
-$;
+$$;
 revoke all on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date) from public, anon, authenticated;
 grant execute on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date) to service_role;
 
@@ -340,7 +340,7 @@ begin
     'intervalDays', v_scheduled_days
   );
 end;
-$;
+$$;
 revoke all on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer) from public, anon, authenticated;
 grant execute on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer) to service_role;
 
@@ -411,7 +411,7 @@ begin
   end if;
   return v_current;
 end;
-$;
+$$;
 revoke all on function public.persist_lesson_progress(uuid, uuid, text, integer, date) from public, anon, authenticated;
 grant execute on function public.persist_lesson_progress(uuid, uuid, text, integer, date) to service_role;
 
