@@ -13,7 +13,7 @@ begin
     sort_order integer,
     additional_examples jsonb
   )
-  where grammar.jlpt_level = item.jlpt_level
+  where grammar.jlpt_level::text = item.jlpt_level
     and grammar.sort_order = item.sort_order;
   get diagnostics v_updated = row_count;
   if v_updated <> 100 then
