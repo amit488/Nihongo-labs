@@ -244,3 +244,33 @@ test('grammar catalogue is fetched in ten-set pages and learned sets have their 
   assert.ok(learningStyles.includes('@media(max-width:780px){.lessonList{height:clamp(260px,55vh,520px)}}'));
   assert.ok(n5ExamplesMigration.includes('grammar.jlpt_level::text = item.jlpt_level'));
 });
+
+
+test('keep-me-signed-in controls Supabase persistence and close-time sign-out', () => {
+  const authForm = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
+  const authActions = readFileSync(resolve(process.cwd(), 'src/app/actions/auth.ts'), 'utf8');
+  const serverClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/server/supabase.ts'), 'utf8');
+  const browserClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/supabase.ts'), 'utf8');
+  const proxy = readFileSync(resolve(process.cwd(), 'src/proxy.ts'), 'utf8');
+  const globalController = readFileSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx'), 'utf8');
+  const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
+  const sessionEndRoute = readFileSync(resolve(process.cwd(), 'src/app/api/auth/session-end/route.ts'), 'utf8');
+
+  assert.ok(authForm.includes('Keep me signed in'));
+  assert.ok(authForm.includes("formData.set('keepSignedIn', keepSignedIn ? 'true' : 'false')"));
+  assert.ok(authForm.includes('KEEP_SIGNED_IN_STORAGE_KEY'));
+  assert.ok(authActions.includes("formData.get('keepSignedIn') === 'true'"));
+  assert.ok(authActions.includes('createServerSupabase({ persistentSession: keepSignedIn })'));
+  assert.ok(serverClient.includes('cookieStore.get(KEEP_SIGNED_IN_COOKIE)?.value === \'true\''));
+  assert.ok(serverClient.includes('delete nextOptions.maxAge;'));
+  assert.ok(proxy.includes("request.cookies.get(KEEP_SIGNED_IN_COOKIE)?.value === 'true'"));
+  assert.ok(proxy.includes('delete nextOptions.maxAge;'));
+  assert.ok(browserClient.includes('autoRefreshToken: false'));
+  assert.ok(globalController.includes('shouldKeepSignedInInBrowser()'));
+  assert.ok(globalController.includes("fetch('/api/auth/session-end'"));
+  assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
+  assert.ok(learningApp.includes("window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd)"));
+  assert.ok(learningApp.includes('await studyTimeFlushRef.current?.();'));
+  assert.ok(sessionEndRoute.includes('supabase.auth.signOut()'));
+  assert.ok(sessionEndRoute.includes('assertSameOrigin(request)'));
+});
