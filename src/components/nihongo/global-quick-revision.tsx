@@ -81,7 +81,24 @@ export default function GlobalQuickRevision() {
     };
 
     const handleAppSignOut = () => finishSignOut();
+    const handleAppSignIn = () => {
+      authRevision.current += 1;
+      const revision = authRevision.current;
+      void client.auth.getUser().then(({ data, error }) => {
+        if (!alive || revision !== authRevision.current) return;
+        if (error || !data.user || data.user.is_anonymous) {
+          finishSignOut();
+          return;
+        }
+        const nextSessionId = startOrResumeSession(data.user.id);
+        setSessionId(nextSessionId);
+        setSignedIn(true);
+      }).catch(() => {
+        if (alive && revision === authRevision.current) finishSignOut();
+      });
+    };
     window.addEventListener('nihongo:auth-signed-out', handleAppSignOut);
+    window.addEventListener('nihongo:auth-signed-in', handleAppSignIn);
 
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
@@ -126,6 +143,7 @@ export default function GlobalQuickRevision() {
       alive = false;
       authRevision.current += 1;
       window.removeEventListener('nihongo:auth-signed-out', handleAppSignOut);
+      window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn);
       listener.subscription.unsubscribe();
     };
   }, []);
