@@ -365,7 +365,8 @@ export function QuickRevision({ signedIn, sessionId, activeSection }: { signedIn
       detail: {
         sessionElapsedMs: sessionElapsedMilliseconds.current,
         elapsedMs: 0,
-        paused: document.visibilityState !== 'visible' || !document.hasFocus(),
+        paused: isExcludedStudySection(activeSectionRef.current) ||
+          document.visibilityState !== 'visible' || !document.hasFocus(),
         excluded: isExcludedStudySection(activeSectionRef.current),
       },
     }));
