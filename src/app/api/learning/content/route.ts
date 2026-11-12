@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (kind === 'kana') return NextResponse.json({ ...kana, rows: kana.romaji, combinations: ['きゃ','きゅ','きょ','しゃ','しゅ','しょ','ちゃ','ちゅ','ちょ','にゃ','にゅ','にょ','ひゃ','ひゅ','ひょ','みゃ','みゅ','みょ','りゃ','りゅ','りょ','ぎゃ','ぎゅ','ぎょ','じゃ','じゅ','じょ','びゃ','びゅ','びょ','ぴゃ','ぴゅ','ぴょ'] });
 
     if (kind === 'grammar') {
-      let query = supabase.from('grammar_points').select('id,title,pattern,explanation,formation,examples,common_mistakes,related_grammar_ids').eq('jlpt_level', level).eq('publication_status', 'published').order('title').limit(limit);
+      let query = supabase.from('grammar_points').select('id,title,pattern,meaning,explanation,formation,examples,common_mistakes,related_grammar_ids,category,difficulty,sort_order,practice_questions').eq('jlpt_level', level).eq('publication_status', 'published').order('sort_order').order('title').limit(limit);
       if (search) query = query.or(`title.ilike.%${search}%,pattern.ilike.%${search}%,explanation.ilike.%${search}%`);
       const { data, error } = await query;
       if (error) throw new HttpError(500, 'Could not load grammar content.', error.message);
