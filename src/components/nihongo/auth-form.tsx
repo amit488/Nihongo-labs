@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
 import Brand, { BrandMark } from './brand';
 import { resendSignupConfirmationAction, signInAction, signUpAction } from '@/app/actions/auth';
+import { KEEP_SIGNED_IN_STORAGE_KEY } from '@/lib/nihongo/auth-session';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
@@ -25,10 +27,16 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     try {
       const formData = new FormData(event.currentTarget);
       if (signup) formData.set('displayName', name);
+      else formData.set('keepSignedIn', keepSignedIn ? 'true' : 'false');
       const result = signup ? await signUpAction(formData) : await signInAction(formData);
       setMessage(result.message);
       setVerificationPending(result.success && result.requiresEmailConfirmation === true);
       if (result.success && result.authenticated) {
+        try {
+          window.localStorage.setItem(KEEP_SIGNED_IN_STORAGE_KEY, !signup && keepSignedIn ? 'true' : 'false');
+        } catch {
+          // The server-side preference cookie remains available as a fallback.
+        }
         // Server actions update auth cookies without a browser Supabase SIGNED_IN event.
         window.dispatchEvent(new Event('nihongo:auth-signed-in'));
         router.push(result.redirectTo ?? '/learn');
@@ -93,6 +101,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               {signup && <label>Full name<input name="displayName" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="What should we call you?" required maxLength={80}/></label>}
               <label>Email address<input name="email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required maxLength={254}/></label>
               <label>Password<input name="password" type="password" autoComplete={signup ? 'new-password' : 'current-password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={signup ? 'At least 8 characters' : 'Enter your password'} minLength={8} required/></label>
+              {!signup && <label className={styles.rememberMe}><input type="checkbox" name="keepSignedIn" checked={keepSignedIn} onChange={(event) => setKeepSignedIn(event.target.checked)} /><span>Keep me signed in</span></label>}
               <button type="submit" disabled={busy}>{busy ? (signup ? 'Creating account...' : 'Signing in...') : (signup ? 'Create your free account' : 'Sign in')} <span>→</span></button>
             </form>
             {message && <div className={styles.authMessage} role="alert">{message}</div>}
