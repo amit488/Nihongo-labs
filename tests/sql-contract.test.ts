@@ -55,7 +55,7 @@ test('retirement migration removes site-wide timer and Quick Revision without re
   assert.ok(migration.includes('create or replace function public.get_learning_dashboard()'));
   const signature = (name: string) => {
     const start = migration.indexOf(`create or replace function public.${name}(`);
-    const end = migration.indexOf('\\n)', start);
+    const end = migration.indexOf(')', start);
     assert.ok(start >= 0 && end > start, `${name} RPC signature is missing`);
     return migration.slice(start, end + 2);
   };
