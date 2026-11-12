@@ -174,7 +174,7 @@ export async function submitQuizAttempt(
   if (attempt.status !== 'in_progress') throw new HttpError(409, 'This quiz attempt has already been submitted.');
 
   const { data: quiz, error: quizError } = await userClient.from('quizzes')
-    .select('id,slug,title,lesson_id,pass_percentage,show_results_after_submit').eq('id', attempt.quiz_id).maybeSingle();
+    .select('id,slug,title,lesson_id,pass_percentage,show_results_after_submit,time_limit_seconds').eq('id', attempt.quiz_id).maybeSingle();
   if (quizError || !quiz) throw new HttpError(404, 'Quiz no longer exists.');
 
   const selectedQuestionIds = metadataQuestionIds(attempt.metadata);
@@ -190,6 +190,12 @@ export async function submitQuizAttempt(
   if (questionError || !questions?.length) throw new HttpError(500, 'Quiz has no active questions.');
   if (selectedQuestionIds.length && questions.length !== selectedQuestionIds.length) {
     throw new HttpError(409, 'The selected Kana question set changed. Please start a new attempt.');
+  }
+  const timeLimit = Number(quiz.time_limit_seconds ?? 0);
+  const elapsedBeforeSubmit = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
+  if (timeLimit > 0 && elapsedBeforeSubmit > timeLimit + 15) {
+    await admin.from('quiz_attempts').update({ status: 'abandoned', submitted_at: new Date().toISOString(), duration_seconds: elapsedBeforeSubmit }).eq('id', attempt.id).eq('user_id', userId).eq('status', 'in_progress');
+    throw new HttpError(409, 'The quiz time limit expired. This attempt has been closed.');
   }
   const questionIds = questions.map((question) => question.id);
   const questionIdSet = new Set(questionIds);
