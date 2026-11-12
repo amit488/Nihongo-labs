@@ -7,6 +7,8 @@ const n5Sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/202611121
 const n4Sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112121000_n4_grammar_curriculum.sql'), 'utf8');
 const n5ExamplesSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112130000_expand_n5_grammar_examples.sql'), 'utf8');
 const n4ExamplesSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112130100_expand_n4_grammar_examples.sql'), 'utf8');
+const legacyN5StarterSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112121500_n5_starter_content_seed.sql'), 'utf8');
+const legacyN5ExamplesSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112130200_expand_legacy_n5_grammar_examples.sql'), 'utf8');
 
 type GrammarExample = { japanese: string; romaji: string; meaning: string };
 
@@ -34,6 +36,29 @@ type GrammarExampleExpansion = {
   sort_order: number;
   additional_examples: GrammarExample[];
 };
+
+type LegacyN5ExampleExpansion = {
+  pattern: string;
+  additional_examples: GrammarExample[];
+};
+
+type LegacyN5SeedRow = {
+  pattern: string;
+  examples: GrammarExample[];
+};
+
+function readLegacyN5SeedRows(sql: string): LegacyN5SeedRow[] {
+  const rows = sql.split('\n').filter((line) => line.trimStart().startsWith('insert into public.grammar_points'));
+  return rows.map((line) => {
+    const match = line.match(/values \\('N5','[^']*','([^']*)','[^']*','[^']*','(\\[.*?\\])'::jsonb/);
+    assert.ok(match, 'Every legacy N5 grammar seed row must expose its pattern and examples');
+    return {
+      pattern: match[1],
+      examples: JSON.parse(match[2]) as GrammarExample[],
+    };
+  });
+}
+
 
 function readJsonBlock<T>(sql: string, tag: string, kind: string): T {
   const opening = `$${tag}$`;
@@ -128,4 +153,35 @@ test('every N5 and N4 grammar set has five distinct Japanese examples with romaj
     readExpansion(n4ExamplesSql, 'n4_examples'),
     'N4',
   );
+});
+
+
+test('all 26 legacy N5 starter grammar sets are expanded to five distinct examples', () => {
+  const seedRows = readLegacyN5SeedRows(legacyN5StarterSql);
+  const additions = readJsonBlock<LegacyN5ExampleExpansion[]>(
+    legacyN5ExamplesSql,
+    'legacy_n5_examples',
+    'legacy N5 example expansion',
+  );
+  assert.equal(seedRows.length, 26, 'The original N5 starter seed must contain 26 grammar sets');
+  assert.equal(additions.length, 26, 'Every legacy N5 set must receive additional examples');
+  assert.equal(new Set(additions.map((row) => row.pattern)).size, 26);
+
+  const additionsByPattern = new Map(additions.map((row) => [row.pattern, row]));
+  for (const row of seedRows) {
+    const extra = additionsByPattern.get(row.pattern);
+    assert.ok(extra, `Legacy N5 pattern ${row.pattern} must have additional examples`);
+    assert.equal(row.examples.length, 2, `Legacy N5 pattern ${row.pattern} must retain its two original examples`);
+    assert.equal(extra.additional_examples.length, 3, `Legacy N5 pattern ${row.pattern} must add three examples`);
+    const examples = [...row.examples, ...extra.additional_examples];
+    assert.equal(examples.length, 5);
+    assert.equal(
+      new Set(examples.map((example) => example.japanese)).size,
+      5,
+      `Legacy N5 pattern ${row.pattern} examples must be distinct`,
+    );
+    for (const example of extra.additional_examples) {
+      assert.ok(example.japanese && example.romaji && example.meaning);
+    }
+  }
 });
