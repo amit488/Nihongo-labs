@@ -280,3 +280,17 @@ test('keep-me-signed-in controls Supabase persistence and close-time sign-out', 
   assert.ok(sessionEndRoute.includes('supabase.auth.signOut()'));
   assert.ok(sessionEndRoute.includes('assertSameOrigin(request)'));
 });
+
+test('server auth verification recovers from stale sessions and does not misreport transient failures as sign-out', () => {
+  const serverClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/server/supabase.ts'), 'utf8');
+  const quickRevisionApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/quick-revision/route.ts'), 'utf8');
+
+  assert.match(serverClient, /AuthRetryableFetchError/);
+  assert.match(serverClient, /TRANSIENT_AUTH_HTTP_STATUSES/);
+  assert.match(serverClient, /getUserWithTransientRetry/);
+  assert.match(serverClient, /supabase\.auth\.refreshSession\(\)/);
+  assert.match(serverClient, /new HttpError\(503, AUTH_UNAVAILABLE_MESSAGE\)/);
+  assert.match(serverClient, /Authentication is temporarily unavailable/);
+  assert.match(serverClient, /Authentication required\./);
+  assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
+});
