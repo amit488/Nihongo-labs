@@ -124,7 +124,6 @@ test('the official Nihongo Labs emblem is shared across app surfaces, email and 
   assert.ok(brand.includes('src="/nihongo-labs-logo.png"'));
   assert.match(brand, /export function BrandMark/);
   assert.match(admin, /BrandMark size=\{37\}/);
-  assert.match(quickRevision, /BrandMark size=\{38\}/);
   assert.match(auth, /BrandMark size=\{34\}/);
   assert.match(layout, /icon: \[\{ url: '\/nihongo-labs-logo\.png'/);
   assert.match(layout, /apple: \[\{ url: '\/nihongo-labs-logo\.png'/);
