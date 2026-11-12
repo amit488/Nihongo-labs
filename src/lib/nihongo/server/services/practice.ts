@@ -256,7 +256,6 @@ export async function submitQuizAttempt(
       answered_at: row.answered_at,
     })),
     _activity_date: localDateKey(now, timezone),
-    _study_seconds: 0,
   });
   if (finalizeError) {
     if (finalizeError.code === 'P0002' || finalizeError.message?.includes('already been finalized')) {
@@ -276,8 +275,7 @@ export async function submitQuizAttempt(
       _status: lessonStatus,
       _last_position_seconds: duration,
       _activity_date: localDateKey(now, timezone),
-      _study_seconds: 0,
-    });
+      });
     if (lessonProgressError) {
       // Grading has already been committed. A lesson-progress side effect must
       // never turn a valid quiz result into a failed submission.
@@ -305,8 +303,7 @@ export async function submitQuizAttempt(
             _status: lessonStatus,
             _last_position_seconds: duration,
             _activity_date: localDateKey(now, timezone),
-            _study_seconds: 0,
-          });
+                  });
           if (katakanaProgressError) {
             console.error('[Nihongo Labs] Could not update the linked Katakana lesson:', katakanaProgressError);
           }
