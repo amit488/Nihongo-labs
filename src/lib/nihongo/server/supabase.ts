@@ -3,6 +3,10 @@ import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import {
+  KEEP_SIGNED_IN_COOKIE_NAME,
+  withAuthCookiePersistence,
+} from '@/lib/nihongo/auth-session';
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -11,8 +15,9 @@ function requiredEnv(name: string): string {
 }
 
 /** Cookie-backed client for Server Components, Server Actions and Route Handlers. */
-export async function createServerSupabase() {
+export async function createServerSupabase(options?: { keepSignedIn?: boolean }) {
   const cookieStore = await cookies();
+  const keepSignedIn = options?.keepSignedIn ?? cookieStore.get(KEEP_SIGNED_IN_COOKIE_NAME)?.value === '1';
   return createServerClient(
     requiredEnv('NEXT_PUBLIC_SUPABASE_URL'),
     requiredEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
@@ -24,7 +29,7 @@ export async function createServerSupabase() {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, withAuthCookiePersistence(options, keepSignedIn, value));
             }
           } catch {
             // Server Components cannot write cookies. src/proxy.ts refreshes them.

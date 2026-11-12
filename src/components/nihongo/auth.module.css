@@ -53,3 +53,9 @@
 .backToSignup:hover{color:#b54c43}
 
 .authMessage a{color:#913b35;font-weight:800;text-decoration:underline;white-space:nowrap}
+
+.authCard label.rememberChoice{display:flex;flex-direction:row;align-items:flex-start;gap:10px;margin:1px 0 0;color:#46515c;font-size:var(--type-size-body);font-weight:600;cursor:pointer}
+.authCard .rememberChoice input{flex:0 0 16px;width:16px;height:16px;padding:0;margin:2px 0 0;accent-color:var(--brand);cursor:pointer}
+.rememberChoice span{display:grid;gap:2px}
+.rememberChoice strong{font-size:var(--type-size-body);font-weight:650;line-height:var(--type-line-tight)}
+.rememberChoice small{font-size:var(--type-size-secondary);font-weight:400;line-height:var(--type-line-body);color:var(--muted)}

@@ -8,7 +8,7 @@ import { QuickRevisionStats } from './quick-revision';
 import Brand from './brand';
 import LearningIntelligence from './learning-intelligence';
 import LearningPlans from './learning-plans';
-import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
+import { clearKeepSignedInPreference, getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
@@ -61,6 +61,7 @@ export default function LearningApp({ section = [] }: Props) {
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
   const studyTimerRef = useRef<HTMLSpanElement>(null);
+  const flushStudyTimeRef = useRef<(() => Promise<boolean>) | null>(null);
   const [connected, setConnected] = useState(false);
   const authGenerationRef = useRef(0);
   const [authViewKey, setAuthViewKey] = useState(0);
@@ -545,6 +546,22 @@ export default function LearningApp({ section = [] }: Props) {
       await operation;
     };
 
+    const flushCurrentStudyTime = async (): Promise<boolean> => {
+      if (!userId || !storageKey) return false;
+      if (currentSend) await currentSend;
+      await sendPendingTime(true);
+      const pending = readPendingState();
+      return Math.floor(pending.milliseconds / 1000) < 1 && !pending.requestId;
+    };
+
+    const handleSessionEnd = (event: Event) => {
+      const detail = (event as CustomEvent<{ register?: (flush: Promise<unknown>) => void }>).detail;
+      if (detail?.register && flushStudyTimeRef.current) {
+        detail.register(flushStudyTimeRef.current());
+      }
+    };
+    window.addEventListener('nihongo:prepare-session-end', handleSessionEnd);
+
     const startActiveLoop = (releaseLock: () => void) => {
       let stopped = false;
       let lastSampleAt = performance.now();
@@ -645,6 +662,7 @@ export default function LearningApp({ section = [] }: Props) {
 
       userId = user.id;
       storageKey = 'nihongo-labs:study-time:v1:' + user.id;
+      flushStudyTimeRef.current = flushCurrentStudyTime;
       acquireStudyLock();
       // If another tab currently owns the lock, retry after it releases it.
       retryTimer = window.setInterval(acquireStudyLock, 2000);
@@ -660,10 +678,12 @@ export default function LearningApp({ section = [] }: Props) {
 
     return () => {
       disposed = true;
+      if (flushStudyTimeRef.current === flushCurrentStudyTime) flushStudyTimeRef.current = null;
       if (retryTimer !== null) window.clearInterval(retryTimer);
       if (studyEligibilityChangeRef.current === handleEligibilityChange) {
         studyEligibilityChangeRef.current = null;
       }
+      window.removeEventListener('nihongo:prepare-session-end', handleSessionEnd);
       document.removeEventListener('visibilitychange', handleEligibilityChange);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
@@ -698,6 +718,22 @@ export default function LearningApp({ section = [] }: Props) {
   }
 
   async function signOut() {
+    const flushStudyTime = flushStudyTimeRef.current;
+    if (!flushStudyTime) {
+      setActivityTrackingNotice('Study-time tracking is still starting. Please try signing out again in a moment.');
+      return;
+    }
+    try {
+      const studyTimeSaved = await flushStudyTime();
+      if (!studyTimeSaved) {
+        setActivityTrackingNotice('Your latest study time is still waiting to sync. Check your connection and try signing out again.');
+        return;
+      }
+    } catch (error) {
+      setActivityTrackingNotice(error instanceof Error ? error.message : 'Your latest study time could not be saved. Please try again.');
+      return;
+    }
+
     const client = getSupabaseBrowserClient();
     if (!client) {
       setActivityTrackingNotice('Authentication is temporarily unavailable. Please try again.');
@@ -708,8 +744,9 @@ export default function LearningApp({ section = [] }: Props) {
       setActivityTrackingNotice(error.message);
       return;
     }
-    // Browser signOut clears the same cookie-backed storage used by the
-    // persistent client and emits SIGNED_OUT to GlobalQuickRevision.
+    // Clear the preference only after Supabase has successfully cleared its
+    // cookie-backed session, then reset the shared timer controller.
+    clearKeepSignedInPreference();
     window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     authGenerationRef.current += 1;
     setAuthViewKey((current) => current + 1);

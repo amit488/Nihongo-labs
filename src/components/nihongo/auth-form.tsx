@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
 import Brand, { BrandMark } from './brand';
 import { resendSignupConfirmationAction, signInAction, signUpAction } from '@/app/actions/auth';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
-  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +26,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const result = signup ? await signUpAction(formData) : await signInAction(formData);
       setMessage(result.message);
       setVerificationPending(result.success && result.requiresEmailConfirmation === true);
-      if (result.success && result.authenticated) router.push(result.redirectTo ?? '/learn');
+      if (result.success && result.authenticated) window.location.assign(result.redirectTo ?? '/learn');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
@@ -89,6 +87,10 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               {signup && <label>Full name<input name="displayName" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="What should we call you?" required maxLength={80}/></label>}
               <label>Email address<input name="email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required maxLength={254}/></label>
               <label>Password<input name="password" type="password" autoComplete={signup ? 'new-password' : 'current-password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={signup ? 'At least 8 characters' : 'Enter your password'} minLength={8} required/></label>
+              {!signup && <label className={styles.rememberChoice}>
+                <input type="checkbox" name="keepSignedIn" />
+                <span><strong>Keep me signed in</strong><small>Stay signed in when you close and reopen your browser.</small></span>
+              </label>}
               <button type="submit" disabled={busy}>{busy ? (signup ? 'Creating account...' : 'Signing in...') : (signup ? 'Create your free account' : 'Sign in')} <span>→</span></button>
             </form>
             {message && <div className={styles.authMessage} role="alert">{message}</div>}

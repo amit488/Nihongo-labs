@@ -1,6 +1,11 @@
 'use server';
 
 import { z } from 'zod';
+import { cookies } from 'next/headers';
+import {
+  KEEP_SIGNED_IN_COOKIE_NAME,
+  KEEP_SIGNED_IN_MAX_AGE_SECONDS,
+} from '@/lib/nihongo/auth-session';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 
 const credentials = z.object({ email: z.string().trim().email().max(254), password: z.string().min(8).max(128) });
@@ -88,11 +93,25 @@ export async function resendSignupConfirmationAction(formData: FormData): Promis
 export async function signInAction(formData: FormData): Promise<AuthActionResult> {
   const parsed = credentials.safeParse({ email: formData.get('email'), password: formData.get('password') });
   if (!parsed.success) return { success: false, message: 'Enter a valid email and password.' };
-  const supabase = await createServerSupabase();
+  const keepSignedIn = formData.get('keepSignedIn') === 'on';
+  const supabase = await createServerSupabase({ keepSignedIn });
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     return { success: false, message: 'Invalid email or password, or additional verification is required.' };
   }
+
+  const cookieStore = await cookies();
+  if (keepSignedIn) {
+    cookieStore.set(KEEP_SIGNED_IN_COOKIE_NAME, '1', {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: KEEP_SIGNED_IN_MAX_AGE_SECONDS,
+    });
+  } else {
+    cookieStore.delete(KEEP_SIGNED_IN_COOKIE_NAME);
+  }
+
   const { data: roleRows, error: roleError } = await supabase
     .from('user_roles')
     .select('role')
@@ -110,5 +129,7 @@ export async function signOutAction(): Promise<AuthActionResult> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.auth.signOut();
   if (error) return { success: false, message: error.message };
+  const cookieStore = await cookies();
+  cookieStore.delete(KEEP_SIGNED_IN_COOKIE_NAME);
   return { success: true, message: 'Signed out.' };
 }

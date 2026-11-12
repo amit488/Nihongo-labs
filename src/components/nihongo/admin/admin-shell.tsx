@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
+import { clearKeepSignedInPreference, getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import styles from './admin.module.css';
 import { BrandMark } from '@/components/nihongo/brand';
 
@@ -38,7 +38,8 @@ export default function AdminShell({ children, email, roles }: {
       setSigningOut(false);
       return;
     }
-    // Clear the browser's cookie-backed session and notify global auth UI.
+    // Clear the browser's cookie-backed session and its optional persistence flag.
+    clearKeepSignedInPreference();
     window.dispatchEvent(new Event('nihongo:auth-signed-out'));
     router.replace('/login');
   }
