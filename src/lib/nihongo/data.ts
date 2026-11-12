@@ -3,7 +3,6 @@ import { grammar, kanji, vocabulary, type GrammarItem, type VocabularyItem } fro
 
 export type LearnerSnapshot = {
   displayName: string;
-  timeZone?: string;
   preferredJlptLevel: 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
   grammarCount: number;
   grammarUnderstood: number;
@@ -14,7 +13,6 @@ export type LearnerSnapshot = {
   grammarAttempts: number;
   kanaAttempts: number;
   readingAttempts: number;
-  activeDays: string[];
   lessonsCompleted: number;
   lessonsTotal: number;
   recentScores: number[];
@@ -106,7 +104,6 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
   ]);
   return {
     displayName: dashboard.profile?.displayName || resolvedUser.email?.split('@')[0] || 'Learner',
-    timeZone: dashboard.profile?.timezone || 'Asia/Kolkata',
     preferredJlptLevel: dashboard.preferences?.preferred_jlpt_level ?? 'N5',
     grammarCount: Number(dashboard.progress?.grammarTotal ?? 0),
     grammarUnderstood: Number(dashboard.progress?.grammarUnderstood ?? 0),
@@ -117,7 +114,6 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
     grammarAttempts: Number(dashboard.progress?.grammarAttempts ?? 0),
     kanaAttempts: Number(dashboard.progress?.kanaAttempts ?? 0),
     readingAttempts: Number(dashboard.progress?.readingAttempts ?? 0),
-    activeDays: (dashboard.recentActivity ?? []).map((row) => String(row.activity_date)),
     lessonsCompleted: Number(dashboard.progress?.lessonsCompleted ?? 0),
     lessonsTotal: Number(dashboard.progress?.lessonsTotal ?? 0),
     recentScores: (dashboard.recentAttempts ?? []).map((row) => Number(row.score_percentage ?? 0)).reverse(),
