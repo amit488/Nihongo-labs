@@ -316,13 +316,9 @@ function Dashboard({ name, signedIn, snapshot, streak, onLevelChange, onContinue
   onContinue: () => void;
   onLevelChange: (level: JlptLevel) => Promise<void>;
 }) {
-  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+  const daysRemaining = getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata');
   const [level, setLevel] = useState<JlptLevel>(snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5');
   const [levelProgress, setLevelProgress] = useState<DashboardLevelProgress | null>(null);
-
-  useEffect(() => {
-    setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
-  }, []);
 
   useEffect(() => {
     if (!signedIn) return;
