@@ -10,7 +10,7 @@ It is prepared against the Nihongo Labs PostgreSQL schema package already in you
 - Next.js 16.x, React 19.x, TypeScript
 - Supabase local development stack and the initial Nihongo Labs schema migration are already present
 - The baseline schema is applied and local `supabase migration up --local` reported that the database was up to date
-- The flashcard migration from `sql/008_flashcards.sql` must already be in the migration history before using the FSRS services and flashcard seed content
+- The root `supabase/migrations/` history includes the flashcard schema and trusted backend RPCs. Fresh local databases apply them in timestamp order; existing databases should apply pending migrations before using FSRS or trusted learning writes.
 
 The code does not create another database, recreate the original schema, or change the existing database by itself.
 
@@ -51,7 +51,7 @@ The code does not create another database, recreate the original schema, or chan
 - `scripts/smoke-local.mjs`: local endpoint smoke checks
 - `docs/API_ROUTES.md`: route reference, example payloads and backend security boundaries
 - `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql`: repeatable starter content and Free / ₹99 / ₹149 monthly plans
-- `sql/011_backend_rpc.sql`: additive, restricted RPC helpers for activity, quiz attempt reservation/finalization, atomic lesson progress, FSRS writes, vocabulary scheduling and refunds
+- `supabase/migrations/20261112122000_trusted_backend_rpc.sql`: canonical, ordered migration for activity, quiz attempt reservation/finalization, atomic lesson progress, FSRS writes, vocabulary scheduling and refunds. The original `nihongo-labs-backend/sql/011_backend_rpc.sql` is retained as a reference copy; do not execute it manually after the migration is applied.
 
 ## Database migration history
 
@@ -59,7 +59,7 @@ The `supabase/migrations/` directory is an ordered, append-only history. Keep ev
 
 The separate `nihongo-labs-backend/sql/` directory contains manual seed/setup scripts. Those are not automatically executed by `supabase migration up`; follow the local setup steps below before running them. The Kana question bank is now installed by a Supabase migration, not by the general N5 starter seed.
 
-The My Progress cards are wired to persisted learner activity: Grammar reads understood grammar points, Vocabulary combines words marked learned with spaced-repetition mastery, Reading and Kana use the full graded-attempt history, and Lessons counts published N5 lessons with linked graded checkpoints. The `20261110110000`, `20261110120000` and `20261110130000` migrations install those dashboard sources and correct the N5 quiz-to-lesson links. Apply them with `npx supabase migration up --local`. Quiz completion also uses the restricted `persist_lesson_progress` RPC from `nihongo-labs-backend/sql/011_backend_rpc.sql`, so make sure that manual RPC setup has been applied in local Supabase Studio.
+The My Progress cards are wired to persisted learner activity: Grammar reads understood grammar points, Vocabulary combines words marked learned with spaced-repetition mastery, Reading and Kana use the full graded-attempt history, and Lessons counts published N5 lessons with linked graded checkpoints. The `20261110110000`, `20261110120000` and `20261110130000` migrations install those dashboard sources and correct the N5 quiz-to-lesson links. Apply pending migrations with `npx supabase migration up --local`. Quiz completion and review state use restricted server RPCs installed by the root migration history; no manual RPC paste into Studio is required.
 
 ## Local integration steps
 
@@ -129,17 +129,17 @@ where table_schema = 'public'
   and column_name in ('flashcards_reviewed', 'flashcards_again', 'flashcards_known');
 ```
 
-If the flashcard tables/columns are missing, create a new migration using the Supabase CLI (`npx supabase migration new add_flashcard_system`) and copy `sql/008_flashcards_prerequisite.sql` into that newly generated migration. Do not apply it again if it already exists in your local migration history.
+If the flashcard tables or columns are missing, first run `npx supabase migration up --local` and inspect migration status. The canonical `20261108035000_flashcards_prerequisite.sql` migration now installs those objects. Do not copy or execute the retained SQL reference script a second time.
 
 ### 5. Add starter content and backend RPC helpers locally
 
-After confirming the flashcard migration is applied:
+After applying pending root migrations:
 
-1. Review and run `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql` once in your **local** Supabase Studio. It uses upserts so it can be rerun to update the same starter data.
-2. Review and run `sql/011_backend_rpc.sql` once in your **local** Supabase Studio. It adds restricted helper functions and indexes. It is additive, but inspect the unique invoice/entitlement indexes against any data you have added before running it.
-3. Optional original starter scripts from your database package are included as `sql/007_base_seed_optional.sql` and `sql/009_flashcards_seed_optional.sql`. The new 010 seed includes its own deck tags/content/plans. Do not run redundant seeds unless you need those rows.
+1. The N5 starter lessons, content blocks, quiz data and plan catalog are installed by `supabase/migrations/20261112121500_n5_starter_content_seed.sql`. The original `nihongo-labs-backend/sql/010_n5_content_and_plans_seed.sql` remains in place as the retained source/reference copy; do not run it manually after the root migration has applied.
+2. The backend RPCs and flashcard schema are installed automatically by `supabase/migrations/20261112122000_trusted_backend_rpc.sql` and `supabase/migrations/20261108035000_flashcards_prerequisite.sql`. Their original SQL files remain in the backend folder for reference and comparison; do not execute them manually after the root migrations have applied.
+3. Optional original starter scripts from your database package remain available as `sql/007_base_seed_optional.sql` and `sql/009_flashcards_seed_optional.sql`. Do not run redundant seeds unless you need those rows.
 
-None of these scripts are executed by the apply script.
+For a fresh local database, use `npx supabase db reset --local`. For an existing local database, use `npx supabase migration up --local`.
 
 ### 6. Configure login email
 

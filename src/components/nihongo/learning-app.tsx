@@ -14,7 +14,7 @@ import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone
 import type { LearningFeatureProps } from './learning-features';
 import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
 import { createPreviewSnapshot, getPublishedFlashcards, getPublishedGrammar, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
-import { grammar as demoGrammar, kanji as demoKanji, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
+import { grammar as demoGrammar, vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 import type { GrammarItem } from '@/lib/nihongo/demo-content';
 
 type Props = { section?: string[] };
@@ -88,13 +88,32 @@ export default function LearningApp({ section = [] }: Props) {
       if (generation !== authGenerationRef.current) return;
       setSnapshot(nextSnapshot);
       if (nextSnapshot.source === 'database') setName(nextSnapshot.displayName || 'Learner');
-    } catch {
+    } catch (error) {
       // Keep the last known snapshot if the dashboard refresh is temporarily unavailable.
+      console.error('[Nihongo Labs dashboard refresh]', error);
     }
   }, []);
+  const romajiSaveGeneration = useRef(0);
   const setRomajiPreference = (value: boolean) => {
+    const previousValue = romaji;
+    const generation = ++romajiSaveGeneration.current;
     setRomaji(value);
-    if (signedIn) void fetch('/api/learning/settings', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ showRomaji: value }) }).catch(() => undefined);
+    if (!signedIn) return;
+    void fetch('/api/learning/settings', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showRomaji: value }),
+      signal: AbortSignal.timeout(8_000),
+    }).then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || 'Could not save the Romaji preference.');
+      }
+    }).catch((error) => {
+      console.error('[Nihongo Labs Romaji preference]', error);
+      if (generation === romajiSaveGeneration.current) setRomaji(previousValue);
+    });
   };
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -263,12 +282,16 @@ export default function LearningApp({ section = [] }: Props) {
     if (active === 'grammar' && !grammarContentLoaded.current) {
       grammarContentLoaded.current = true;
       void getPublishedGrammar().then((rows) => {
-        if (rows.length) setGrammarData(rows);
+        setGrammarData(rows);
+      }).catch((error) => {
+        console.error('[Nihongo Labs grammar content bootstrap]', error);
       });
     }
     if (active === 'flashcards' && !flashcardContentLoaded.current) {
       flashcardContentLoaded.current = true;
-      void getPublishedFlashcards().then((rows) => setFlashcardData(rows));
+      void getPublishedFlashcards().then((rows) => setFlashcardData(rows)).catch((error) => {
+        console.error('[Nihongo Labs flashcard content bootstrap]', error);
+      });
     }
   }, [active]);
 
@@ -734,7 +757,7 @@ export default function LearningApp({ section = [] }: Props) {
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
           {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
-          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} kanjiItems={demoKanji} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
+          {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} grammarItems={grammarData} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
         </div>
         <footer className={styles.footer}><span>© 2026 Nihongo Labs</span><span>Made for curious minds <b>✳</b></span><span>Japanese learning, at your pace</span></footer>

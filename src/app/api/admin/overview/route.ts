@@ -7,6 +7,23 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+type DashboardAggregates = {
+  weeklyActivity?: Array<{
+    date: string;
+    activeLearners: number | string;
+    studySeconds: number | string;
+    lessonsCompleted: number | string;
+    quizzesCompleted: number | string;
+  }>;
+  activeLearnersSevenDays?: number | string;
+  monthlyPaymentsByCurrency?: Array<{
+    currency: string;
+    grossMinor: number | string;
+    refundedMinor: number | string;
+    netMinor: number | string;
+  }>;
+};
+
 export async function GET() {
   await connection();
   try {
@@ -23,22 +40,9 @@ export async function GET() {
     };
 
     const [
-      usersTotal,
-      newUsers,
-      subscriptionsActive,
-      openMessages,
-      openTickets,
-      courses,
-      lessons,
-      vocabulary,
-      kanji,
-      grammar,
-      dailyActivityResult,
-      monthlyPaymentsResult,
-      recentUsersResult,
-      recentPaymentsResult,
-      recentMessagesResult,
-      plansResult,
+      usersTotal, newUsers, subscriptionsActive, openMessages, openTickets,
+      courses, lessons, vocabulary, kanji, grammar, aggregatesResult,
+      recentUsersResult, recentPaymentsResult, recentMessagesResult, plansResult,
     ] = await Promise.all([
       count('profiles'),
       admin.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', monthStart).then(({ count: total, error }) => {
@@ -62,14 +66,10 @@ export async function GET() {
       count('vocabulary_entries'),
       count('kanji_entries'),
       count('grammar_points'),
-      admin.from('user_daily_activity')
-        .select('user_id,activity_date,study_seconds,lessons_completed,quizzes_completed')
-        .gte('activity_date', weekStart)
-        .order('activity_date', { ascending: true }),
-      admin.from('payments')
-        .select('amount_minor,refunded_amount_minor,currency,status,captured_at')
-        .in('status', ['captured', 'partially_refunded', 'refunded'])
-        .gte('captured_at', monthStart),
+      admin.rpc('admin_get_dashboard_aggregates', {
+        _week_start: weekStart,
+        _month_start: monthStart,
+      }),
       admin.from('profiles').select('id,display_name,created_at').order('created_at', { ascending: false }).limit(6),
       admin.from('payments')
         .select('id,user_id,amount_minor,refunded_amount_minor,currency,status,created_at,captured_at')
@@ -85,60 +85,52 @@ export async function GET() {
         .limit(6),
     ]);
 
-    for (const result of [dailyActivityResult, monthlyPaymentsResult, recentUsersResult, recentPaymentsResult, recentMessagesResult, plansResult]) {
+    for (const result of [aggregatesResult, recentUsersResult, recentPaymentsResult, recentMessagesResult, plansResult]) {
       if (result.error) throw result.error;
     }
 
-    const activityRows = dailyActivityResult.data ?? [];
-    const activityByDate = new Map<string, { learners: Set<string>; studySeconds: number; lessons: number; quizzes: number }>();
-    for (const row of activityRows) {
-      const key = String(row.activity_date);
-      const day = activityByDate.get(key) ?? { learners: new Set<string>(), studySeconds: 0, lessons: 0, quizzes: 0 };
-      day.learners.add(String(row.user_id));
-      day.studySeconds += Number(row.study_seconds ?? 0);
-      day.lessons += Number(row.lessons_completed ?? 0);
-      day.quizzes += Number(row.quizzes_completed ?? 0);
-      activityByDate.set(key, day);
-    }
+    const aggregates = (aggregatesResult.data ?? {}) as DashboardAggregates;
+    const weeklyActivity = (aggregates.weeklyActivity ?? []).map((day) => ({
+      date: day.date,
+      label: new Date(`${day.date}T00:00:00.000Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }),
+      activeLearners: Number(day.activeLearners ?? 0),
+      studyMinutes: Math.round(Number(day.studySeconds ?? 0) / 60),
+      lessonsCompleted: Number(day.lessonsCompleted ?? 0),
+      quizzesCompleted: Number(day.quizzesCompleted ?? 0),
+    }));
+    const paymentTotals = (aggregates.monthlyPaymentsByCurrency ?? []).map((row) => ({
+      currency: row.currency,
+      grossMinor: Number(row.grossMinor ?? 0),
+      refundedMinor: Number(row.refundedMinor ?? 0),
+      netMinor: Number(row.netMinor ?? 0),
+    }));
+    // Keep the legacy dashboard headline INR-denominated, but never add currencies
+    // together. The complete breakdown is also returned for multi-currency review.
+    const headlinePayments = paymentTotals.find((row) => row.currency === 'INR');
+    const monthlyGrossMinor = headlinePayments?.grossMinor ?? 0;
+    const monthlyRefundedMinor = headlinePayments?.refundedMinor ?? 0;
 
-    const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 6 + index));
-      const key = isoDate(date);
-      const day = activityByDate.get(key);
-      return {
-        date: key,
-        label: date.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }),
-        activeLearners: day?.learners.size ?? 0,
-        studyMinutes: Math.round((day?.studySeconds ?? 0) / 60),
-        lessonsCompleted: day?.lessons ?? 0,
-        quizzesCompleted: day?.quizzes ?? 0,
-      };
-    });
-
-    const paymentRows = monthlyPaymentsResult.data ?? [];
-    const monthlyGrossMinor = paymentRows.reduce((sum, row) => sum + Number(row.amount_minor ?? 0), 0);
-    const monthlyRefundedMinor = paymentRows.reduce((sum, row) => sum + Number(row.refunded_amount_minor ?? 0), 0);
-    const distinctActiveLearners = new Set(activityRows.map((row) => String(row.user_id))).size;
     const recentUsers = recentUsersResult.data ?? [];
-    const users = await Promise.all(recentUsers.map(async (row) => {
-      const { data: authResult } = await admin.auth.admin.getUserById(String(row.id));
-      return {
-        id: row.id,
-        name: row.display_name || 'Learner',
-        email: authResult.user?.email ?? '—',
-        createdAt: row.created_at,
-      };
-    }));
+    const recentPaymentsRows = recentPaymentsResult.data ?? [];
+    const authUserIds = Array.from(new Set([
+      ...recentUsers.map((row) => String(row.id)),
+      ...recentPaymentsRows.map((row) => row.user_id ? String(row.user_id) : ''),
+    ].filter(Boolean)));
+    const { data: emailRows, error: emailError } = await admin.rpc('admin_user_emails', {
+      _user_ids: authUserIds,
+    });
+    if (emailError) throw emailError;
+    const emails = new Map((emailRows ?? []).map((row: { user_id: string; email: string }) => [row.user_id, row.email]));
 
-    const recentPaymentUsers = Array.from(new Set((recentPaymentsResult.data ?? []).map((row) => row.user_id).filter(Boolean)));
-    const paymentEmails = new Map<string, string>();
-    await Promise.all(recentPaymentUsers.map(async (id) => {
-      const { data } = await admin.auth.admin.getUserById(String(id));
-      if (data.user?.email) paymentEmails.set(String(id), data.user.email);
-    }));
-    const recentPayments = (recentPaymentsResult.data ?? []).map((row) => ({
+    const users = recentUsers.map((row) => ({
       id: row.id,
-      email: row.user_id ? paymentEmails.get(String(row.user_id)) ?? '—' : 'Deleted account',
+      name: row.display_name || 'Learner',
+      email: emails.get(String(row.id)) ?? '—',
+      createdAt: row.created_at,
+    }));
+    const recentPayments = recentPaymentsRows.map((row) => ({
+      id: row.id,
+      email: row.user_id ? emails.get(String(row.user_id)) ?? '—' : 'Deleted account',
       amountMinor: Number(row.amount_minor ?? 0),
       refundedMinor: Number(row.refunded_amount_minor ?? 0),
       currency: row.currency,
@@ -151,11 +143,12 @@ export async function GET() {
       metrics: {
         usersTotal,
         newUsersThisMonth: newUsers,
-        activeLearnersSevenDays: distinctActiveLearners,
+        activeLearnersSevenDays: Number(aggregates.activeLearnersSevenDays ?? 0),
         subscriptionsActive,
         monthlyGrossMinor,
         monthlyRefundedMinor,
         monthlyNetMinor: monthlyGrossMinor - monthlyRefundedMinor,
+        monthlyPaymentsByCurrency: paymentTotals,
         openMessages,
         openTickets,
       },

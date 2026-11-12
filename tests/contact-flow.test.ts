@@ -33,6 +33,11 @@ test('contact page collects the required details and gives a clear success state
 test('contact submissions are validated server-side and use the existing private contact_messages table', () => {
   const route = read('src/app/api/contact/route.ts');
   assert.ok(route.includes('assertSameOrigin(request)'));
+  assert.ok(route.includes('createHmac'));
+  assert.ok(route.includes("rpc('consume_api_rate_limit'"));
+  assert.ok(route.includes('_max_hits: 5'));
+  assert.ok(route.includes('_window_seconds: 3600'));
+  assert.ok(!route.includes('request.text()'));
   assert.match(route, /contactMessageSchema/);
   assert.ok(route.includes("from('contact_messages')"));
   assert.ok(route.includes('authData.user.id'));

@@ -1,6 +1,7 @@
 import { connection, NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
+import { getPassagesForLevel, type ReadingLevel } from '@/lib/nihongo/reading-content';
 
 type FlashcardContentRow = {
   id: string; deck_id: string; front_text: string; back_text: string;
@@ -10,14 +11,6 @@ type FlashcardContentRow = {
   sort_order: number; source_type: string | null;
 };
 type FlashcardDeckRow = { id: string; slug: string; title: string; flashcards: FlashcardContentRow[] | null };
-type ReadingBlockRow = { id: string; block_type: string; content: Record<string, unknown>; sort_order: number };
-type ReadingLessonRow = {
-  id: string; title: string; lesson_type: string; publication_status: string;
-  lesson_content_blocks: ReadingBlockRow[] | null;
-};
-type ReadingUnitRow = { id: string; lessons: ReadingLessonRow[] | null };
-type ReadingCourseRow = { id: string; course_units: ReadingUnitRow[] | null };
-
 const kana = {
   hiragana: [
     ['あ','い','う','え','お'],['か','き','く','け','こ'],['さ','し','す','せ','そ'],['た','ち','つ','て','と'],['な','に','ぬ','ね','の'],
@@ -120,21 +113,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items }, { headers: { 'Cache-Control': 'private, max-age=30' } });
     }
     if (kind === 'reading') {
-      const { data, error } = await supabase.from('courses').select('id,course_units(id,lessons(id,slug,title,summary,lesson_type,publication_status,access_level,lesson_content_blocks(id,block_type,content,sort_order)))').eq('jlpt_level', level).eq('publication_status', 'published').limit(10);
-      if (error) throw new HttpError(500, 'Could not load reading lessons.', error.message);
-      const courseRows = (data ?? []) as unknown as ReadingCourseRow[];
-      const lessons = courseRows.flatMap((course) =>
-        (course.course_units ?? []).flatMap((unit) =>
-          (unit.lessons ?? []).filter((lesson) =>
-            lesson.publication_status === 'published' &&
-            (lesson.lesson_type === 'lesson' || lesson.lesson_type === 'practice'),
-          ),
-        ),
-      );
-      const passages = lessons.flatMap((lesson) => (lesson.lesson_content_blocks ?? [])
-        .filter((block) => block.block_type === 'rich_text' && block.content.kind === 'reading_passage')
-        .map((block) => ({ lessonId: lesson.id, lessonTitle: lesson.title, ...block.content })));
-      return NextResponse.json({ items: passages.slice(0, limit) }, { headers: { 'Cache-Control': 'private, max-age=30' } });
+      // Reading Studio and this API share the same curated corpus. Keep its
+      // sentence-level tokens, readings and translations in one source rather
+      // than maintaining a second, structurally different lesson-block copy.
+      const passages = level === 'N5' || level === 'N4'
+        ? getPassagesForLevel(level as ReadingLevel)
+        : [];
+      const items = passages.slice(offset, offset + limit);
+      return NextResponse.json({
+        items,
+        hasMore: offset + items.length < passages.length,
+        nextOffset: offset + items.length,
+      }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
     }
     throw new HttpError(400, 'Unsupported content kind. Use grammar, vocabulary, kanji, kana, courses, flashcards or reading.');
   } catch (error) { return jsonError(error); }

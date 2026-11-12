@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_rethrow } from 'next/navigation';
-import { requireUser } from '@/lib/nihongo/server/supabase';
+import { createAdminSupabase, requireUser } from '@/lib/nihongo/server/supabase';
 import { assertSameOrigin, HttpError, jsonError, readJson } from '@/lib/nihongo/server/http';
 import { z } from 'zod';
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const intervalDays = input.status === 'known' ? 3 : 0;
     const dueAt = new Date(now.getTime() + intervalDays * 86400000).toISOString();
-    const { data, error } = await context.supabase.from('kanji_review_state').upsert({
+    const { data, error } = await createAdminSupabase().from('kanji_review_state').upsert({
       user_id: context.user.id,
       kanji_id: input.kanjiId,
       status: input.status,

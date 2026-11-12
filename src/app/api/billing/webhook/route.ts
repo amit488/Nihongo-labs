@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabase } from '@/lib/nihongo/server/supabase';
-import { HttpError, jsonError } from '@/lib/nihongo/server/http';
+import { HttpError, jsonError, readBodyText } from '@/lib/nihongo/server/http';
 import { verifyWebhookSignature, type RazorpayResponse } from '@/lib/nihongo/server/services/razorpay';
+import { activateLifetimeOrder } from '@/lib/nihongo/server/services/billing';
 import {
-  activateLifetimeOrder,
   syncPaymentFailure,
   syncSubscriptionEvent,
-} from '@/lib/nihongo/server/services/billing';
+} from '@/lib/nihongo/server/services/billing-provider-events';
 
 type JsonObject = Record<string, unknown>;
 
@@ -27,10 +27,7 @@ const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text();
-    if (Buffer.byteLength(rawBody, 'utf8') > MAX_WEBHOOK_BYTES) {
-      throw new HttpError(413, 'Webhook payload is too large.');
-    }
+    const rawBody = await readBodyText(request, MAX_WEBHOOK_BYTES);
 
     const signature = request.headers.get('x-razorpay-signature') || '';
     if (!signature || !verifyWebhookSignature(rawBody, signature)) {
@@ -114,9 +111,9 @@ export async function POST(request: NextRequest) {
         if (error) throw new HttpError(500, 'Could not find local payment order.', error.message);
         if (order) await activateLifetimeOrder(admin, order.id, paymentEntity);
       } else if (event.startsWith('subscription.') && subscriptionEntity) {
-        await syncSubscriptionEvent(admin, event, subscriptionEntity, paymentEntity ?? undefined);
+        await syncSubscriptionEvent(admin, event, subscriptionEntity, paymentEntity ?? undefined, typeof payload.created_at === 'number' ? payload.created_at : undefined);
       } else if (event === 'payment.failed' && paymentEntity) {
-        await syncPaymentFailure(admin, paymentEntity);
+        await syncPaymentFailure(admin, paymentEntity, typeof payload.created_at === 'number' ? payload.created_at : undefined);
       } else if ((event === 'refund.processed' || event === 'refund.failed') && refund) {
         const refundPaymentId = typeof refund.payment_id === 'string' ? refund.payment_id : null;
         const refundId = typeof refund.id === 'string' ? refund.id : null;

@@ -274,3 +274,22 @@ test('manual dashboard RPC matches the canonical My Progress migration', () => {
   assert.ok(extract(canonical), 'canonical dashboard function is missing');
   assert.equal(extract(manual), extract(canonical), 'manual backend SQL has drifted from the canonical dashboard function');
 });
+
+test('security and performance migration protects learner state and privileged RPCs', () => {
+  const path = resolve(process.cwd(), 'supabase', 'migrations', '20261112123000_security_integrity_performance.sql');
+  assert.equal(existsSync(path), true, 'security/integrity migration is missing');
+  const migration = readFileSync(path, 'utf8');
+  for (const table of ['lesson_progress', 'vocabulary_review_state', 'kanji_review_state', 'quiz_attempts', 'quiz_responses', 'sentence_construction_attempts']) {
+    assert.ok(migration.includes(`on public.${table} from authenticated`), table);
+  }
+  for (const fn of ['consume_api_rate_limit', 'admin_user_emails', 'admin_update_inbox_status_with_audit', 'admin_get_dashboard_aggregates', 'apply_subscription_provider_event', 'record_subscription_payment_monotonic']) {
+    assert.ok(migration.includes(`revoke all on function public.${fn}`), fn);
+    assert.ok(migration.includes(`grant execute on function public.${fn}`), fn);
+  }
+  assert.ok(migration.includes('create or replace function public.update_learning_settings'));
+  assert.ok(migration.includes('auth.uid()'));
+  assert.ok(migration.includes('create or replace function public.get_due_vocabulary'));
+  assert.ok(migration.includes('security invoker'));
+  assert.ok(migration.includes('provider_event_created_at'));
+  assert.ok(migration.includes('group by currency'));
+});

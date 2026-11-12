@@ -11,7 +11,6 @@ export type AuthActionResult = {
   message: string;
   authenticated?: boolean;
   requiresEmailConfirmation?: boolean;
-  alreadyRegistered?: boolean;
   redirectTo?: string;
 };
 
@@ -36,24 +35,28 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
   });
 
   if (error) {
-    const alreadyRegistered = ['user_already_exists', 'email_exists'].includes(error.code ?? '') || /already registered|already exists/i.test(error.message);
-    if (alreadyRegistered) {
+    const duplicateEmail = ['user_already_exists', 'email_exists'].includes(error.code ?? '')
+      || /already registered|already exists/i.test(error.message);
+    if (duplicateEmail) {
+      // Keep duplicate-email responses indistinguishable from a normal pending
+      // signup so the action cannot be used to enumerate registered accounts.
       return {
-        success: false,
-        alreadyRegistered: true,
-        message: 'An account with this email address already exists. Sign in instead, or use your account recovery option if you have forgotten your password.',
+        success: true,
+        requiresEmailConfirmation: true,
+        message: 'If this address can be registered, a confirmation email will arrive shortly.',
       };
     }
-    return { success: false, message: error.message };
+    console.error('[Nihongo Labs signup]', error);
+    return { success: false, message: 'We could not create your account. Check your details and try again.' };
   }
 
-  // Supabase intentionally returns an obfuscated user with no identities for
-  // some duplicate-email signups, so the app must not claim an email was sent.
+  // Supabase returns an obfuscated user with no identities for duplicate-email
+  // signups. Return the same generic pending state used for ordinary signup.
   if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
     return {
-      success: false,
-      alreadyRegistered: true,
-      message: 'An account with this email address already exists. Sign in instead, or use your account recovery option if you have forgotten your password.',
+      success: true,
+      requiresEmailConfirmation: true,
+      message: 'If this address can be registered, a confirmation email will arrive shortly.',
     };
   }
 
@@ -61,7 +64,7 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
     return {
       success: true,
       requiresEmailConfirmation: true,
-      message: 'Your account is almost ready. Open the verification link we sent to your inbox to finish signing up.',
+      message: 'If this address can be registered, a confirmation email will arrive shortly.',
     };
   }
   return { success: true, authenticated: true, message: 'Account created successfully.' };
@@ -78,7 +81,7 @@ export async function resendSignupConfirmationAction(formData: FormData): Promis
     options: { emailRedirectTo: getEmailRedirectUrl() },
   });
 
-  if (error) return { success: false, message: error.message };
+  if (error) console.error('[Nihongo Labs resend signup confirmation]', error);
   return { success: true, message: 'If this address has a pending signup, a fresh verification email is on its way.' };
 }
 
@@ -88,10 +91,7 @@ export async function signInAction(formData: FormData): Promise<AuthActionResult
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    if (/email not confirmed/i.test(error.message)) {
-      return { success: false, message: 'Please verify your email address using the link we sent before signing in.' };
-    }
-    return { success: false, message: error.message };
+    return { success: false, message: 'Invalid email or password, or additional verification is required.' };
   }
   const { data: roleRows, error: roleError } = await supabase
     .from('user_roles')

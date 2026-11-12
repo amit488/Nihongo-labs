@@ -32,7 +32,7 @@ type PlanSummary = {
 
 
 /** Grant only the feature entitlements included in the purchased plan. */
-async function syncPlanEntitlements(
+export async function syncPlanEntitlements(
   admin: SupabaseClient,
   input: { userId: string; planId: string; subscriptionId: string; paymentId?: string | null; startsAt: string; endsAt: string | null; lifetime?: boolean },
 ) {
@@ -65,7 +65,7 @@ export async function listPlans(supabase: SupabaseClient): Promise<PlanSummary[]
   }));
 }
 
-async function issueInvoiceForPayment(
+export async function issueInvoiceForPayment(
   admin: SupabaseClient,
   input: { userId: string; subscriptionId: string | null; paymentId: string; amountMinor: number; currency: string; planName: string; providerInvoiceId?: string | null },
 ) {
@@ -251,132 +251,6 @@ export async function activateLifetimeOrder(admin: SupabaseClient, localOrderId:
   });
   await issueInvoiceForPayment(admin, { userId: order.user_id, subscriptionId, paymentId: payment.id, amountMinor: Number(providerPayment.amount ?? 0), currency: providerPayment.currency ?? order.currency, planName: plan.name, providerInvoiceId: providerPayment.invoice_id ?? null });
   return { alreadyProcessed: Boolean(wasPaid), subscriptionId, paymentId: payment.id, grantedFeatures };
-}
-
-export async function syncSubscriptionEvent(admin: SupabaseClient, event: string, entity: RazorpayResponse, paymentEntity?: RazorpayResponse) {
-  const providerSubscriptionId = entity?.id || entity?.subscription_id || paymentEntity?.subscription_id;
-  if (!providerSubscriptionId) return { ignored: true };
-  const { data: subscription, error } = await admin.from('subscriptions').select('id,user_id,plan_id,status,current_period_end,metadata')
-    .eq('provider', 'razorpay').eq('provider_subscription_id', providerSubscriptionId).maybeSingle();
-  if (error || !subscription) return { ignored: true };
-
-  const periodStart = unixToIso(entity.current_start ?? entity.current_start_at ?? entity.start_at);
-  const periodEnd = unixToIso(entity.current_end ?? entity.current_end_at ?? entity.end_at);
-  if (event === 'subscription.activated' || event === 'subscription.charged' || event === 'subscription.updated') {
-    const mappedStatus = event === 'subscription.updated'
-      ? (entity.status === 'paused' ? 'paused' : entity.status === 'halted' ? 'unpaid' : entity.status === 'cancelled' ? 'canceled' : 'active')
-      : 'active';
-    const { error: subscriptionUpdateError } = await admin.from('subscriptions').update({
-      status: mappedStatus,
-      current_period_start: periodStart ?? undefined,
-      current_period_end: periodEnd ?? undefined,
-      cancel_at_period_end: Boolean(entity.charge_at_cycle_end),
-      metadata: { ...(subscription.metadata ?? {}), provider_status: entity.status, provider_event: event },
-    }).eq('id', subscription.id);
-    if (subscriptionUpdateError) throw new HttpError(500, 'Could not update subscription status.', subscriptionUpdateError.message);
-  }
-
-  let paymentId: string | null = null;
-  if (paymentEntity?.id && subscription.user_id) {
-    const { data: payment, error: paymentError } = await admin.from('payments').upsert({
-      user_id: subscription.user_id, subscription_id: subscription.id, provider: 'razorpay',
-      provider_payment_id: paymentEntity.id, amount_minor: Number(paymentEntity.amount ?? 0),
-      currency: paymentEntity.currency || 'INR',
-      status: paymentEntity.status === 'captured' || paymentEntity.captured ? 'captured' : 'authorized',
-      payment_method: paymentEntity.method ?? null,
-      captured_at: unixToIso(paymentEntity.created_at),
-      metadata: { invoice_id: paymentEntity.invoice_id ?? null, provider_subscription_id: providerSubscriptionId },
-    }, { onConflict: 'provider,provider_payment_id' }).select('id').single();
-    if (paymentError) throw new HttpError(500, 'Could not save subscription payment.', paymentError.message);
-    paymentId = payment?.id ?? null;
-    if (paymentId && (paymentEntity.status === 'captured' || paymentEntity.captured)) {
-      const { data: planRow } = await admin.from('subscription_plans').select('name').eq('id', subscription.plan_id).maybeSingle();
-      await issueInvoiceForPayment(admin, { userId: subscription.user_id, subscriptionId: subscription.id, paymentId, amountMinor: Number(paymentEntity.amount ?? 0), currency: paymentEntity.currency || 'INR', planName: planRow?.name || 'Nihongo Labs subscription', providerInvoiceId: paymentEntity.invoice_id });
-    }
-  }
-
-  if ((event === 'subscription.activated' || event === 'subscription.charged') && subscription.user_id) {
-    await syncPlanEntitlements(admin, {
-      userId: subscription.user_id,
-      planId: subscription.plan_id,
-      subscriptionId: subscription.id,
-      paymentId,
-      startsAt: periodStart ?? new Date().toISOString(),
-      endsAt: periodEnd,
-    });
-  }
-
-  if (event === 'subscription.cancelled') {
-    const accessEndsAt = periodEnd ?? subscription.current_period_end ?? new Date().toISOString();
-    const { error: cancelError } = await admin.from('subscriptions').update({ status: 'canceled', canceled_at: new Date().toISOString(), ended_at: accessEndsAt, current_period_end: accessEndsAt }).eq('id', subscription.id);
-    if (cancelError) throw new HttpError(500, 'Could not save subscription cancellation.', cancelError.message);
-    const { error: entitlementError } = await admin.from('user_entitlements').update({ ends_at: accessEndsAt, status: new Date(accessEndsAt).getTime() <= Date.now() ? 'expired' : 'active' }).eq('source_subscription_id', subscription.id).eq('status', 'active');
-    if (entitlementError) throw new HttpError(500, 'Could not update entitlement end date.', entitlementError.message);
-  }
-  if (event === 'subscription.halted') {
-    const { error: haltedError } = await admin.from('subscriptions').update({ status: 'unpaid' }).eq('id', subscription.id);
-    if (haltedError) throw new HttpError(500, 'Could not save subscription payment status.', haltedError.message);
-  }
-  if (event === 'subscription.completed') {
-    const { error: completedError } = await admin.from('subscriptions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', subscription.id);
-    if (completedError) throw new HttpError(500, 'Could not expire subscription.', completedError.message);
-    const { error: entitlementError } = await admin.from('user_entitlements').update({ status: 'expired' }).eq('source_subscription_id', subscription.id);
-    if (entitlementError) throw new HttpError(500, 'Could not expire subscription entitlements.', entitlementError.message);
-  }
-  return { subscriptionId: subscription.id, paymentId };
-}
-
-export async function syncPaymentFailure(admin: SupabaseClient, paymentEntity: RazorpayResponse) {
-  if (!paymentEntity?.id) return { ignored: true };
-  const { data: existing } = await admin.from('payments').select('id,subscription_id,order_id')
-    .eq('provider', 'razorpay').eq('provider_payment_id', paymentEntity.id).maybeSingle();
-  if (existing) {
-    const paymentUpdate = await admin.from('payments').update({ status: 'failed', failed_at: new Date().toISOString(), failure_code: paymentEntity.error_code ?? null, failure_message: paymentEntity.error_description ?? null }).eq('id', existing.id);
-    if (paymentUpdate.error) throw new HttpError(500, 'Could not update failed payment.', paymentUpdate.error.message);
-    if (existing.subscription_id) {
-      const subscriptionUpdate = await admin.from('subscriptions').update({ status: 'past_due' }).eq('id', existing.subscription_id);
-      if (subscriptionUpdate.error) throw new HttpError(500, 'Could not update subscription after failed payment.', subscriptionUpdate.error.message);
-    }
-    if (existing.order_id) {
-      const orderUpdate = await admin.from('payment_orders').update({ status: 'failed' }).eq('id', existing.order_id).eq('status', 'created');
-      if (orderUpdate.error) throw new HttpError(500, 'Could not update order after failed payment.', orderUpdate.error.message);
-    }
-    return { ignored: false, paymentId: existing.id };
-  }
-
-  let subscription: BillingOwnerRef | null = null;
-  if (paymentEntity.subscription_id) {
-    const lookup = await admin.from('subscriptions').select('id,user_id').eq('provider', 'razorpay').eq('provider_subscription_id', paymentEntity.subscription_id).maybeSingle();
-    subscription = lookup.data as BillingOwnerRef | null;
-    if (subscription) {
-      const update = await admin.from('subscriptions').update({ status: 'past_due' }).eq('id', subscription.id);
-      if (update.error) throw new HttpError(500, 'Could not update subscription after failed payment.', update.error.message);
-    }
-  }
-  let order: BillingOwnerRef | null = null;
-  if (paymentEntity.order_id) {
-    const lookup = await admin.from('payment_orders').select('id,user_id').eq('provider', 'razorpay').eq('provider_order_id', paymentEntity.order_id).maybeSingle();
-    order = lookup.data as BillingOwnerRef | null;
-    if (order) {
-      const update = await admin.from('payment_orders').update({ status: 'failed' }).eq('id', order.id).eq('status', 'created');
-      if (update.error) throw new HttpError(500, 'Could not update order after failed payment.', update.error.message);
-    }
-  }
-  const userId = subscription?.user_id ?? order?.user_id;
-  if (userId) {
-    const { data: payment, error } = await admin.from('payments').upsert({
-      user_id: userId, order_id: order?.id ?? null, subscription_id: subscription?.id ?? null,
-      provider: 'razorpay', provider_payment_id: paymentEntity.id,
-      amount_minor: Number(paymentEntity.amount ?? 0), currency: paymentEntity.currency || 'INR',
-      status: 'failed', payment_method: paymentEntity.method ?? null,
-      failed_at: new Date().toISOString(), failure_code: paymentEntity.error_code ?? null,
-      failure_message: paymentEntity.error_description ?? null,
-      metadata: { provider_subscription_id: paymentEntity.subscription_id ?? null },
-    }, { onConflict: 'provider,provider_payment_id' }).select('id').single();
-    if (error) throw new HttpError(500, 'Could not record failed payment.', error.message);
-    return { ignored: false, paymentId: payment?.id };
-  }
-  return { ignored: true };
 }
 
 export async function getBillingStatus(userClient: SupabaseClient, userId: string) {

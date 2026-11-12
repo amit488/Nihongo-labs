@@ -14,12 +14,10 @@ export async function GET() {
       .limit(100);
     if (error) throw error;
 
-    const ids = Array.from(new Set((data ?? []).map((row) => row.user_id).filter(Boolean)));
-    const emails = new Map<string, string>();
-    await Promise.all(ids.map(async (id) => {
-      const { data: result } = await admin.auth.admin.getUserById(String(id));
-      if (result.user?.email) emails.set(String(id), result.user.email);
-    }));
+    const ids = Array.from(new Set((data ?? []).map((row) => row.user_id).filter((id): id is string => Boolean(id))));
+    const { data: emailRows, error: emailError } = await admin.rpc('admin_user_emails', { _user_ids: ids });
+    if (emailError) throw emailError;
+    const emails = new Map((emailRows ?? []).map((row: { user_id: string; email: string }) => [row.user_id, row.email]));
 
     return NextResponse.json({
       payments: (data ?? []).map((row) => ({
