@@ -1,5 +1,5 @@
 import { connection, NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/nihongo/server/supabase';
+import { createServerSupabase, requireUser } from '@/lib/nihongo/server/supabase';
 import { HttpError, jsonError } from '@/lib/nihongo/server/http';
 import { getPassagesForLevel, type ReadingLevel } from '@/lib/nihongo/reading-content';
 
@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     const rawSearch = request.nextUrl.searchParams.get('q')?.trim() ?? '';
     // Avoid PostgREST filter grammar injection through the .or(...) expression.
     const search = rawSearch.replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').slice(0, 80).trim();
-    const requestedDefault = kind === 'vocabulary' ? 80 : 100;
+    const requestedDefault = kind === 'vocabulary' ? 80 : kind === 'grammar' ? 10 : 100;
     const rawLimit = Number(request.nextUrl.searchParams.get('limit') || requestedDefault);
-    const maxLimit = kind === 'vocabulary' ? 100 : 250;
+    const maxLimit = kind === 'vocabulary' ? 100 : kind === 'grammar' ? 50 : 250;
     const limit = Number.isFinite(rawLimit) ? Math.min(maxLimit, Math.max(1, Math.floor(rawLimit))) : requestedDefault;
     const rawOffset = Number(request.nextUrl.searchParams.get('offset') || 0);
     const offset = Number.isFinite(rawOffset) ? Math.min(10000, Math.max(0, Math.floor(rawOffset))) : 0;
@@ -48,11 +48,63 @@ export async function GET(request: NextRequest) {
     }
 
     if (kind === 'grammar') {
-      let query = supabase.from('grammar_points').select('id,title,pattern,meaning,explanation,formation,examples,common_mistakes,related_grammar_ids,category,difficulty,sort_order,practice_questions').eq('jlpt_level', level).eq('publication_status', 'published').order('sort_order').order('title').limit(limit);
+      const view = request.nextUrl.searchParams.get('view') || 'all';
+      if (!['all', 'learned'].includes(view)) throw new HttpError(400, 'Unsupported grammar view.');
+      const grammarFields = 'id,title,pattern,meaning,explanation,formation,examples,common_mistakes,related_grammar_ids,category,difficulty,sort_order,practice_questions';
+
+      if (view === 'learned') {
+        const context = await requireUser();
+        if (!context.ok) throw new HttpError(401, context.error);
+        let query = context.supabase.from('user_grammar_progress')
+          .select(`grammar_points!inner(${grammarFields})`, { count: 'exact' })
+          .eq('user_id', context.user.id)
+          .eq('grammar_points.jlpt_level', level)
+          .eq('grammar_points.publication_status', 'published')
+          .order('sort_order', { referencedTable: 'grammar_points' })
+          .order('title', { referencedTable: 'grammar_points' })
+          .range(offset, offset + limit);
+        if (search) query = query.or(
+          `title.ilike.%${search}%,pattern.ilike.%${search}%,explanation.ilike.%${search}%`,
+          { referencedTable: 'grammar_points' },
+        );
+        const { data, error, count } = await query;
+        if (error) throw new HttpError(500, 'Could not load learned grammar sets.', error.message);
+        const progressRows = (data ?? []) as unknown as Array<{
+          grammar_points: Record<string, unknown> | Record<string, unknown>[] | null;
+        }>;
+        const rows = progressRows.flatMap((row) => {
+          const points = row.grammar_points;
+          return Array.isArray(points) ? points : points ? [points] : [];
+        });
+        const hasMore = rows.length > limit;
+        const pageRows = hasMore ? rows.slice(0, limit) : rows;
+        const items = pageRows.map((row) => {
+          const safeRow = { ...row };
+          const questions = Array.isArray(safeRow.practice_questions) ? safeRow.practice_questions : [];
+          safeRow.practice_questions = questions.map((question) => {
+            const safeQuestion = { ...(question as Record<string, unknown>) };
+            delete safeQuestion.answer;
+            return safeQuestion;
+          });
+          return safeRow;
+        });
+        return NextResponse.json({
+          items, hasMore, nextOffset: offset + items.length, total: count ?? 0,
+        }, { headers: { 'Cache-Control': 'private, no-store' } });
+      }
+
+      let query = supabase.from('grammar_points')
+        .select(grammarFields, { count: 'exact' })
+        .eq('jlpt_level', level).eq('publication_status', 'published')
+        .order('sort_order').order('title').order('id')
+        .range(offset, offset + limit);
       if (search) query = query.or(`title.ilike.%${search}%,pattern.ilike.%${search}%,explanation.ilike.%${search}%`);
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw new HttpError(500, 'Could not load grammar content.', error.message);
-      const items = (data ?? []).map((row) => {
+      const rows = data ?? [];
+      const hasMore = rows.length > limit;
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+      const items = pageRows.map((row) => {
         const safeRow = { ...row };
         safeRow.practice_questions = Array.isArray(row.practice_questions)
           ? row.practice_questions.map((question) => {
@@ -63,7 +115,9 @@ export async function GET(request: NextRequest) {
           : [];
         return safeRow;
       });
-      return NextResponse.json({ items }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
+      return NextResponse.json({
+        items, hasMore, nextOffset: offset + items.length, total: count ?? 0,
+      }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
     }
     if (kind === 'vocabulary') {
       const targetId = request.nextUrl.searchParams.get('id')?.trim() ?? '';
