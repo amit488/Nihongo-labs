@@ -162,8 +162,7 @@ create or replace function public.finalize_quiz_attempt(
   _score_percentage numeric,
   _duration_seconds integer,
   _responses jsonb,
-  _activity_date date,
-  _study_seconds integer
+  _activity_date date
 )
 returns void
 language plpgsql
@@ -182,7 +181,7 @@ begin
   end if;
   if _total_points < 0 or _earned_points < 0 or _earned_points > _total_points
      or _score_percentage < 0 or _score_percentage > 100
-     or _duration_seconds < 0 or _study_seconds < 0 then
+     or _duration_seconds < 0 then
     raise exception 'invalid quiz totals';
   end if;
   if jsonb_typeof(_responses) <> 'array' then
@@ -253,19 +252,17 @@ begin
     _user_id,
     _activity_date,
     jsonb_build_object(
-      'quizzes_completed', 1,
-      'study_seconds', least(_study_seconds, 7200)
+      'quizzes_completed', 1
     )
   );
 end;
 $$;
-revoke all on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date, integer) from public, anon, authenticated;
-grant execute on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date, integer) to service_role;
+revoke all on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date) from public, anon, authenticated;
+grant execute on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date) to service_role;
 
 -- Save a review event, the new FSRS state, session counters and daily activity atomically.
 -- Drop the earlier service-only signature so PostgREST cannot ambiguously resolve
 -- an overload after the daily-limit arguments were added.
-drop function if exists public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer);
 create or replace function public.persist_flashcard_review(
   _user_id uuid,
   _flashcard_id uuid,
@@ -275,7 +272,6 @@ create or replace function public.persist_flashcard_review(
   _state_before jsonb,
   _state_after jsonb,
   _activity_date date,
-  _study_seconds integer,
   _daily_new_limit integer,
   _daily_review_limit integer
 )
@@ -291,7 +287,6 @@ declare
   v_due_at timestamptz;
   v_scheduler_state public.flashcard_scheduler_state;
   v_scheduled_days numeric;
-  v_seconds integer := greatest(0, coalesce(_study_seconds, 0));
   v_is_new boolean := coalesce((_state_before->>'state')::integer, 0) = 0;
   v_reviewed_today integer := 0;
   v_new_today integer := 0;
@@ -302,10 +297,9 @@ begin
   if _response_time_ms is not null and (_response_time_ms < 0 or _response_time_ms > 3600000) then
     raise exception 'invalid response time';
   end if;
-  if v_seconds < 0 or v_seconds > 3600
-     or _daily_new_limit is null or _daily_new_limit < 0 or _daily_new_limit > 500
+  if _daily_new_limit is null or _daily_new_limit < 0 or _daily_new_limit > 500
      or _daily_review_limit is null or _daily_review_limit < 0 or _daily_review_limit > 2000 then
-    raise exception 'invalid study seconds or daily limits';
+    raise exception 'invalid daily limits';
   end if;
 
   -- Guarantee a lockable per-user/day row even when this is the first activity.
@@ -435,8 +429,7 @@ begin
       'flashcards_reviewed', 1,
       'flashcards_again', case when _rating = 'again' then 1 else 0 end,
       'flashcards_known', case when _rating in ('good','easy') then 1 else 0 end,
-      'flashcards_new', case when v_is_new then 1 else 0 end,
-      'study_seconds', v_seconds
+      'flashcards_new', case when v_is_new then 1 else 0 end
     )
   );
 
@@ -449,8 +442,8 @@ begin
   );
 end;
 $$;
-revoke all on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer, integer) from public, anon, authenticated;
-grant execute on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer, integer) to service_role;
+revoke all on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer) from public, anon, authenticated;
+grant execute on function public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer) to service_role;
 
 
 -- Vocabulary SM-2 review is computed while holding the user's word row lock,
@@ -546,8 +539,7 @@ create or replace function public.persist_lesson_progress(
   _lesson_id uuid,
   _status text,
   _last_position_seconds integer,
-  _activity_date date,
-  _study_seconds integer default 0
+  _activity_date date
 )
 returns public.lesson_progress
 language plpgsql
@@ -564,8 +556,7 @@ begin
     raise exception 'user, lesson and activity date are required';
   end if;
   if _status not in ('in_progress', 'completed')
-     or _last_position_seconds is null or _last_position_seconds < 0 or _last_position_seconds > 86400
-     or _study_seconds is null or _study_seconds < 0 or _study_seconds > 3600 then
+     or _last_position_seconds is null or _last_position_seconds < 0 or _last_position_seconds > 86400 then
     raise exception 'invalid lesson progress values';
   end if;
   if not exists (
@@ -601,17 +592,17 @@ begin
   where user_id = _user_id and lesson_id = _lesson_id
   returning * into v_current;
 
-  if _study_seconds > 0 or v_completed_increment > 0 then
+  if v_completed_increment > 0 then
     perform public.record_user_activity(
       _user_id, _activity_date,
-      jsonb_build_object('study_seconds', _study_seconds, 'lessons_completed', v_completed_increment)
+      jsonb_build_object('lessons_completed', v_completed_increment)
     );
   end if;
   return v_current;
 end;
 $$;
-revoke all on function public.persist_lesson_progress(uuid, uuid, text, integer, date, integer) from public, anon, authenticated;
-grant execute on function public.persist_lesson_progress(uuid, uuid, text, integer, date, integer) to service_role;
+revoke all on function public.persist_lesson_progress(uuid, uuid, text, integer, date) from public, anon, authenticated;
+grant execute on function public.persist_lesson_progress(uuid, uuid, text, integer, date) to service_role;
 
 -- Refund ledger + cumulative payment amount is serialized by a payment-row lock.
 -- Duplicate provider refund IDs are treated as already processed.
