@@ -66,7 +66,9 @@ type GrammarExampleRow = { japanese?: string; sentence?: string; romaji?: string
 type GrammarContentRow = {
   id: string; title: string; pattern: string; explanation: string;
   formation: string | null; examples: GrammarExampleRow[] | null;
-};
+  meaning?: string | null; category?: string | null; difficulty?: 'Beginner' | 'Core' | 'Challenge' | null;
+  common_mistakes?: string[] | null; practice_questions?: import('./demo-content').GrammarPracticeQuestion[] | null;
+}
 type FlashcardContentRow = {
   id: string; deckId: string; deckTitle: string; deckSlug: string;
   front_text: string; front_reading: string | null; front_romaji: string | null;
@@ -218,7 +220,8 @@ export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
     if (!items.length) return level === 'N5' ? grammar : [];
     return items.map((row) => ({
       id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
-      formation: row.formation || '', category: 'Grammar', difficulty: 'Core' as const,
+      formation: row.formation || '', category: row.category || 'Grammar', difficulty: row.difficulty || 'Core',
+      meaning: row.meaning || '', commonMistakes: row.common_mistakes || [], practiceQuestions: row.practice_questions || [],
       examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
         japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
       })) : [],

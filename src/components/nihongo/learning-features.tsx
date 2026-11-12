@@ -50,6 +50,10 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
   const [savingLearned, setSavingLearned] = useState(false);
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [drillIndex, setDrillIndex] = useState(0);
+  const [drillAnswer, setDrillAnswer] = useState('');
+  const [drillResult, setDrillResult] = useState<{ correct: boolean; answer: string; explanation: string } | null>(null);
+  const [drillSaving, setDrillSaving] = useState(false);
   const filteredGrammarItems = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return grammarItems;
@@ -57,6 +61,9 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
       .filter(Boolean).join(' ').toLocaleLowerCase().includes(term));
   }, [grammarItems, search]);
   const item = filteredGrammarItems.find((row) => row.id === selected) || filteredGrammarItems[0];
+  const drillQuestions = item?.practiceQuestions ?? [];
+  const activeDrill = drillQuestions[drillIndex];
+  const commonMistakes = item?.commonMistakes ?? [];
 
   useEffect(() => {
     let active = true;
@@ -167,6 +174,36 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
     setNotice('');
   }
 
+
+  async function checkDrill() {
+    if (!item || !activeDrill || !drillAnswer || drillSaving || drillResult) return;
+    setDrillSaving(true);
+    try {
+      if (signedIn) {
+        const response = await fetch('/api/learning/grammar-practice', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grammarId: item.id, questionId: activeDrill.id, answer: drillAnswer }),
+        });
+        const body = await response.json() as { correct?: boolean; answer?: string; explanation?: string; error?: string };
+        if (!response.ok) throw new Error(body.error || 'Could not save this answer.');
+        if (typeof body.answer !== 'string') throw new Error('The checked answer was not returned by the server.');
+        setDrillResult({ correct: Boolean(body.correct), answer: body.answer, explanation: body.explanation || activeDrill.explanation });
+        await onProgressSaved();
+      } else {
+        setNotice('Sign in to submit grammar practice and save your progress.');
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not check this answer.');
+    } finally { setDrillSaving(false); }
+  }
+
+  function nextDrill() {
+    setDrillIndex((index) => (index + 1) % Math.max(1, drillQuestions.length));
+    setDrillAnswer('');
+    setDrillResult(null);
+  }
+
   return <>
     <SectionHeading eyebrow={`BUILD YOUR FOUNDATION · JLPT ${level}`} title="Grammar, made clear."
       description="Understand the patterns behind everyday Japanese, one idea at a time."
@@ -213,7 +250,34 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
           {notice ? <small className={styles.mutedMeta}>{notice}</small> : null}
         </div>
       </div>}
-  </>;
+  
+      {commonMistakes.length ? <section className={styles.grammarMistakes}>
+        <strong>Common mistakes to avoid</strong>
+        <ul>{commonMistakes.map((mistake, index) => <li key={index}>{mistake}</li>)}</ul>
+      </section> : null}
+      {activeDrill ? <section className={styles.grammarDrill} aria-label="Grammar practice">
+        <div className={styles.grammarDrillHeader}>
+          <div><div className={styles.eyebrow}>CHECK YOUR UNDERSTANDING</div><strong>Practice {drillIndex + 1} of {drillQuestions.length}</strong></div>
+          <span>{signedIn ? 'Attempts saved to your account' : 'Sign in to submit answers'}</span>
+        </div>
+        <p>{activeDrill.prompt}</p>
+        <div className={styles.grammarDrillChoices}>
+          {activeDrill.options.map((option) => <button type="button" key={option}
+            disabled={Boolean(drillResult) || drillSaving}
+            aria-pressed={drillAnswer === option}
+            className={drillAnswer === option ? styles.grammarDrillChoiceSelected : ''}
+            onClick={() => setDrillAnswer(option)}>{option}</button>)}
+        </div>
+        {drillResult ? <div className={drillResult.correct ? styles.grammarDrillCorrect : styles.grammarDrillIncorrect}>
+          <strong>{drillResult.correct ? 'Correct' : 'Not quite'}</strong>
+          <p>Answer: {drillResult.answer}</p><small>{drillResult.explanation}</small>
+        </div> : null}
+        <div className={styles.grammarDrillActions}>
+          <button type="button" className={styles.primaryButton} disabled={!drillAnswer || drillSaving || Boolean(drillResult)} onClick={() => void checkDrill()}>{drillSaving ? 'Checking…' : 'Check answer'}</button>
+          {drillResult ? <button type="button" className={styles.ghostButton} onClick={nextDrill}>Next question →</button> : null}
+        </div>
+      </section> : null}
+</>;
 }
 function Practice({ signedIn, romaji, setRomaji, preferredLevel, onPreferredLevelChange, onProgressSaved }: { signedIn: boolean; romaji: boolean; setRomaji: (value: boolean) => void; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
   return <QuizRunner kind="practice" signedIn={signedIn} romaji={romaji} setRomaji={setRomaji} level={preferredLevel} onLevelChange={(level) => { void onPreferredLevelChange(level); }} onProgressSaved={onProgressSaved} />;

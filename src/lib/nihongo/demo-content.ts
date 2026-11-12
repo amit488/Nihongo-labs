@@ -1,3 +1,11 @@
+export type GrammarPracticeQuestion = {
+  id: string;
+  prompt: string;
+  options: string[];
+  answer?: string;
+  explanation: string;
+};
+
 export type GrammarItem = {
   id: string;
   title: string;
@@ -7,6 +15,9 @@ export type GrammarItem = {
   examples: { japanese: string; romaji: string; meaning: string }[];
   category: string;
   difficulty: 'Beginner' | 'Core' | 'Challenge';
+  meaning?: string;
+  commonMistakes?: string[];
+  practiceQuestions?: GrammarPracticeQuestion[];
 };
 
 export type VocabularyItem = {

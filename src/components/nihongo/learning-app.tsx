@@ -894,10 +894,12 @@ function FocusCard({ number, title, description, meta, tag, href, tone }: { numb
 }
 
 
+type GrammarLevelProgress = { grammarIds: string[]; total: number; understood: number; attempts: number; correct: number; accuracy: number };
 type SentenceProgressSummary = { totalSentences:number; totalAttempts:number; correctAttempts:number; accuracy:number; attemptedSentences:number; solvedSentences:number; migrationRequired?:boolean };
 
 function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:number;signedIn:boolean}) {
   const [sentenceProgress, setSentenceProgress] = useState<Record<'N5'|'N4', SentenceProgressSummary> | null>(null);
+  const [grammarProgress, setGrammarProgress] = useState<Record<'N5'|'N4', GrammarLevelProgress> | null>(null);
   useEffect(() => {
     if (!signedIn) return;
     let active = true;
@@ -911,6 +913,22 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     }).catch(() => { if (active) setSentenceProgress(null); });
     return () => { active = false; };
   }, [signedIn]);
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    void Promise.all((['N5', 'N4'] as const).map(async (level) => {
+      const response = await fetch('/api/learning/grammar-progress?level=' + level, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const body = await response.json() as GrammarLevelProgress & { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Grammar progress is unavailable.');
+      return [level, body] as const;
+    })).then(([n5, n4]) => {
+      if (active) setGrammarProgress({ N5: n5[1], N4: n4[1] });
+    }).catch(() => { if (active) setGrammarProgress(null); });
+    return () => { active = false; };
+  }, [signedIn]);
+
   const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
   const overallPercentage = Math.max(0, Math.min(100, Number(snapshot.overallPercentage) || 0));
@@ -935,7 +953,24 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
       return { date: dateKey, label: weekdayLabels[date.getUTCDay()], active: activeDates.has(dateKey) };
     });
   }, [snapshot.activeDays, snapshot.timeZone]);
-  return <><QuickRevisionStats signedIn={signedIn}/><LearningIntelligence signedIn={signedIn}/><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{overallPercentage}<span>%</span></div><p>Progress is calculated from assessed lessons, learned vocabulary, understood grammar, known kanji and graded reading/Kana practice.</p></div><div className={styles.progressBarWrap}><div className={styles.progressBarTrack} role="progressbar" aria-label="Overall N5 readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercentage}><span style={{width:`${overallPercentage}%`}} /></div><span className={styles.progressBarLabel}><strong>{overallPercentage}%</strong> complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green" detail={`${snapshot.grammarUnderstood} of ${snapshot.grammarCount} N5 grammar points marked understood`}/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange" detail={`${snapshot.vocabularyMastered} of ${snapshot.vocabularyCount} N5 words learned or mastered`}/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple" detail={snapshot.readingAttempts ? `${snapshot.readingAttempts} graded reading attempts` : 'Complete a graded reading check to record progress'}/><Mastery label="Kana" value={mastery.kana} tone="green" detail={snapshot.kanaAttempts ? `${snapshot.kanaAttempts} graded Kana attempts` : 'Complete a Kana challenge to record progress'}/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange" detail={`${snapshot.lessonsCompleted} of ${snapshot.lessonsTotal} assessed N5 lessons completed`}/></div><section className={styles.sentenceProgressPanel}>
+  return <><QuickRevisionStats signedIn={signedIn}/><LearningIntelligence signedIn={signedIn}/><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{overallPercentage}<span>%</span></div><p>Progress is calculated from assessed lessons, learned vocabulary, understood grammar, known kanji and graded reading/Kana practice.</p></div><div className={styles.progressBarWrap}><div className={styles.progressBarTrack} role="progressbar" aria-label="Overall N5 readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercentage}><span style={{width:`${overallPercentage}%`}} /></div><span className={styles.progressBarLabel}><strong>{overallPercentage}%</strong> complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green" detail={`${snapshot.grammarUnderstood} of ${snapshot.grammarCount} N5 grammar points marked understood`}/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange" detail={`${snapshot.vocabularyMastered} of ${snapshot.vocabularyCount} N5 words learned or mastered`}/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple" detail={snapshot.readingAttempts ? `${snapshot.readingAttempts} graded reading attempts` : 'Complete a graded reading check to record progress'}/><Mastery label="Kana" value={mastery.kana} tone="green" detail={snapshot.kanaAttempts ? `${snapshot.kanaAttempts} graded Kana attempts` : 'Complete a Kana challenge to record progress'}/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange" detail={`${snapshot.lessonsCompleted} of ${snapshot.lessonsTotal} assessed N5 lessons completed`}/></div><section className={styles.grammarProgressPanel}>
+      <div className={styles.sentenceProgressHeading}>
+        <div><div className={styles.eyebrow}>GRAMMAR MASTERY</div><h2>Grammar progress by JLPT level</h2><p>Lesson completion and practice performance are tracked separately.</p></div>
+        <Link href="/learn/grammar" className={styles.textLink}>Study grammar <span>→</span></Link>
+      </div>
+      {!signedIn ? <p className={styles.sentenceProgressEmpty}>Sign in to track your grammar lessons and practice attempts.</p>
+        : grammarProgress ? <div className={styles.grammarProgressLevels}>
+          {(['N5', 'N4'] as const).map((level) => {
+            const row = grammarProgress[level];
+            const percent = row.total ? Math.min(100, (row.understood / row.total) * 100) : 0;
+            return <article className={styles.grammarProgressLevel} key={level}>
+              <div className={styles.grammarProgressTop}><strong>{level}</strong><span>{row.understood} / {row.total} understood</span></div>
+              <div className={styles.sentenceProgressBar}><span style={{ width: percent + '%' }} /></div>
+              <footer><span>{row.attempts} attempts</span><span>{row.accuracy}% accuracy</span></footer>
+            </article>;
+          })}
+        </div> : <p className={styles.sentenceProgressEmpty}>Grammar progress is loading. Apply the grammar migrations locally to enable this report.</p>}
+    </section><section className={styles.sentenceProgressPanel}>
     <div className={styles.sentenceProgressHeading}>
       <div><div className={styles.eyebrow}>SENTENCE CONSTRUCTION</div><h2>Build confidence, one sentence at a time.</h2><p>Your saved sentence attempts are included in your learning profile and grammar weakness analysis.</p></div>
       <Link href="/learn/sentences" className={styles.textLink}>Practise sentences <span>→</span></Link>
