@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import styles from './admin.module.css';
 
-type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics' | 'database' | 'cron';
+type Section = 'overview' | 'users' | 'payments' | 'inbox' | 'analytics' | 'database';
 type ActivityDay = {
   date: string;
   label: string;
   activeLearners: number;
-  studyMinutes: number;
   lessonsCompleted: number;
   quizzesCompleted: number;
 };
@@ -71,25 +70,6 @@ type TicketRow = {
   created_at: string;
 };
 type DatabaseTable = { schema: string; name: string; estimated_rows: number; total_bytes: number; data_bytes: number; index_bytes: number };
-type CronRun = {
-  run_id: number;
-  status: string;
-  started_at_ist: string | null;
-  ended_at_ist: string | null;
-  duration_ms: number | null;
-  deleted_rows: number | null;
-  deleted_rows_state: 'recorded' | 'rolled_back' | 'pending' | 'not_recorded';
-  error_message: string | null;
-};
-type CronJob = {
-  job_id: number;
-  job_name: string;
-  schedule_ist: string;
-  schedule_expression: string;
-  active: boolean;
-  runs: CronRun[];
-};
-type CronMonitoring = { display_timezone: string; cron_timezone: string; jobs: CronJob[] };
 type DatabaseHealth = {
   database_name: string;
   database_size_bytes: number;
@@ -106,8 +86,6 @@ type AdminData = {
   generatedAt?: string;
   generated_at?: string;
   database?: DatabaseHealth;
-  cron_monitoring?: CronMonitoring;
-  selected_limit?: string;
   metrics?: AdminMetrics;
   content?: Record<string, number>;
   weeklyActivity?: ActivityDay[];
@@ -133,7 +111,6 @@ const headings: Record<Section, { eyebrow: string; title: string; description: s
   inbox: { eyebrow: 'CUSTOMER EXPERIENCE', title: 'Contact & support inbox', description: 'Review suggestions, complaints and support requests from your learners.' },
   analytics: { eyebrow: 'LEARNING INTELLIGENCE', title: 'Learning analytics', description: 'Understand how learners engage with Nihongo Labs and its study tools.' },
   database: { eyebrow: 'DATABASE OPERATIONS', title: 'Database health', description: 'Monitor storage consumption, table inventory and the largest data tables.' },
-  cron: { eyebrow: 'SCHEDULED MAINTENANCE', title: 'Cron job runs', description: 'Review scheduled database jobs, execution results and cleanup counts in Indian Standard Time.' },
 };
 
 function money(minor: number, currency = 'INR') {
@@ -156,21 +133,6 @@ function timeLabel(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function istTimeLabel(value?: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-    timeZoneName: 'short',
-  }).format(date);
-}
 function Status({ value }: { value: string }) {
   const state = value.toLowerCase().replace(/[^a-z]/g, '');
   return <span className={`${styles.status} ${styles[`status_${state}`] ?? ''}`}>{value.replaceAll('_', ' ')}</span>;
@@ -190,7 +152,6 @@ export default function AdminWorkspace({ section }: { section: Section }) {
   const [search, setSearch] = useState('');
   const [userPage, setUserPage] = useState(1);
   const [updatingId, setUpdatingId] = useState('');
-  const [cronRunLimit, setCronRunLimit] = useState('10');
   const heading = headings[section];
   const users = data?.users ?? [];
   const payments = section === 'payments' ? data?.payments ?? [] : data?.recentPayments ?? [];
@@ -205,9 +166,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         ? '/api/admin/overview'
         : section === 'database'
           ? '/api/admin/database'
-          : section === 'cron'
-            ? '/api/admin/database/cron?limit=' + cronRunLimit
-            : section === 'users'
+          : section === 'users'
           ? '/api/admin/users?page=' + requestedPage + '&perPage=25' + (term ? '&q=' + encodeURIComponent(term) : '')
           : section === 'payments'
             ? '/api/admin/payments'
@@ -217,8 +176,6 @@ export default function AdminWorkspace({ section }: { section: Section }) {
       if (!response.ok) throw new Error(body.error || 'Could not load administrator data.');
       if (section === 'database') {
         setData({ database: body as unknown as DatabaseHealth, generatedAt: (body as unknown as DatabaseHealth).generated_at });
-      } else if (section === 'cron') {
-        setData({ cron_monitoring: body.cron_monitoring as CronMonitoring, generatedAt: body.generated_at, selected_limit: body.selected_limit });
       } else {
         setData(body);
       }
@@ -228,7 +185,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
     } finally {
       setLoading(false);
     }
-  }, [section, cronRunLimit]);
+  }, [section]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -267,17 +224,6 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         <div><div className={styles.eyebrow}>{heading.eyebrow}</div><h1>{heading.title}</h1><p>{heading.description}</p></div>
         <div className={styles.headingMeta}><span className={styles.liveDot} /> Connected to Supabase <small>{data?.generatedAt ? 'Updated ' + timeLabel(data.generatedAt) : 'Live data'}</small></div>
       </div>
-      {section === 'cron' ? <div className={styles.cronToolbar}>
-        <label htmlFor="cron-run-limit">Show records
-          <select id="cron-run-limit" value={cronRunLimit} onChange={(event) => setCronRunLimit(event.target.value)}>
-            <option value="10">Last 10</option>
-            <option value="25">Last 25</option>
-            <option value="50">Last 50</option>
-            <option value="all">All available</option>
-          </select>
-        </label>
-        <Link href="/admin/database" className={styles.cronBackLink}>← Back to database health</Link>
-      </div> : null}
       {error ? <div className={styles.error} role="alert">{error}<button type="button" onClick={() => void load(search, userPage)}>Retry</button></div> : null}
       {loading && !data ? <div className={styles.loading}><span />Loading live administrator data…</div> : null}
 
@@ -298,62 +244,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
           {data.database.tables.length ? <div className={styles.tableWrap}><table><thead><tr><th>Table</th><th>Estimated rows</th><th>Total size</th><th>Table data</th><th>Indexes</th><th>State</th></tr></thead><tbody>{data.database.tables.map((table) => <tr key={table.schema + '.' + table.name}><td><strong>{table.name}</strong><small>{table.schema}</small></td><td>{Number(table.estimated_rows).toLocaleString('en-IN')}</td><td>{formatBytes(table.total_bytes)}</td><td>{formatBytes(table.data_bytes)}</td><td>{formatBytes(table.index_bytes)}</td><td><Status value={table.estimated_rows > 0 ? 'Populated' : 'Empty (estimated)'}/></td></tr>)}</tbody></table></div> : <Empty>No public tables were found.</Empty>}
           <p className={styles.panelFoot}>Largest table by estimated row count: <strong>{data.database.tables[0]?.name ?? '—'}</strong>{data.database.tables[0] ? ` · ${Number(data.database.tables[0].estimated_rows).toLocaleString('en-IN')} estimated rows · ${formatBytes(data.database.tables[0].total_bytes)} total size` : ''}. Row counts are PostgreSQL planner statistics, so they are estimates and may lag until ANALYZE runs.</p>
         </section>
-        <section className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <div><span className={styles.eyebrow}>SCHEDULED MAINTENANCE</span><h2>Cron jobs</h2></div>
-            <Link href="/admin/database/cron" className={styles.cronViewLink}>View job runs →</Link>
-          </div>
-          <p className={styles.panelFoot}>Review scheduled jobs, their IST schedules, recent execution results, cleanup counts and any database errors on the dedicated run-history page.</p>
-        </section>
       </> : null}
-
-      {section === 'cron' && data ? (
-        <section className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <div><span className={styles.eyebrow}>SCHEDULED MAINTENANCE</span><h2>Cron job monitoring</h2></div>
-            <span className={styles.panelMeta}>Run times shown in Asia/Kolkata (IST)</span>
-          </div>
-          {data.cron_monitoring?.jobs.length ? data.cron_monitoring.jobs.map((job) => (
-            <article className={styles.cronJob} key={job.job_id}>
-              <div className={styles.cronJobHeader}>
-                <div><strong>{job.job_name}</strong><small>Job ID {job.job_id}</small></div>
-                <Status value={job.active ? 'Active' : 'Inactive'} />
-              </div>
-              <div className={styles.cronSchedule}>
-                <span>Schedule (IST)</span>
-                <strong>{job.schedule_ist}</strong>
-                <small>Configured cron expression: {job.schedule_expression}</small>
-              </div>
-              <div className={styles.panelHeading}>
-                <div><span className={styles.eyebrow}>EXECUTION HISTORY</span><h2>Previous runs</h2></div>
-                <span className={styles.panelMeta}>Showing {job.runs.length} {cronRunLimit === 'all' ? 'available' : 'of selected'} records</span>
-              </div>
-              {job.runs.length ? <div className={styles.tableWrap}>
-                <table>
-                  <thead><tr><th>Started (IST)</th><th>Finished (IST)</th><th>Status</th><th>Records deleted</th><th>Duration</th><th>Error message</th></tr></thead>
-                  <tbody>{job.runs.map((run) => (
-                    <tr key={run.run_id}>
-                      <td>{istTimeLabel(run.started_at_ist)}</td>
-                      <td>{istTimeLabel(run.ended_at_ist)}</td>
-                      <td><Status value={run.status} /></td>
-                      <td>{run.deleted_rows_state === 'rolled_back'
-                        ? '0 (rolled back)'
-                        : run.deleted_rows_state === 'pending'
-                          ? 'Pending'
-                          : run.deleted_rows === null
-                            ? 'Not recorded'
-                            : run.deleted_rows.toLocaleString('en-IN')}</td>
-                      <td>{run.duration_ms === null ? '—' : run.duration_ms < 1000 ? `${run.duration_ms} ms` : `${(run.duration_ms / 1000).toFixed(2)} s`}</td>
-                      <td><span className={run.error_message ? styles.cronError : styles.cronNoError}>{run.error_message || '—'}</span></td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div> : <Empty>No execution history is available for this job yet.</Empty>}
-              <p className={styles.panelFoot}>“Not recorded” means the execution predates cleanup-count logging or could not be correlated with its audit entry. New scheduled executions use the updated timestamp-based audit match. Failed transactions commit zero deleted records; PostgreSQL supplies the error message.</p>
-            </article>
-          )) : <Empty>The heartbeat-retention Cron job was not found in cron.job.</Empty>}
-        </section>
-      ) : null}
 
       {(section === 'overview' || section === 'analytics') && data ? <>
         <div className={styles.metricGrid}>
@@ -375,11 +266,11 @@ export default function AdminWorkspace({ section }: { section: Section }) {
         </div>
         {section === 'overview' ? <div className={styles.overviewGrid}>
           <section className={styles.panel}>
-            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>LAST SEVEN DAYS</span><h2>Learning activity</h2></div><span className={styles.panelMeta}>Recorded study time</span></div>
+            <div className={styles.panelHeading}><div><span className={styles.eyebrow}>LAST SEVEN DAYS</span><h2>Learning activity</h2></div><span className={styles.panelMeta}>Learners active each day</span></div>
             <div className={styles.chart}>
               {(data.weeklyActivity ?? []).map((day) => <div className={styles.chartColumn} key={day.date}>
-                <div className={styles.barTrack}><span style={{ height: `${Math.max(3, Math.min(100, Number(day.studyMinutes) / Math.max(30, ...(data.weeklyActivity ?? []).map((row) => Number(row.studyMinutes))) * 100))}%` }} /></div>
-                <small>{day.label}</small><b>{day.studyMinutes}m</b>
+                <div className={styles.barTrack}><span style={{ height: `${Math.max(3, Math.min(100, Number(day.activeLearners) / Math.max(1, ...(data.weeklyActivity ?? []).map((row) => Number(row.activeLearners))) * 100))}%` }} /></div>
+                <small>{day.label}</small><b>{day.activeLearners}</b>
               </div>)}
             </div>
             <div className={styles.chartFooter}><span>Daily active learners</span><strong>{(data.weeklyActivity ?? []).reduce((sum, day) => sum + Number(day.activeLearners ?? 0), 0).toLocaleString('en-IN')} learner-days</strong></div>
@@ -403,7 +294,7 @@ export default function AdminWorkspace({ section }: { section: Section }) {
           <div className={styles.panelHeading}><div><span className={styles.eyebrow}>FEATURE INVENTORY</span><h2>Content and learner activity</h2></div></div>
           <div className={styles.analyticsGrid}>
             <div><strong>{data.metrics?.activeLearnersSevenDays ?? 0}</strong><span>Unique active learners in 7 days</span></div>
-            <div><strong>{(data.weeklyActivity ?? []).reduce((sum, day) => sum + Number(day.studyMinutes ?? 0), 0)}</strong><span>Study minutes recorded in 7 days</span></div>
+            
             <div><strong>{(data.weeklyActivity ?? []).reduce((sum, day) => sum + Number(day.lessonsCompleted ?? 0), 0)}</strong><span>Lessons completed in 7 days</span></div>
             <div><strong>{(data.weeklyActivity ?? []).reduce((sum, day) => sum + Number(day.quizzesCompleted ?? 0), 0)}</strong><span>Quizzes completed in 7 days</span></div>
           </div>
