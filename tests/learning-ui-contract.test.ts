@@ -8,13 +8,6 @@ const globalCss = readFileSync(resolve(process.cwd(), 'src/app/globals.css'), 'u
 const layout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
 const copyProtection = readFileSync(resolve(process.cwd(), 'src/components/copy-protection.tsx'), 'utf8');
 
-test('daily-goal ring and progress use measured study seconds', () => {
-  assert.match(dashboard, /rawStudiedSeconds/);
-  assert.match(dashboard, /studiedSeconds\s*\/\s*\(goal\s*\*\s*60\)/);
-  assert.match(dashboard, /conic-gradient\(#c7695e 0 \$\{goalPercent\}%/);
-  assert.match(dashboard, /aria-label=\{\`\$\{goalPercent\}% of the daily study goal completed\`\}/);
-});
-
 test('copy restrictions are mounted globally and preserve editable fields', () => {
   assert.match(globalCss, /body, body \*\s*\{[\s\S]*?user-select:\s*none/);
   assert.match(globalCss, /input, textarea, select, \[contenteditable="true"\][^{]*\{[\s\S]*?user-select:\s*text/);
@@ -25,19 +18,16 @@ test('copy restrictions are mounted globally and preserve editable fields', () =
   assert.match(copyProtection, /target\.closest\(editableSelector\)/);
 });
 
-test('heartbeat retries retain an immutable eight-day batch and preserve newer queued time on expiry', () => {
-  const activityApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/activity/route.ts'), 'utf8');
-  assert.match(dashboard, /requestCreatedAt/);
-  assert.match(dashboard, /requestSeconds/);
-  assert.match(dashboard, /body: JSON\.stringify\(\{ seconds: requestedSeconds, requestId, requestCreatedAt \}\)/);
-  assert.match(dashboard, /HEARTBEAT_REQUEST_EXPIRED/);
-  assert.match(dashboard, /expiredBatchMilliseconds/);
-  assert.match(dashboard, /milliseconds: current\.milliseconds - expiredBatchMilliseconds/);
-  assert.match(activityApi, /requestCreatedAt: z\.string\(\)\.datetime/);
-  assert.match(activityApi, /_request_created_at: requestCreatedAt/);
-  assert.match(activityApi, /HEARTBEAT_REQUEST_EXPIRED/);
+test('study timer, clock display and Quick Revision are absent from learner surfaces', () => {
+  const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
+  assert.doesNotMatch(dashboard, /studyTimerRef|activityTrackingNotice|QuickRevisionStats|Study ·|study_seconds|dailyGoal|totalStudySeconds/);
+  assert.doesNotMatch(dashboard, /toLocaleTimeString|setInterval/);
+  assert.doesNotMatch(rootLayout, /GlobalQuickRevision/);
+  assert.equal(existsSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx')), false);
+  assert.equal(existsSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx')), false);
+  assert.equal(existsSync(resolve(process.cwd(), 'src/app/api/learning/quick-revision/route.ts')), false);
+  assert.equal(existsSync(resolve(process.cwd(), 'src/app/api/learning/activity/route.ts')), false);
 });
-
 
 test('global search is backed by published learning content and opens the matching study area', () => {
   const searchApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/search/route.ts'), 'utf8');
@@ -110,60 +100,6 @@ test('sentence construction reset confirms the full scope and clears only the si
 });
 
 
-test('Quick Revision is automatic, full-screen and repeats on a four-to-five-minute cadence', () => {
-  const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
-  const globalController = readFileSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx'), 'utf8');
-  const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
-  const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
-  const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
-
-  assert.ok(quickRevision.includes('const FIRST_QUESTION_MS = 5 * 60_000'));
-  assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
-  assert.ok(quickRevision.includes('const NEXT_QUESTION_RANGE_MS = 1 * 60_000'));
-  assert.ok(quickRevision.includes('window.setInterval'));
-  assert.ok(quickRevision.includes("return section === 'reading' || section === 'exams' || section === 'auth';"));
-  assert.ok(quickRevision.includes("window.localStorage.setItem(timerStorageKey"));
-  assert.ok(quickRevision.includes('let lastUpdatedAt = Date.now()'));
-  assert.ok(quickRevision.includes("document.visibilityState === 'visible'"));
-  assert.ok(quickRevision.includes("document.hasFocus()"));
-  assert.ok(quickRevision.includes('sessionElapsedMs: sessionElapsedMilliseconds.current'));
-  assert.ok(quickRevision.includes("window.addEventListener('blur', handleEligibilityChange)"));
-  assert.ok(quickRevision.includes("window.addEventListener('focus', handleEligibilityChange)"));
-  assert.ok(quickRevision.includes("window.addEventListener('nihongo:study-section-changed', handleSectionChange)"));
-  assert.ok(quickRevision.includes("window.dispatchEvent(new Event('nihongo:study-section-changed'))"));
-  assert.ok(quickRevision.includes('}, [signedIn, sessionId]);'));
-  assert.ok(!quickRevision.includes('Start Quick Revision'));
-  assert.ok(!quickRevision.includes('loadQuestionRef'));
-  assert.ok(!quickRevision.includes('disabled?: boolean'));
-  assert.ok(globalController.includes('client.auth.getUser()'));
-  assert.ok(globalController.includes('client.auth.onAuthStateChange'));
-  assert.ok(globalController.includes("const SESSION_STORAGE_KEY = 'nihongo:quick-revision:session:v1'"));
-  assert.ok(globalController.includes("window.localStorage.removeItem(TIMER_STORAGE_KEY)"));
-  assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
-  assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
-  assert.ok(globalController.includes("sessionId={sessionId}"));
-  assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
-  assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
-  assert.ok(quickRevision.includes("if (!signedIn || !sessionId)"));
-  assert.ok(quickRevision.includes("sessionId,\n            lastUpdatedAt: now"));
-
-  assert.ok(globalController.includes("pathname.split('/')[2]"));
-  assert.ok(rootLayout.includes('<GlobalQuickRevision />'));
-  assert.ok(learningApp.includes('nihongo:quick-revision:timer:v1'));
-  assert.ok(learningApp.includes('nihongo:quick-revision-timer'));
-  assert.ok(learningApp.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
-  const adminShell = readFileSync(resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'), 'utf8');
-  assert.ok(adminShell.includes("window.dispatchEvent(new Event('nihongo:auth-signed-out'))"));
-
-  assert.ok(learningApp.includes('isExcludedStudySection ? 0 :'));
-  assert.ok(!learningApp.includes('<QuickRevision signedIn'));
-  assert.ok(!learningApp.includes('<QuickRevision signedIn={signedIn} disabled='));
-  assert.ok(quickStyles.includes('.backdrop{'));
-  assert.ok(quickStyles.includes('position:fixed;inset:0;z-index:2200'));
-  assert.ok(!quickStyles.includes('.launcher'));
-  assert.ok(!quickStyles.includes('.quickRevisionDock'));
-});
-
 test('sentence reset confirmation is rendered in a body portal and uses a prominent destructive action', () => {
   const sentence = readFileSync(resolve(process.cwd(), 'src/components/nihongo/sentence-construction.tsx'), 'utf8');
   const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
@@ -181,7 +117,6 @@ test('sentence reset confirmation is rendered in a body portal and uses a promin
 test('the official Nihongo Labs emblem is shared across app surfaces, email and browser icons', () => {
   const brand = readFileSync(resolve(process.cwd(), 'src/components/nihongo/brand.tsx'), 'utf8');
   const admin = readFileSync(resolve(process.cwd(), 'src/components/nihongo/admin/admin-shell.tsx'), 'utf8');
-  const quickRevision = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.tsx'), 'utf8');
   const auth = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
   const layout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
   const email = readFileSync(resolve(process.cwd(), 'supabase/templates/confirmation.html'), 'utf8');
