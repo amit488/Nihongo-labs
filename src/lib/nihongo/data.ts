@@ -22,12 +22,9 @@ export type LearnerSnapshot = {
   mastery: { grammar: number; vocabulary: number; kanji: number; kana: number; reading: number; overallLessons: number };
   streak: number;
   due: { vocabulary: number; flashcards: number; total: number };
-  dailyGoal: { minutes: number; studiedSeconds: number };
-  totalStudySeconds: number;
   premiumActive: boolean;
   showRomaji: boolean;
   showFurigana: boolean;
-  recentActivity: Array<{ activity_date: string; study_seconds: number }>;
   source: 'database' | 'preview';
 };
 
@@ -41,12 +38,9 @@ type DashboardResponse = {
     lessonsCompleted?: number | null; lessonsTotal?: number | null; overallPercentage?: number | null;
     mastery?: LearnerSnapshot['mastery'];
   };
-  recentActivity?: LearnerSnapshot['recentActivity'];
   recentAttempts?: Array<{ score_percentage?: number | null }>;
   streak?: number | null;
   due?: LearnerSnapshot['due'];
-  dailyGoal?: LearnerSnapshot['dailyGoal'];
-  totalStudySeconds?: number | null;
   preferences?: { preferred_jlpt_level?: LearnerSnapshot['preferredJlptLevel'] | null; show_romaji?: boolean | null; show_furigana?: boolean | null } | null;
   flashcardSettings?: { show_romaji?: boolean | null; show_furigana?: boolean | null } | null;
 };
@@ -98,7 +92,7 @@ export const createPreviewSnapshot = (): LearnerSnapshot => ({
   grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
   activeDays: [], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
   mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
-  streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0, premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
+  streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 }, premiumActive: false, showRomaji: true, showFurigana: true, source: 'preview',
 });
 
 export async function loadLearnerSnapshot(user?: { email?: string | null } | null): Promise<LearnerSnapshot> {
@@ -131,12 +125,9 @@ export async function loadLearnerSnapshot(user?: { email?: string | null } | nul
     mastery: dashboard.progress?.mastery ?? createPreviewSnapshot().mastery,
     streak: Number(dashboard.streak ?? 0),
     due: dashboard.due ?? { vocabulary: 0, flashcards: 0, total: 0 },
-    dailyGoal: dashboard.dailyGoal ?? { minutes: 15, studiedSeconds: 0 },
-    totalStudySeconds: Number(dashboard.totalStudySeconds ?? 0),
     premiumActive: Boolean(billing.hasPremium),
     showRomaji: Boolean(dashboard.preferences?.show_romaji ?? dashboard.flashcardSettings?.show_romaji ?? true),
     showFurigana: Boolean(dashboard.preferences?.show_furigana ?? dashboard.flashcardSettings?.show_furigana ?? true),
-    recentActivity: dashboard.recentActivity ?? [],
     source: 'database',
   };
 }
