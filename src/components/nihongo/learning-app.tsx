@@ -57,6 +57,7 @@ export default function LearningApp({ section = [] }: Props) {
   const isExcludedStudySection = active === 'reading' || active === 'exams';
   const isExcludedStudySectionRef = useRef(isExcludedStudySection);
   const studyEligibilityChangeRef = useRef<(() => void) | null>(null);
+  const studyTimeFlushRef = useRef<(() => Promise<void>) | null>(null);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -545,6 +546,13 @@ export default function LearningApp({ section = [] }: Props) {
       await operation;
     };
 
+    const flushPendingStudyTime = async () => {
+      // Stop sampling and credit the final partial batch while the auth cookie is valid.
+      stopActiveLoop?.();
+      await sendPendingTime(true);
+    };
+    studyTimeFlushRef.current = flushPendingStudyTime;
+
     const startActiveLoop = (releaseLock: () => void) => {
       let stopped = false;
       let lastSampleAt = performance.now();
@@ -664,6 +672,9 @@ export default function LearningApp({ section = [] }: Props) {
       if (studyEligibilityChangeRef.current === handleEligibilityChange) {
         studyEligibilityChangeRef.current = null;
       }
+      if (studyTimeFlushRef.current === flushPendingStudyTime) {
+        studyTimeFlushRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleEligibilityChange);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
@@ -703,6 +714,8 @@ export default function LearningApp({ section = [] }: Props) {
       setActivityTrackingNotice('Authentication is temporarily unavailable. Please try again.');
       return;
     }
+    // Save the final partial study-time batch before signOut clears the auth cookie.
+    await studyTimeFlushRef.current?.();
     const { error } = await client.auth.signOut();
     if (error) {
       setActivityTrackingNotice(error.message);
