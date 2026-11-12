@@ -23,10 +23,10 @@ const LazyLearningFeature = lazy(() => import('./learning-features').then((modul
 const navGroups = [
   { label: 'LEARN', items: [
     { key: 'overview', title: 'Overview', href: '/learn', icon: '◫' },
+    { key: 'kana', title: 'Hiragana & Katakana', href: '/learn/kana', icon: 'あ' },
+    { key: 'kanji', title: 'Kanji', href: '/learn/kanji', icon: '字' },
     { key: 'grammar', title: 'Grammar', href: '/learn/grammar', icon: '文' },
     { key: 'vocabulary', title: 'Vocabulary', href: '/learn/vocabulary', icon: '語' },
-    { key: 'kanji', title: 'Kanji', href: '/learn/kanji', icon: '字' },
-    { key: 'kana', title: 'Hiragana & Katakana', href: '/learn/kana', icon: 'あ' },
   ] },
   { label: 'PRACTICE', items: [
     { key: 'practice', title: 'Daily practice', href: '/learn/practice', icon: '✳' },
