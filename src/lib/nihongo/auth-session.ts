@@ -5,7 +5,9 @@ export const PERSISTENT_SESSION_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
 /** Read the login preference saved by the successful sign-in form. */
 export function shouldKeepSignedInInBrowser(): boolean {
   try {
-    if (window.localStorage.getItem(KEEP_SIGNED_IN_STORAGE_KEY) === 'true') return true;
+    const storedPreference = window.localStorage.getItem(KEEP_SIGNED_IN_STORAGE_KEY);
+    if (storedPreference === 'true') return true;
+    if (storedPreference === 'false') return false;
   } catch {
     // Fall back to the same-origin preference cookie when storage is unavailable.
   }
