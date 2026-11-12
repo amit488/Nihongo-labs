@@ -297,6 +297,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     let disposed = false;
+    let stoppingForSignOut = false;
     let userId: string | null = null;
     let storageKey: string | null = null;
     type PendingStudyState = {
@@ -548,6 +549,7 @@ export default function LearningApp({ section = [] }: Props) {
 
     const flushPendingStudyTime = async () => {
       // Stop sampling and credit the final partial batch while the auth cookie is valid.
+      stoppingForSignOut = true;
       stopActiveLoop?.();
       await sendPendingTime(true);
     };
@@ -601,7 +603,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     const acquireStudyLock = () => {
-      if (disposed || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
+      if (disposed || stoppingForSignOut || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
         return;
       }
 
