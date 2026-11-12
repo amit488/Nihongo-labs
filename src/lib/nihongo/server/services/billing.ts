@@ -14,7 +14,6 @@ type PlanRow = {
   amount_minor: number; currency: string; billing_interval: 'month' | 'year' | 'lifetime';
   interval_count: number; plan_features: PlanFeatureRow[] | null;
 };
-type BillingOwnerRef = { id: string; user_id: string | null };
 type EntitlementRow = { feature_key: string };
 type PlanFeature = { key: string; value: unknown };
 type PlanSummary = {

@@ -56,6 +56,15 @@ export default function KanjiStudio({ search, preferredLevel, onPreferredLevelCh
   const learningCount = Object.values(status).filter((value) => value === 'learning').length;
 
   useEffect(() => {
+    const handleSignedOut = () => {
+      setSignedIn(false);
+      setStatus({});
+    };
+    window.addEventListener('nihongo:auth-signed-out', handleSignedOut);
+    return () => window.removeEventListener('nihongo:auth-signed-out', handleSignedOut);
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     void fetch('/api/kanji/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<{ signedIn?: boolean }> : null).then((body) => { if (alive) setSignedIn(Boolean(body?.signedIn)); }).catch((error) => {
       console.error('[Nihongo Labs kanji auth status]', error);
@@ -85,10 +94,7 @@ export default function KanjiStudio({ search, preferredLevel, onPreferredLevelCh
 
   useEffect(() => {
     let alive = true;
-    if (!signedIn) {
-      setStatus({});
-      return () => { alive = false; };
-    }
+    if (!signedIn) return () => { alive = false; };
     void fetch(`/api/kanji/progress?level=${level}`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load kanji progress.');
