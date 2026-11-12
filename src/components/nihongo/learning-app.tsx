@@ -914,7 +914,7 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     return () => { active = false; };
   }, [signedIn]);
   useEffect(() => {
-    if (!signedIn) { setGrammarProgress(null); return; }
+    if (!signedIn) return;
     let active = true;
     void Promise.all((['N5', 'N4'] as const).map(async (level) => {
       const response = await fetch('/api/learning/grammar-progress?level=' + level, {
