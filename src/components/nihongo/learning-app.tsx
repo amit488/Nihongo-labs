@@ -63,7 +63,7 @@ export default function LearningApp({ section = [] }: Props) {
     vocabularyCount: 0, vocabularyMastered: 0,
     kanjiCount: 0, kanjiMastered: 0,
     grammarAttempts: 0, kanaAttempts: 0, readingAttempts: 0,
-    activeDays: [], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
+    lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
     premiumActive: false, showRomaji: true, showFurigana: true, source: 'preview',
@@ -261,7 +261,6 @@ export default function LearningApp({ section = [] }: Props) {
     setSnapshot(createPreviewSnapshot());
     setRomaji(true);
     setName('Learner');
-    setActivityTrackingNotice('');
     router.push('/login');
   }
 
