@@ -47,6 +47,13 @@ test('Quick Revision is remounted per authenticated session and hidden when sign
   assert.match(quickRevision, /if \(!signedIn \|\| !sessionId\) return null;/);
 });
 
+test('Quick Revision pauses on login, signup and auth callback routes', () => {
+  assert.match(globalController, /const isAuthRoute = pathname === '\/login' \|\| pathname === '\/signup' \|\| pathname\.startsWith\('\/auth\/'\);/);
+  assert.match(globalController, /const activeSection = isAuthRoute \? 'auth'/);
+  assert.match(quickRevision, /section === 'reading' \|\| section === 'exams' \|\| section === 'auth'/);
+  assert.match(quickRevision, /if \(activeSection === 'auth'\) return null;/);
+});
+
 test('question and answer endpoints remain protected by server-verified Supabase auth', () => {
   assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
   assert.ok(supabaseServer.includes('if (error || !data.user || data.user.is_anonymous)'));
