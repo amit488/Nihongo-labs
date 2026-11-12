@@ -54,7 +54,7 @@ export async function requireUser() {
   // getUser() verifies the JWT with Auth; do not use getSession() as an authorization check.
   const { data, error } = await supabase.auth.getUser();
   // Anonymous Supabase users carry an authenticated JWT, but this app's
-  // learner data and Quick Revision features require a permanent account.
+  // learner data requires a permanent account.
   if (error || !data.user || data.user.is_anonymous) {
     return { ok: false as const, supabase, user: null, error: 'Authentication required.' };
   }
