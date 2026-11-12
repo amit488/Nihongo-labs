@@ -250,7 +250,7 @@ export async function submitQuizAttempt(
       answered_at: row.answered_at,
     })),
     _activity_date: localDateKey(now, timezone),
-    _study_seconds: Math.min(duration, 7200),
+    _study_seconds: 0,
   });
   if (finalizeError) {
     if (finalizeError.code === 'P0002' || finalizeError.message?.includes('already been finalized')) {
