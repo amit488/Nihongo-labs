@@ -28,7 +28,11 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const result = signup ? await signUpAction(formData) : await signInAction(formData);
       setMessage(result.message);
       setVerificationPending(result.success && result.requiresEmailConfirmation === true);
-      if (result.success && result.authenticated) router.push(result.redirectTo ?? '/learn');
+      if (result.success && result.authenticated) {
+        // Server actions update auth cookies without a browser Supabase SIGNED_IN event.
+        window.dispatchEvent(new Event('nihongo:auth-signed-in'));
+        router.push(result.redirectTo ?? '/learn');
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
