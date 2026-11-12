@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './learning-app.module.css';
-import { QuickRevisionStats } from './quick-revision';
 import Brand from './brand';
 import LearningIntelligence from './learning-intelligence';
 import LearningPlans from './learning-plans';
@@ -12,7 +11,6 @@ import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { getDaysUntilJlpt } from '@/lib/nihongo/jlpt-countdown';
 import { JlptLevelSwitch, ProgressBar, SectionHeading, type JlptLevel, type Tone } from './learning-shared';
 import type { LearningFeatureProps } from './learning-features';
-import { applyStudyTimeCredit } from '@/lib/nihongo/activity-snapshot';
 import { createPreviewSnapshot, getPublishedFlashcards, loadLearnerSnapshot, type LearnerFlashcard, type LearnerSnapshot } from '@/lib/nihongo/data';
 import { vocabulary as demoVocabulary } from '@/lib/nihongo/demo-content';
 
@@ -54,13 +52,8 @@ export default function LearningApp({ section = [] }: Props) {
   const focusedVocabularyLevel = focusedVocabularyId
     ? (searchParams.get('level') === 'N4' ? 'N4' : searchParams.get('level') === 'N5' ? 'N5' : undefined)
     : undefined;
-  const isExcludedStudySection = active === 'reading' || active === 'exams';
-  const isExcludedStudySectionRef = useRef(isExcludedStudySection);
-  const studyEligibilityChangeRef = useRef<(() => void) | null>(null);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
-  const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
-  const studyTimerRef = useRef<HTMLSpanElement>(null);
   const [connected, setConnected] = useState(false);
   const authGenerationRef = useRef(0);
   const [authViewKey, setAuthViewKey] = useState(0);
@@ -73,8 +66,7 @@ export default function LearningApp({ section = [] }: Props) {
     activeDays: [], lessonsCompleted: 0, lessonsTotal: 0, recentScores: [], overallPercentage: 0,
     mastery: { grammar: 0, vocabulary: 0, kanji: 0, kana: 0, reading: 0, overallLessons: 0 },
     streak: 0, due: { vocabulary: 0, flashcards: 0, total: 0 },
-    dailyGoal: { minutes: 15, studiedSeconds: 0 }, totalStudySeconds: 0,
-    premiumActive: false, showRomaji: true, showFurigana: true, recentActivity: [], source: 'preview',
+    premiumActive: false, showRomaji: true, showFurigana: true, source: 'preview',
   });
   const [flashcardData, setFlashcardData] = useState<LearnerFlashcard[]>([]);
   const [romaji, setRomaji] = useState(true);
@@ -121,54 +113,6 @@ export default function LearningApp({ section = [] }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [kanaMode, setKanaMode] = useState<'hiragana' | 'katakana'>('hiragana');
   const [kanaQuiz, setKanaQuiz] = useState(false);
-
-  useEffect(() => {
-    isExcludedStudySectionRef.current = isExcludedStudySection;
-    studyEligibilityChangeRef.current?.();
-  }, [isExcludedStudySection]);
-
-  useEffect(() => {
-    const renderTimer = (elapsedMilliseconds: number) => {
-      if (!studyTimerRef.current) return;
-      const elapsedSeconds = isExcludedStudySection ? 0 : Math.floor(Math.max(0, elapsedMilliseconds) / 1000);
-      const minutes = Math.floor(elapsedSeconds / 60);
-      const seconds = elapsedSeconds % 60;
-      studyTimerRef.current.textContent = `Study · ${minutes}:${String(seconds).padStart(2, '0')}`;
-      studyTimerRef.current.setAttribute(
-        'aria-label',
-        isExcludedStudySection
-          ? 'Study timer paused'
-          : `Elapsed website study time ${minutes} minutes and ${seconds} seconds`,
-      );
-    };
-    const readSavedTimer = () => {
-      try {
-        const raw = window.localStorage.getItem('nihongo:quick-revision:timer:v1');
-        if (!raw) return 0;
-        const saved = JSON.parse(raw) as { sessionElapsedMs?: unknown };
-        return typeof saved.sessionElapsedMs === 'number' && Number.isFinite(saved.sessionElapsedMs)
-          ? Math.max(0, saved.sessionElapsedMs)
-          : 0;
-      } catch {
-        return 0;
-      }
-    };
-    const handleTimerUpdate = (event: Event) => {
-      const detail = (event as CustomEvent<{ sessionElapsedMs?: number }>).detail;
-      renderTimer(typeof detail?.sessionElapsedMs === 'number' ? detail.sessionElapsedMs : readSavedTimer());
-    };
-    const handleStorageUpdate = (event: StorageEvent) => {
-      if (event.key === 'nihongo:quick-revision:timer:v1') renderTimer(readSavedTimer());
-    };
-    window.addEventListener('nihongo:quick-revision-timer', handleTimerUpdate);
-    window.addEventListener('storage', handleStorageUpdate);
-    renderTimer(readSavedTimer());
-    return () => {
-      window.removeEventListener('nihongo:quick-revision-timer', handleTimerUpdate);
-      window.removeEventListener('storage', handleStorageUpdate);
-    };
-  }, [signedIn, isExcludedStudySection]);
-
 
   useEffect(() => {
     const query = search.trim();
@@ -229,8 +173,7 @@ export default function LearningApp({ section = [] }: Props) {
           setName(dataSnapshot.displayName || user.email?.split('@')[0] || 'Learner');
         } else {
           setName('Learner');
-          setActivityTrackingNotice('');
-        }
+            }
         setRomaji(dataSnapshot.showRomaji);
         setSnapshot(dataSnapshot);
       } catch {
@@ -267,8 +210,7 @@ export default function LearningApp({ section = [] }: Props) {
         setSnapshot(createPreviewSnapshot());
         setRomaji(true);
         setName('Learner');
-        setActivityTrackingNotice('');
-      }
+        }
     });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, [refreshLearnerSnapshot]);
@@ -283,394 +225,6 @@ export default function LearningApp({ section = [] }: Props) {
       });
     }
   }, [active]);
-
-  useEffect(() => {
-    if (!signedIn) return;
-
-    type BrowserLockManager = {
-      request(
-        name: string,
-        options: { ifAvailable: boolean },
-        callback: (lock: unknown | null) => Promise<void>,
-      ): Promise<void>;
-    };
-
-    let disposed = false;
-    let userId: string | null = null;
-    let storageKey: string | null = null;
-    type PendingStudyState = {
-      milliseconds: number;
-      requestId: string | null;
-      requestCreatedAt: string | null;
-      requestSeconds: number | null;
-    };
-    const emptyPendingState: PendingStudyState = {
-      milliseconds: 0,
-      requestId: null,
-      requestCreatedAt: null,
-      requestSeconds: null,
-    };
-    let fallbackPendingState: PendingStudyState = emptyPendingState;
-    let lockRequestPending = false;
-    let currentSend: Promise<void> | null = null;
-    let retryAfter = 0;
-    let retryTimer: number | null = null;
-    let stopActiveLoop: (() => void) | null = null;
-
-    // Count only while this site tab is visible and focused; Reading and Mock Exams are exempt.
-    const isEligible = () => !isExcludedStudySectionRef.current &&
-      document.visibilityState === 'visible' && document.hasFocus();
-
-    // Persist the queued duration and one immutable request batch together.
-    // A batch keeps the same ID, creation time and seconds across every retry.
-    // Time measured after that snapshot remains queued as a newer tail.
-    const readPendingState = (): PendingStudyState => {
-      if (!storageKey) return fallbackPendingState;
-      try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (!raw) return fallbackPendingState;
-        const parsed = JSON.parse(raw) as unknown;
-        if (typeof parsed === 'number') {
-          // Migrate values saved by the oldest timer format.
-          return {
-            ...emptyPendingState,
-            milliseconds: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
-          };
-        }
-        if (typeof parsed === 'object' && parsed !== null) {
-          const value = parsed as {
-            milliseconds?: unknown;
-            requestId?: unknown;
-            requestCreatedAt?: unknown;
-            requestSeconds?: unknown;
-          };
-          const milliseconds =
-            typeof value.milliseconds === 'number' &&
-            Number.isFinite(value.milliseconds) &&
-            value.milliseconds > 0
-              ? Math.floor(value.milliseconds)
-              : 0;
-          const requestId =
-            typeof value.requestId === 'string' &&
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.requestId)
-              ? value.requestId
-              : null;
-          const parsedCreatedAt =
-            typeof value.requestCreatedAt === 'string' &&
-            Number.isFinite(Date.parse(value.requestCreatedAt))
-              ? value.requestCreatedAt
-              : null;
-          const requestSeconds =
-            typeof value.requestSeconds === 'number' &&
-            Number.isInteger(value.requestSeconds) &&
-            value.requestSeconds >= 1 &&
-            value.requestSeconds <= 3600
-              ? value.requestSeconds
-              : null;
-
-          return {
-            milliseconds,
-            requestId,
-            // Older saved states did not contain these two fields. Preserve
-            // their ID and establish a one-time retry-window start for migration.
-            requestCreatedAt: requestId ? parsedCreatedAt ?? new Date().toISOString() : null,
-            requestSeconds: requestId
-              ? (requestSeconds ?? Math.min(Math.floor(milliseconds / 1000), 3600)) || null
-              : null,
-          };
-        }
-        return emptyPendingState;
-      } catch {
-        return fallbackPendingState;
-      }
-    };
-
-    const writePendingState = (state: PendingStudyState) => {
-      const next: PendingStudyState = {
-        milliseconds: Math.max(0, Math.floor(state.milliseconds)),
-        requestId: state.requestId,
-        requestCreatedAt: state.requestId ? state.requestCreatedAt : null,
-        requestSeconds: state.requestId ? state.requestSeconds : null,
-      };
-      fallbackPendingState = next;
-      if (!storageKey) return;
-      try {
-        if (next.milliseconds === 0 && next.requestId === null) {
-          window.localStorage.removeItem(storageKey);
-        } else {
-          window.localStorage.setItem(storageKey, JSON.stringify(next));
-        }
-      } catch {
-        // Continue in memory when storage is unavailable; the server still
-        // caps every credit using its own elapsed-time watermark.
-      }
-    };
-
-    const readPendingMilliseconds = () => readPendingState().milliseconds;
-
-    const getOrCreateRequest = (): PendingStudyState => {
-      const state = readPendingState();
-      if (state.requestId && state.requestCreatedAt && state.requestSeconds) {
-        // Persist any one-time migration of older localStorage formats.
-        writePendingState(state);
-        return state;
-      }
-      const pendingSeconds = Math.floor(state.milliseconds / 1000);
-      if (pendingSeconds < 1) return state;
-      const next: PendingStudyState = {
-        milliseconds: state.milliseconds,
-        requestId: crypto.randomUUID(),
-        requestCreatedAt: new Date().toISOString(),
-        requestSeconds: Math.min(pendingSeconds, 3600),
-      };
-      writePendingState(next);
-      return next;
-    };
-
-    const isStudyEligible = () => isEligible();
-
-    const sendPendingTime = async (includePartialBatch: boolean) => {
-      // A visibility/page-exit flush waits for any already-running heartbeat
-      // before the tab releases its cross-tab lock.
-      if (currentSend) {
-        await currentSend;
-        return sendPendingTime(includePartialBatch);
-      }
-
-      if (!userId || !storageKey || Date.now() < retryAfter) return;
-
-      const pendingState = readPendingState();
-      const pendingSeconds = Math.floor(pendingState.milliseconds / 1000);
-      if (pendingSeconds < 1 || (!includePartialBatch && pendingSeconds < 30)) return;
-
-      // Freeze one batch before sending it. Newly measured time is appended to
-      // the queue but never changes the payload associated with this request ID.
-      const requestState = getOrCreateRequest();
-      if (!requestState.requestId || !requestState.requestCreatedAt || !requestState.requestSeconds) return;
-      const requestedSeconds = requestState.requestSeconds;
-      const requestId = requestState.requestId;
-      const requestCreatedAt = requestState.requestCreatedAt;
-
-      const operation = (async () => {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 8000);
-        try {
-          const response = await fetch('/api/learning/activity', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seconds: requestedSeconds, requestId, requestCreatedAt }),
-            keepalive: true,
-            cache: 'no-store',
-            signal: controller.signal,
-          });
-          const body = await response.json().catch(() => ({})) as {
-            error?: string;
-            details?: { code?: string };
-            creditedSeconds?: number;
-            activityDate?: string;
-          };
-
-          if (!response.ok && body.details?.code === 'HEARTBEAT_REQUEST_EXPIRED') {
-            // The server cannot safely distinguish a very late retry from a
-            // duplicate after its ledger row has expired. Drop only this frozen
-            // batch; all time measured after it remains queued.
-            const current = readPendingState();
-            const expiredBatchMilliseconds = Math.min(
-              current.milliseconds,
-              requestedSeconds * 1000,
-            );
-            writePendingState({
-              ...current,
-              milliseconds: current.milliseconds - expiredBatchMilliseconds,
-              requestId: null,
-              requestCreatedAt: null,
-              requestSeconds: null,
-            });
-            retryAfter = 0;
-            if (!disposed) {
-              setActivityTrackingNotice(
-                'One unconfirmed study-time batch older than eight days was discarded to prevent double-counting. Newer pending time remains queued.',
-              );
-            }
-            return;
-          }
-
-          if (!response.ok) {
-            throw new Error(body.error || 'Study time could not be recorded.');
-          }
-
-          const creditedSeconds = Math.max(
-            0,
-            Math.min(requestedSeconds, Math.floor(Number(body.creditedSeconds ?? 0))),
-          );
-
-          if (creditedSeconds > 0) {
-            // Subtract only what the database confirms it credited. Any
-            // remainder stays queued for a later, newly identified batch.
-            const current = readPendingState();
-            writePendingState({
-              ...current,
-              milliseconds: current.milliseconds - creditedSeconds * 1000,
-              requestId: null,
-              requestCreatedAt: null,
-              requestSeconds: null,
-            });
-            retryAfter = 0;
-            if (!disposed) {
-              setActivityTrackingNotice('');
-              if (typeof body.activityDate === 'string') {
-                setSnapshot((current) => applyStudyTimeCredit(current, body.activityDate!, creditedSeconds));
-              }
-            }
-          } else {
-            // Another tab/device may have written more recently. Keep this
-            // exact batch and ID so a retry cannot credit it twice.
-            retryAfter = Date.now() + 5000;
-          }
-        } catch (error) {
-          if (!disposed) {
-            setActivityTrackingNotice(
-              error instanceof Error ? error.message : 'Study time could not be recorded.',
-            );
-          }
-          retryAfter = Date.now() + 30_000;
-        } finally {
-          window.clearTimeout(timeout);
-          currentSend = null;
-        }
-      })();
-
-      currentSend = operation;
-      await operation;
-    };
-
-    const startActiveLoop = (releaseLock: () => void) => {
-      let stopped = false;
-      let lastSampleAt = performance.now();
-      let timer = 0;
-
-      const sample = () => {
-        const now = performance.now();
-        const elapsed = now - lastSampleAt;
-        lastSampleAt = now;
-
-        if (Number.isFinite(elapsed) && elapsed > 0) {
-          // Count only time accumulated by the foreground, focused browser tab.
-          const sampledMilliseconds = elapsed;
-          const pending = readPendingState();
-          writePendingState({
-            ...pending,
-            milliseconds: pending.milliseconds + sampledMilliseconds,
-          });
-        }
-      };
-
-      const stop = () => {
-        if (stopped) return;
-        stopped = true;
-        window.clearInterval(timer);
-        sample();
-        stopActiveLoop = null;
-        // Keep the cross-tab lock until the final partial batch has been sent.
-        void sendPendingTime(true).finally(releaseLock);
-      };
-
-      stopActiveLoop = stop;
-      timer = window.setInterval(() => {
-        if (!isStudyEligible()) {
-          stop();
-          return;
-        }
-        sample();
-        if (Math.floor(readPendingMilliseconds() / 1000) >= 30) {
-          void sendPendingTime(false);
-        }
-      }, 1000);
-
-      // Attempt to save a partial batch left by a previous route/session.
-      void sendPendingTime(true);
-    };
-
-    const acquireStudyLock = () => {
-      if (disposed || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
-        return;
-      }
-
-      const lockManager = (navigator as unknown as { locks?: BrowserLockManager }).locks;
-      if (!lockManager) {
-        // Modern browsers support Web Locks. This fallback still uses the
-        // server-side account lock to prevent duplicate database credits.
-        startActiveLoop(() => undefined);
-        return;
-      }
-
-      lockRequestPending = true;
-      void lockManager.request(
-        'nihongo-labs-study-time:' + userId,
-        { ifAvailable: true },
-        async (lock) => {
-          if (!lock || disposed || !isStudyEligible()) return;
-          await new Promise<void>((resolve) => startActiveLoop(resolve));
-        },
-      ).catch((error: unknown) => {
-        if (!disposed) {
-          setActivityTrackingNotice(
-            error instanceof Error ? error.message : 'Study-time tracking could not start.',
-          );
-        }
-      }).finally(() => {
-        lockRequestPending = false;
-      });
-    };
-
-    const handleEligibilityChange = () => {
-      if (isEligible()) acquireStudyLock();
-      else stopActiveLoop?.();
-    };
-    const handlePageHide = () => stopActiveLoop?.();
-
-    studyEligibilityChangeRef.current = handleEligibilityChange;
-    document.addEventListener('visibilitychange', handleEligibilityChange);
-    window.addEventListener('focus', handleEligibilityChange);
-    window.addEventListener('blur', handleEligibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
-
-    const initialize = async () => {
-      const client = getSupabaseBrowserClient();
-      if (!client) return;
-
-      const { data: { user }, error } = await client.auth.getUser();
-      if (disposed || error || !user) return;
-
-      userId = user.id;
-      storageKey = 'nihongo-labs:study-time:v1:' + user.id;
-      acquireStudyLock();
-      // If another tab currently owns the lock, retry after it releases it.
-      retryTimer = window.setInterval(acquireStudyLock, 2000);
-    };
-
-    void initialize().catch((error: unknown) => {
-      if (!disposed) {
-        setActivityTrackingNotice(
-          error instanceof Error ? error.message : 'Study-time tracking could not start.',
-        );
-      }
-    });
-
-    return () => {
-      disposed = true;
-      if (retryTimer !== null) window.clearInterval(retryTimer);
-      if (studyEligibilityChangeRef.current === handleEligibilityChange) {
-        studyEligibilityChangeRef.current = null;
-      }
-      document.removeEventListener('visibilitychange', handleEligibilityChange);
-      window.removeEventListener('focus', handleEligibilityChange);
-      window.removeEventListener('blur', handleEligibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
-      stopActiveLoop?.();
-    };
-  }, [signedIn]);
 
   const titleMap: Record<string, string> = { overview: 'Overview', grammar: 'Grammar studio', vocabulary: 'Vocabulary', kanji: 'Kanji library', kana: 'Kana practice', practice: 'Daily practice', flashcards: 'Flashcard review', reading: 'Reading room', exams: 'Mock examinations', sentences: 'Sentence construction lab', progress: 'Your progress', plans: 'Learning plans', subscription: 'Membership' };
   const title = titleMap[active] || 'Overview';
@@ -687,7 +241,6 @@ export default function LearningApp({ section = [] }: Props) {
       if (!response.ok) throw new Error('Could not save your selected JLPT level.');
     } catch {
       await refreshLearnerSnapshot();
-      setActivityTrackingNotice('Your JLPT level preference could not be saved. Please try again.');
     }
   }, [signedIn, refreshLearnerSnapshot]);
 
@@ -699,18 +252,9 @@ export default function LearningApp({ section = [] }: Props) {
 
   async function signOut() {
     const client = getSupabaseBrowserClient();
-    if (!client) {
-      setActivityTrackingNotice('Authentication is temporarily unavailable. Please try again.');
-      return;
-    }
+    if (!client) return;
     const { error } = await client.auth.signOut();
-    if (error) {
-      setActivityTrackingNotice(error.message);
-      return;
-    }
-    // Browser signOut clears the same cookie-backed storage used by the
-    // persistent client and emits SIGNED_OUT to GlobalQuickRevision.
-    window.dispatchEvent(new Event('nihongo:auth-signed-out'));
+    if (error) return;
     authGenerationRef.current += 1;
     setAuthViewKey((current) => current + 1);
     setSignedIn(false);
@@ -740,11 +284,11 @@ export default function LearningApp({ section = [] }: Props) {
       </aside>
 
       <main className={styles.mainArea}>
-        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn ? <Link href="/contact" className={styles.feedbackLink}>Contact us</Link> : null}{signedIn ? <span ref={studyTimerRef} className={styles.counterPill} aria-label={isExcludedStudySection ? 'Study timer paused' : 'Elapsed website study time'} title={isExcludedStudySection ? 'Study timer paused in this section' : 'Elapsed active time on Nihongo Labs'}>Study · 0:00</span> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
+        <header className={styles.topbar}><div className={styles.breadcrumb}>Workspace <span>/</span> <strong>{title}</strong></div><div className={styles.topActions}><div className={styles.searchWrap}><label className={styles.searchBox}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]); } }} placeholder="Search lessons, words..."/><kbd>⌘ K</kbd></label>{searchOpen && search.trim().length >= 2 ? <div className={styles.searchResults} role="listbox" aria-label="Search results">{searchLoading ? <div className={styles.searchState}>Searching your learning library…</div> : searchError ? <div className={styles.searchState} role="status">{searchError}</div> : searchResults.length ? searchResults.map((result) => <button type="button" role="option" aria-selected="false" key={result.kind + "-" + result.id} className={styles.searchResult} onClick={() => openSearchResult(result)}><span className={styles.searchResultMeta}>{result.kind}{result.level ? " · " + result.level : ""}</span><strong>{result.title}</strong><small>{result.detail}</small></button>) : <div className={styles.searchState}>No matches found. Try a Japanese word, meaning or grammar pattern.</div>}</div> : null}</div>{signedIn ? <Link href="/contact" className={styles.feedbackLink}>Contact us</Link> : null}<button className={styles.iconButton} type="button" aria-label="Notifications">♧<i /></button><div className={styles.topAvatar}>{name.slice(0,1).toUpperCase()}</div>{signedIn ? <button className={styles.signOutButton} onClick={signOut}>Sign out</button> : <Link className={styles.signInButton} href="/login">Sign in</Link>}</div></header>
         <div className={styles.contentArea}>
           {!connected && <div className={styles.previewNotice}><span>●</span> Preview mode <span className={styles.noticeDivider}>·</span> Connect your local Supabase keys to load your saved learning data.</div>}
           {connected && !signedIn && <div className={styles.previewNotice}><span>●</span> Demo content <span className={styles.noticeDivider}>·</span> Sign in to load your personal progress.</div>}
-          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} activityTrackingNotice={signedIn ? activityTrackingNotice : ''} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
+          {active === 'overview' && <Dashboard key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}-${snapshot.preferredJlptLevel}`} name={name} signedIn={signedIn} snapshot={snapshot} streak={streak} onLevelChange={changePreferredLevel} onContinue={() => router.push('/learn/grammar')} />}
           {active === 'plans' && <LearningPlans signedIn={signedIn} />}
           {active !== 'overview' && active !== 'progress' && active !== 'plans' && <Suspense fallback={<div className={styles.emptyState} role="status"><div>読</div><h2>Loading learning tools…</h2></div>}><LazyLearningFeature key={`${snapshot.preferredJlptLevel}-${focusedVocabularyId ?? ''}-${focusedVocabularyLevel ?? ''}`} active={active as LearningFeatureProps['active']} vocabularyItems={demoVocabulary} search={search} focusedVocabularyId={focusedVocabularyId} focusedVocabularyLevel={focusedVocabularyLevel} flashcardItems={flashcardData} signedIn={signedIn} romaji={romaji} setRomaji={setRomajiPreference} kanaMode={kanaMode} setKanaMode={setKanaMode} kanaQuiz={kanaQuiz} setKanaQuiz={setKanaQuiz} preferredLevel={snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5'} onPreferredLevelChange={changePreferredLevel} onProgressSaved={refreshLearnerSnapshot} /></Suspense>}
           {active === 'progress' && <Progress key={`${signedIn ? 'signed-in' : 'demo'}-${authViewKey}`} snapshot={snapshot} streak={streak} signedIn={signedIn} />}
@@ -764,32 +308,20 @@ type DashboardLevelProgress = {
   readiness: number;
 };
 
-function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, onLevelChange, onContinue }: {
+function Dashboard({ name, signedIn, snapshot, streak, onLevelChange, onContinue }: {
   name: string;
   signedIn: boolean;
   snapshot: LearnerSnapshot;
   streak: number;
-  activityTrackingNotice: string;
   onContinue: () => void;
   onLevelChange: (level: JlptLevel) => Promise<void>;
 }) {
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
-  const [greeting, setGreeting] = useState('こんにちは');
   const [level, setLevel] = useState<JlptLevel>(snapshot.preferredJlptLevel === 'N4' ? 'N4' : 'N5');
   const [levelProgress, setLevelProgress] = useState<DashboardLevelProgress | null>(null);
 
   useEffect(() => {
-    const updateDashboardTime = () => {
-      setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
-      const hour = new Date().getHours();
-      setGreeting(hour < 11 ? 'おはようございます' : hour < 17 ? 'こんにちは' : 'こんばんは');
-    };
-    const initialUpdate = window.setTimeout(updateDashboardTime, 0);
-    const timer = window.setInterval(updateDashboardTime, 60_000);
-    return () => {
-      window.clearTimeout(initialUpdate);
-      window.clearInterval(timer);
-    };
+    setDaysRemaining(getDaysUntilJlpt('2026-12-06', new Date(), 'Asia/Kolkata'));
   }, []);
 
   useEffect(() => {
@@ -816,21 +348,11 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
   const kanjiTotal = currentProgress?.kanji.total ?? (level === 'N5' ? kanjiCount : 0);
   const vocabularyPercent = vocabularyTotal > 0 ? vocabularyCompleted / vocabularyTotal * 100 : 0;
   const kanjiPercent = kanjiTotal > 0 ? kanjiCompleted / kanjiTotal * 100 : 0;
-  const rawStudiedSeconds = Number(snapshot.dailyGoal?.studiedSeconds ?? 0);
-  const studiedSeconds = Number.isFinite(rawStudiedSeconds) ? Math.max(0, rawStudiedSeconds) : 0;
-  const minutes = Math.floor(studiedSeconds / 60);
-  const goal = Math.max(0, Number(snapshot.dailyGoal?.minutes ?? 15) || 0);
-  const goalPercent = goal > 0
-    ? studiedSeconds >= goal * 60 ? 100 : Math.min(99, Math.round((studiedSeconds / (goal * 60)) * 100))
-    : 0;
-  const activity = Array.isArray(snapshot.recentActivity) ? snapshot.recentActivity.slice(0, 7).reverse() : [];
-  const maximum = Math.max(1, ...activity.map((row) => Number(row.study_seconds ?? 0)));
-  const dayLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
 
   return <>
     <div className={styles.welcomeRow}>
       <div><div className={styles.eyebrow}>YOUR STUDY SPACE</div>
-        <h1>{greeting}、{name}さん。 <span>ようこそ！</span></h1>
+        <h1>こんにちは、{name}さん。 <span>ようこそ！</span></h1>
         <p>A little practice every day adds up. Ready to keep your momentum?</p>
       </div>
       <div className={styles.jlptCountdown} aria-label={`JLPT ${level} examination countdown`}>
@@ -863,33 +385,6 @@ function Dashboard({ name, signedIn, snapshot, streak, activityTrackingNotice, o
       <StatCard icon="字" label={`${level} kanji known`} value={`${kanjiCompleted} / ${kanjiTotal}`} note="Characters marked as known" progress={kanjiPercent} tone="blue" />
       <StatCard icon="✳" label="Current streak" value={`${streak} days`} note="Days with learning activity" progress={Math.min(100, streak / 30 * 100)} tone="purple" />
     </section>
-    <section className={styles.dashboardGrid}>
-      <div className={styles.panel}>
-        <div className={styles.panelHeader}><div><div className={styles.eyebrow}>CONSISTENCY IS KEY</div><h3>Your study rhythm</h3></div><span className={styles.smallBadge}>Last 7 active days</span></div>
-        <div className={styles.chartArea}><div className={styles.chartYAxis}><span>60m</span><span>40m</span><span>20m</span><span>0m</span></div>
-          <div className={styles.chartBars}>{(activity.length ? activity : Array.from({ length: 7 }, (_, index) => ({ activity_date: '', study_seconds: 0, key: index }))).map((row, index) => (
-            <div className={styles.chartColumn} key={row.activity_date || index}><div className={styles.chartTrack}><span className={styles.chartBar} style={{ height: `${Math.max(2, Math.min(100, Number(row.study_seconds ?? 0) / Math.max(3600, maximum) * 100))}%` }} /></div><small>{row.activity_date ? dayLabel(row.activity_date) : '—'}</small></div>
-          ))}</div>
-        </div>
-        <div className={styles.chartLegend}><span><i className={styles.legendGreen} /> Study time</span><span className={styles.chartAverage}>Tracked total <strong>{Math.floor(Number(snapshot.totalStudySeconds ?? 0) / 60)} min</strong></span></div>
-      </div>
-      <div className={styles.panel}>
-        <div className={styles.panelHeader}><div><div className={styles.eyebrow}>BUILD A DAILY HABIT</div><h3>Your daily goal</h3></div><span className={styles.smallBadge}>Today</span></div>
-        <div className={styles.goalContent}>
-          <div className={styles.goalRing} role="img" aria-label={`${goalPercent}% of the daily study goal completed`}
-            style={{ background: `conic-gradient(#c7695e 0 ${goalPercent}%, #e6e9ed ${goalPercent}% 100%)` }}>
-            <div><strong>{minutes}</strong><span>/ {goal} min</span></div>
-          </div>
-          <div className={styles.goalText}>
-            <strong>{goalPercent === 100 ? 'Daily goal reached!' : 'Keep your momentum.'}</strong>
-            <p>{goalPercent === 100 ? 'Great work. Your activity has been recorded.' : `${Math.max(0, goal - minutes)} more minutes to reach today's learning goal.`}</p>
-            <ProgressBar value={goalPercent} />
-            <div className={styles.goalFoot}><span>{goalPercent}% completed</span><span>{Math.max(0, goal - minutes)} min left</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
-    {activityTrackingNotice ? <div className={styles.activityTrackingNotice} role="status">Study-time tracking: {activityTrackingNotice}</div> : null}
     <div className={styles.sectionTop}><div><div className={styles.eyebrow}>A GOOD PLACE TO START</div><h2>Today&apos;s focus</h2></div><span className={styles.mutedMeta}>Choose a short activity</span></div>
     <section className={styles.focusGrid}>
       <FocusCard number="01" title="Particles: は vs が" description="Understand the difference between topic and subject markers." meta="Grammar · 8 min" tag="CONTINUE" href="/learn/grammar" tone="green"/>
@@ -965,7 +460,7 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
       return { date: dateKey, label: weekdayLabels[date.getUTCDay()], active: activeDates.has(dateKey) };
     });
   }, [snapshot.activeDays, snapshot.timeZone]);
-  return <><QuickRevisionStats signedIn={signedIn}/><LearningIntelligence signedIn={signedIn}/><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{overallPercentage}<span>%</span></div><p>Progress is calculated from assessed lessons, learned vocabulary, understood grammar, known kanji and graded reading/Kana practice.</p></div><div className={styles.progressBarWrap}><div className={styles.progressBarTrack} role="progressbar" aria-label="Overall N5 readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercentage}><span style={{width:`${overallPercentage}%`}} /></div><span className={styles.progressBarLabel}><strong>{overallPercentage}%</strong> complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green" detail={`${snapshot.grammarUnderstood} of ${snapshot.grammarCount} N5 grammar points marked understood`}/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange" detail={`${snapshot.vocabularyMastered} of ${snapshot.vocabularyCount} N5 words learned or mastered`}/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple" detail={snapshot.readingAttempts ? `${snapshot.readingAttempts} graded reading attempts` : 'Complete a graded reading check to record progress'}/><Mastery label="Kana" value={mastery.kana} tone="green" detail={snapshot.kanaAttempts ? `${snapshot.kanaAttempts} graded Kana attempts` : 'Complete a Kana challenge to record progress'}/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange" detail={`${snapshot.lessonsCompleted} of ${snapshot.lessonsTotal} assessed N5 lessons completed`}/></div><section className={styles.grammarProgressPanel}>
+  return <><LearningIntelligence signedIn={signedIn}/><SectionHeading eyebrow="YOUR JOURNEY SO FAR" title="Look how far you’ve come." description="A clear view of your learning habits, topic mastery and exam readiness." action={<span className={styles.counterPill}>N5 learner</span>}/><div className={styles.progressHero}><div><div className={styles.eyebrow}>OVERALL N5 READINESS</div><div className={styles.bigPercent}>{overallPercentage}<span>%</span></div><p>Progress is calculated from assessed lessons, learned vocabulary, understood grammar, known kanji and graded reading/Kana practice.</p></div><div className={styles.progressBarWrap}><div className={styles.progressBarTrack} role="progressbar" aria-label="Overall N5 readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercentage}><span style={{width:`${overallPercentage}%`}} /></div><span className={styles.progressBarLabel}><strong>{overallPercentage}%</strong> complete</span></div></div><div className={styles.masteryGrid}><Mastery label="Grammar" value={mastery.grammar} tone="green" detail={`${snapshot.grammarUnderstood} of ${snapshot.grammarCount} N5 grammar points marked understood`}/><Mastery label="Vocabulary" value={mastery.vocabulary} tone="orange" detail={`${snapshot.vocabularyMastered} of ${snapshot.vocabularyCount} N5 words learned or mastered`}/><Mastery label="Kanji" value={mastery.kanji} tone="blue" detail={`${snapshot.kanjiMastered} of ${snapshot.kanjiCount} N5 characters marked known`}/><Mastery label="Reading" value={mastery.reading} tone="purple" detail={snapshot.readingAttempts ? `${snapshot.readingAttempts} graded reading attempts` : 'Complete a graded reading check to record progress'}/><Mastery label="Kana" value={mastery.kana} tone="green" detail={snapshot.kanaAttempts ? `${snapshot.kanaAttempts} graded Kana attempts` : 'Complete a Kana challenge to record progress'}/><Mastery label="Lessons" value={mastery.overallLessons} tone="orange" detail={`${snapshot.lessonsCompleted} of ${snapshot.lessonsTotal} assessed N5 lessons completed`}/></div><section className={styles.grammarProgressPanel}>
       <div className={styles.sentenceProgressHeading}>
         <div><div className={styles.eyebrow}>GRAMMAR MASTERY</div><h2>Grammar progress by JLPT level</h2><p>Lesson completion and practice performance are tracked separately.</p></div>
         <Link href="/learn/grammar" className={styles.textLink}>Study grammar <span>→</span></Link>
