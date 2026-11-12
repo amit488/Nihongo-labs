@@ -38,10 +38,10 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
   if (!signedIn) return <section className={styles.wrapper}><p>Sign in to see personalised grammar and vocabulary intelligence.</p></section>;
 
   return <section className={styles.wrapper}>
-    <div className={styles.heading}><div><span>LEARNING INTELLIGENCE</span><h2>Know what needs attention.</h2><p>Insights from your answers and vocabulary revision history.</p></div><div className={styles.headingActions}><select aria-label="Vocabulary insight JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as "N5"|"N4")}><option value="N5">N5 vocabulary</option><option value="N4">N4 vocabulary</option></select></div></div>
+    <div className={styles.heading}><div><span>LEARNING INTELLIGENCE</span><h2>Know what needs attention.</h2><p>Insights from your graded answers and spaced-repetition history.</p></div><div className={styles.headingActions}><select aria-label="Vocabulary insight JLPT level" value={level} onChange={(event)=>setLevel(event.target.value as "N5"|"N4")}><option value="N5">N5 vocabulary</option><option value="N4">N4 vocabulary</option></select></div></div>
     {error?<p className={styles.error}>{error}</p>:null}
     <div className={styles.metrics}>
-      <article><span>Grammar accuracy</span><strong>{grammar?grammar.accuracy+'%':'—'}</strong><small>{grammar?.totalAttempts??0} quiz + Quick Revision attempts</small></article>
+      <article><span>Grammar accuracy</span><strong>{grammar?grammar.accuracy+'%':'—'}</strong><small>{grammar?.totalAttempts??0} graded practice attempts</small></article>
       <article><span>Grammar weak spots</span><strong>{grammar?.weakTopicCount??'—'}</strong><small>Concepts to revisit</small></article>
       <article><span>Vocabulary due</span><strong>{vocabulary?.dueCount??'—'}</strong><small>{vocabulary?.atRiskCount??0} words at risk</small></article>
       <article><span>Words mastered</span><strong>{vocabulary?.masteredCount??'—'}</strong><small>{vocabulary?.learnedCount??0} words marked learned</small></article>
@@ -58,7 +58,7 @@ export default function LearningIntelligence({ signedIn }: { signedIn: boolean }
           </article>)}
       </div>
       <div className={styles.panel}>
-        <div className={styles.panelTitle}><h3>Vocabulary needs attention</h3><span>SM-2 + QUICK REVISION</span></div>
+        <div className={styles.panelTitle}><h3>Vocabulary needs attention</h3><span>SPACED REPETITION</span></div>
         {!vocabulary?.items.length?<p className={styles.empty}>No reviewed vocabulary is at risk yet. Rate words in your vocabulary cards to build a revision history.</p>:
           vocabulary.items.slice(0,6).map(item=><article className={styles.word} key={item.id}>
             <div><strong>{item.word}</strong><small>{item.kana} · {item.meaning}</small></div>
