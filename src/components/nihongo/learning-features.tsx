@@ -40,6 +40,8 @@ type MembershipSubscription = {
 type MembershipStatus = { hasPremium: boolean; subscriptions: MembershipSubscription[] };
 type CheckoutResponse = { mode: 'subscription' | 'order'; checkoutUrl?: string; orderId?: string; keyId?: string; amountMinor?: number; currency?: string; planName?: string; error?: string };
 
+const GRAMMAR_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLevel, onPreferredLevelChange, onProgressSaved }: { items: GrammarItem[]; romaji: boolean; setRomaji: (value: boolean) => void; signedIn: boolean; search: string; preferredLevel: JlptLevel; onPreferredLevelChange: (level: JlptLevel) => Promise<void>; onProgressSaved: () => Promise<void> }) {
   const [level, setLevel] = useState<JlptLevel>(preferredLevel);
   const [grammarItems, setGrammarItems] = useState<GrammarItem[]>(items);
@@ -47,8 +49,9 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
   const [showExample, setShowExample] = useState(true);
   const [saved, setSaved] = useState<string[]>([]);
   const [learnedIds, setLearnedIds] = useState<Set<string>>(new Set());
-  const [savingLearned, setSavingLearned] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [savingLearnedIds, setSavingLearnedIds] = useState<Set<string>>(new Set());
+  const [savingBookmarkIds, setSavingBookmarkIds] = useState<Set<string>>(new Set());
+  const [notices, setNotices] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const filteredGrammarItems = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
@@ -75,26 +78,43 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
     return () => { active = false; };
   }, [level, items]);
 
+  function showNotice(grammarId: string, message: string) {
+    setNotices((current) => ({ ...current, [grammarId]: message }));
+  }
+
   async function toggleSave() {
     if (!item) return;
     if (!signedIn) {
-      setNotice('Sign in to save grammar notes to your bookmarks.');
+      showNotice(item.id, 'Sign in to save grammar notes to your bookmarks.');
       return;
     }
-    const isSaved = saved.includes(item.id);
-    const response = await fetch('/api/learning/bookmarks', {
-      method: isSaved ? 'DELETE' : 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resourceType: 'grammar', resourceId: item.id }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setNotice(body.error || 'Sign in to save grammar notes.');
+    if (!GRAMMAR_UUID_PATTERN.test(item.id)) {
+      showNotice(item.id, 'This is preview content and is not connected to a published grammar record yet.');
       return;
     }
-    setSaved((current) => isSaved ? current.filter((id) => id !== item.id) : [...current, item.id]);
-    setNotice(isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
+    const grammarId = item.id;
+    const isSaved = saved.includes(grammarId);
+    setSavingBookmarkIds((current) => new Set(current).add(grammarId));
+    try {
+      const response = await fetch('/api/learning/bookmarks', {
+        method: isSaved ? 'DELETE' : 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resourceType: 'grammar', resourceId: grammarId }),
+      });
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Could not save this grammar note.');
+      setSaved((current) => isSaved ? current.filter((id) => id !== grammarId) : [...current, grammarId]);
+      showNotice(grammarId, isSaved ? 'Removed from saved grammar.' : 'Grammar point saved to your bookmarks.');
+    } catch (error) {
+      showNotice(grammarId, error instanceof Error ? error.message : 'Could not save this grammar note.');
+    } finally {
+      setSavingBookmarkIds((current) => {
+        const next = new Set(current);
+        next.delete(grammarId);
+        return next;
+      });
+    }
   }
 
   useEffect(() => {
@@ -110,31 +130,40 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
   }, [level, signedIn]);
 
   async function toggleUnderstood() {
-    if (!item || !signedIn || savingLearned) return;
-    const isLearned = learnedIds.has(item.id);
-    setSavingLearned(true);
-    setNotice(isLearned ? 'Removing from understood grammar…' : 'Saving understood grammar…');
+    if (!item || !signedIn || savingLearnedIds.has(item.id)) return;
+    if (!GRAMMAR_UUID_PATTERN.test(item.id)) {
+      showNotice(item.id, 'This is preview content and is not connected to a published grammar record yet.');
+      return;
+    }
+    const grammarId = item.id;
+    const isLearned = learnedIds.has(grammarId);
+    setSavingLearnedIds((current) => new Set(current).add(grammarId));
+    showNotice(grammarId, isLearned ? 'Removing from understood grammar…' : 'Saving understood grammar…');
     try {
       const response = await fetch('/api/learning/grammar-progress', {
         method: isLearned ? 'DELETE' : 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarId: item.id }),
+        body: JSON.stringify({ grammarId }),
       });
       const body = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(body.error || 'Could not save grammar progress.');
       setLearnedIds((current) => {
         const next = new Set(current);
-        if (isLearned) next.delete(item.id);
-        else next.add(item.id);
+        if (isLearned) next.delete(grammarId);
+        else next.add(grammarId);
         return next;
       });
-      setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
+      showNotice(grammarId, isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
       await onProgressSaved();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not save grammar progress.');
+      showNotice(grammarId, error instanceof Error ? error.message : 'Could not save grammar progress.');
     } finally {
-      setSavingLearned(false);
+      setSavingLearnedIds((current) => {
+        const next = new Set(current);
+        next.delete(grammarId);
+        return next;
+      });
     }
   }
 
@@ -164,7 +193,7 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
     setGrammarItems([]);
     setSelected('');
     setLoading(true);
-    setNotice('');
+    setNotices({});
   }
 
   return <>
@@ -202,15 +231,23 @@ function GrammarStudio({ items, romaji, setRomaji, signedIn, search, preferredLe
             </div>
           )) : null}
           {signedIn ? (
-            <button type="button" className={styles.ghostButton} disabled={savingLearned} onClick={() => void toggleUnderstood()}>
-              {savingLearned ? 'Saving…' : learnedIds.has(item.id) ? 'Understood ✓ · Remove' : 'Mark as understood'}
+            <button type="button" className={styles.ghostButton} disabled={savingLearnedIds.has(item.id) || (signedIn && !GRAMMAR_UUID_PATTERN.test(item.id))} onClick={() => void toggleUnderstood()}>
+              {savingLearnedIds.has(item.id) ? 'Saving…' : learnedIds.has(item.id) ? 'Understood ✓ · Remove' : 'Mark as understood'}
             </button>
           ) : null}
-          <button type="button" className={styles.primaryButton} onClick={() => void toggleSave()}>
-            {signedIn && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
+          <button type="button" className={styles.primaryButton}
+            disabled={savingBookmarkIds.has(item.id) || (signedIn && !GRAMMAR_UUID_PATTERN.test(item.id))}
+            onClick={() => void toggleSave()}>
+            {savingBookmarkIds.has(item.id) ? 'Saving…' : signedIn && saved.includes(item.id) ? 'Saved grammar note' : 'Save grammar note'}
             <span>{signedIn && saved.includes(item.id) ? '★' : '☆'}</span>
           </button>
-          {notice ? <small className={styles.mutedMeta}>{notice}</small> : null}
+          {item.commonMistakes?.length ? (
+            <div className={styles.exampleCard}>
+              <strong>Common mistakes to avoid</strong>
+              <ul>{item.commonMistakes.map((mistake, index) => <li key={index}>{mistake}</li>)}</ul>
+            </div>
+          ) : null}
+          {notices[item.id] ? <small className={styles.mutedMeta} role="status">{notices[item.id]}</small> : null}
         </div>
       </div>}
   </>;
