@@ -4,7 +4,6 @@ export const progressSchema = z.object({
   lessonId: z.string().uuid(),
   status: z.enum(['in_progress', 'completed']),
   lastPositionSeconds: z.number().int().min(0).max(86400).default(0),
-  studySeconds: z.number().int().min(0).max(3600).optional(),
 }).strict();
 
 export const startAttemptSchema = z.object({ quizId: z.string().uuid() }).strict();
@@ -41,7 +40,6 @@ export const settingsSchema = z.object({
   showRomaji: z.boolean().optional(),
   showFurigana: z.boolean().optional(),
   preferredJlptLevel: z.enum(['N5', 'N4']).optional(),
-  dailyStudyGoalMinutes: z.number().int().min(1).max(600).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'At least one setting is required.');
 
 export const bookmarkSchema = z.object({
