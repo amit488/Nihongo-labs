@@ -285,3 +285,74 @@
 .grammarProgressTop span,.grammarProgressLevel footer{font-size:var(--type-size-secondary);color:var(--muted)}
 .grammarProgressLevel footer{display:flex;justify-content:space-between;gap:8px;margin-top:9px}
 @media(max-width:760px){.grammarProgressLevels{grid-template-columns:1fr}.grammarDrillChoices{grid-template-columns:1fr}.grammarProgressTop,.grammarProgressLevel footer{align-items:flex-start;flex-wrap:wrap}}
+
+
+.grammarViewTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.grammarViewTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--type-size-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.grammarViewTab span {
+  color: var(--muted);
+  font-size: var(--type-size-caption);
+  font-weight: 500;
+}
+
+.grammarViewTabActive {
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.grammarListFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+.grammarListMeta {
+  color: var(--muted);
+  font-size: var(--type-size-caption);
+}
+
+.grammarLoadMore {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--type-size-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.grammarLoadMore:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
