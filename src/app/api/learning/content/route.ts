@@ -50,14 +50,20 @@ export async function GET(request: NextRequest) {
     if (!['N5', 'N4', 'N3', 'N2', 'N1'].includes(level)) throw new HttpError(400, 'Unsupported JLPT level.');
     const supabase = await createServerSupabase();
 
-    if (kind === 'kana') return NextResponse.json({ ...kana, rows: kana.romaji, combinations: ['きゃ','きゅ','きょ','しゃ','しゅ','しょ','ちゃ','ちゅ','ちょ','にゃ','にゅ','にょ','ひゃ','ひゅ','ひょ','みゃ','みゅ','みょ','りゃ','りゅ','りょ','ぎゃ','ぎゅ','ぎょ','じゃ','じゅ','じょ','びゃ','びゅ','びょ','ぴゃ','ぴゅ','ぴょ'] });
+    if (kind === 'kana') const safeItems = (data ?? []).map((row) => ({
+      ...row,
+      practice_questions: Array.isArray(row.practice_questions)
+        ? row.practice_questions.map(({ answer: _answer, ...question }) => question)
+        : [],
+    }));
+    return NextResponse.json({ ...kana, rows: kana.romaji, combinations: ['きゃ','きゅ','きょ','しゃ','しゅ','しょ','ちゃ','ちゅ','ちょ','にゃ','にゅ','にょ','ひゃ','ひゅ','ひょ','みゃ','みゅ','みょ','りゃ','りゅ','りょ','ぎゃ','ぎゅ','ぎょ','じゃ','じゅ','じょ','びゃ','びゅ','びょ','ぴゃ','ぴゅ','ぴょ'] });
 
     if (kind === 'grammar') {
       let query = supabase.from('grammar_points').select('id,title,pattern,meaning,explanation,formation,examples,common_mistakes,related_grammar_ids,category,difficulty,sort_order,practice_questions').eq('jlpt_level', level).eq('publication_status', 'published').order('sort_order').order('title').limit(limit);
       if (search) query = query.or(`title.ilike.%${search}%,pattern.ilike.%${search}%,explanation.ilike.%${search}%`);
       const { data, error } = await query;
       if (error) throw new HttpError(500, 'Could not load grammar content.', error.message);
-      return NextResponse.json({ items: data ?? [] }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
+      return NextResponse.json({ items: safeItems }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
     }
     if (kind === 'vocabulary') {
       const targetId = request.nextUrl.searchParams.get('id')?.trim() ?? '';
