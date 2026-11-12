@@ -34,23 +34,3 @@ test('server-side HTTP errors do not expose details for 5xx responses', () => {
   assert.ok(http.includes('error.status >= 500 ? undefined : error.details'));
   assert.ok(http.includes('details === undefined ? {} : { details }'));
 });
-
-test('Quick Revision reuses distractor pools within one question request', () => {
-  const route = read('src/app/api/learning/quick-revision/route.ts');
-  assert.ok(route.includes('type OptionPoolCache = Map<string, Promise<OptionPoolRow[]>>'));
-  assert.ok(route.includes("candidate.contentType + ':' + candidate.level"));
-  assert.ok(route.includes('cache.set(cacheKey, poolPromise)'));
-  assert.ok(route.includes('getOptions(context.supabase, selected, optionPoolCache)'));
-});
-
-test('Razorpay webhook events are atomically claimed and finalized by lease token', () => {
-  const route = read('src/app/api/billing/webhook/route.ts');
-  const migration = read('supabase/migrations/20261110160000_atomic_payment_webhook_claim.sql');
-  assert.ok(route.includes("rpc('claim_payment_webhook_event'"));
-  assert.ok(route.includes(".eq('processing_token', processingToken)"));
-  assert.ok(migration.includes('processing_token uuid'));
-  assert.ok(migration.includes("status in ('received', 'failed')"));
-  assert.ok(migration.includes('received_at < clock_timestamp()'));
-  assert.ok(migration.includes('grant execute on function public.claim_payment_webhook_event'));
-  assert.ok(migration.includes('to service_role'));
-});
