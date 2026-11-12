@@ -27,16 +27,6 @@ create unique index if not exists payment_refunds_idempotency_uidx
   on public.payment_refunds(payment_id, idempotency_key)
   where idempotency_key is not null;
 
--- A heartbeat row rate-limits client activity pings. A browser cannot add
--- arbitrary study time by replaying the endpoint repeatedly.
-create table if not exists public.user_activity_heartbeat (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  last_accepted_at timestamptz not null
-);
-alter table public.user_activity_heartbeat enable row level security;
-revoke all on public.user_activity_heartbeat from public, anon, authenticated;
-grant all privileges on public.user_activity_heartbeat to service_role;
-
 -- The answer-key table lives in the non-exposed `private` schema. PostgREST cannot
 -- query it when `private` is correctly excluded from exposed schemas. This narrow
 -- RPC is available only to service_role and returns keys only to trusted backend code.
@@ -70,7 +60,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_study_seconds integer := coalesce((_increments->>'study_seconds')::integer, 0);
   v_lessons_completed integer := coalesce((_increments->>'lessons_completed')::integer, 0);
   v_quizzes_completed integer := coalesce((_increments->>'quizzes_completed')::integer, 0);
   v_vocabulary_reviewed integer := coalesce((_increments->>'vocabulary_reviewed')::integer, 0);
@@ -82,23 +71,21 @@ begin
   if _user_id is null or _activity_date is null then
     raise exception 'user_id and activity_date are required';
   end if;
-  if least(v_study_seconds, v_lessons_completed, v_quizzes_completed,
-      v_vocabulary_reviewed, v_flashcards_reviewed, v_flashcards_again,
-      v_flashcards_known, v_flashcards_new) < 0 then
+  if least(v_lessons_completed, v_quizzes_completed, v_vocabulary_reviewed,
+      v_flashcards_reviewed, v_flashcards_again, v_flashcards_known, v_flashcards_new) < 0 then
     raise exception 'activity increments must be non-negative';
   end if;
 
   insert into public.user_daily_activity (
-    user_id, activity_date, study_seconds, lessons_completed,
-    quizzes_completed, vocabulary_reviewed, flashcards_reviewed,
-    flashcards_again, flashcards_known, flashcards_new, updated_at
+    user_id, activity_date, lessons_completed, quizzes_completed,
+    vocabulary_reviewed, flashcards_reviewed, flashcards_again,
+    flashcards_known, flashcards_new, updated_at
   ) values (
-    _user_id, _activity_date, v_study_seconds, v_lessons_completed,
-    v_quizzes_completed, v_vocabulary_reviewed, v_flashcards_reviewed,
-    v_flashcards_again, v_flashcards_known, v_flashcards_new, now()
+    _user_id, _activity_date, v_lessons_completed, v_quizzes_completed,
+    v_vocabulary_reviewed, v_flashcards_reviewed, v_flashcards_again,
+    v_flashcards_known, v_flashcards_new, now()
   )
   on conflict (user_id, activity_date) do update set
-    study_seconds = public.user_daily_activity.study_seconds + excluded.study_seconds,
     lessons_completed = public.user_daily_activity.lessons_completed + excluded.lessons_completed,
     quizzes_completed = public.user_daily_activity.quizzes_completed + excluded.quizzes_completed,
     vocabulary_reviewed = public.user_daily_activity.vocabulary_reviewed + excluded.vocabulary_reviewed,
@@ -723,141 +710,7 @@ revoke all on function public.record_payment_refund(uuid, text, bigint, text) fr
 grant execute on function public.record_payment_refund(uuid, text, bigint, text) to service_role;
 
 
--- Idempotency ledger for study-time heartbeats whose HTTP response may be lost.
-create table if not exists public.user_activity_heartbeat_requests (
-  request_id uuid primary key,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  credited_seconds integer not null check (credited_seconds > 0),
-  created_at timestamptz not null default now()
-);
-create index if not exists user_activity_heartbeat_requests_user_created_idx
-  on public.user_activity_heartbeat_requests(user_id, created_at);
-alter table public.user_activity_heartbeat_requests enable row level security;
-revoke all on public.user_activity_heartbeat_requests from public, anon, authenticated;
-grant all privileges on public.user_activity_heartbeat_requests to service_role;
-
--- Eight-day heartbeat retry window with immutable request metadata.
-create index if not exists user_activity_heartbeat_requests_created_at_idx
-  on public.user_activity_heartbeat_requests(created_at);
-
-create or replace function public.record_user_heartbeat(
-  _user_id uuid,
-  _activity_date date,
-  _observed_seconds integer,
-  _request_id uuid,
-  _request_created_at timestamptz
-)
-returns integer
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_last_accepted timestamptz;
-  v_elapsed_seconds integer;
-  v_credited_seconds integer;
-  v_prior_user_id uuid;
-  v_prior_credited_seconds integer;
-begin
-  if _user_id is null or _activity_date is null or _request_id is null
-     or _request_created_at is null then
-    raise exception 'user_id, activity_date, request_id and request_created_at are required';
-  end if;
-  if _observed_seconds is null or _observed_seconds < 1 or _observed_seconds > 3600 then
-    raise exception 'observed study seconds must be between 1 and 3600';
-  end if;
-  if _request_created_at > clock_timestamp() + interval '5 minutes' then
-    raise exception 'HEARTBEAT_REQUEST_CREATED_AT_IN_FUTURE';
-  end if;
-
-  insert into public.user_activity_heartbeat(user_id, last_accepted_at)
-  values (
-    _user_id,
-    clock_timestamp() - make_interval(secs => least(_observed_seconds, 30))
-  )
-  on conflict (user_id) do nothing;
-
-  select last_accepted_at into v_last_accepted
-    from public.user_activity_heartbeat
-   where user_id = _user_id
-   for update;
-
-  select user_id, credited_seconds
-    into v_prior_user_id, v_prior_credited_seconds
-    from public.user_activity_heartbeat_requests
-   where request_id = _request_id;
-
-  if found then
-    if v_prior_user_id <> _user_id then
-      raise exception 'request_id is already associated with another user';
-    end if;
-    return v_prior_credited_seconds;
-  end if;
-
-  if _request_created_at < clock_timestamp() - interval '8 days' then
-    raise exception 'HEARTBEAT_REQUEST_EXPIRED' using errcode = 'P0001';
-  end if;
-
-  v_elapsed_seconds := greatest(
-    0,
-    floor(extract(epoch from (clock_timestamp() - v_last_accepted)))::integer
-  );
-  if v_elapsed_seconds < 1 then return 0; end if;
-
-  v_credited_seconds := least(_observed_seconds, v_elapsed_seconds);
-  if v_credited_seconds < 1 then return 0; end if;
-
-  update public.user_activity_heartbeat
-     set last_accepted_at = clock_timestamp()
-   where user_id = _user_id;
-
-  perform public.record_user_activity(
-    _user_id, _activity_date,
-    jsonb_build_object('study_seconds', v_credited_seconds)
-  );
-
-  insert into public.user_activity_heartbeat_requests (
-    request_id, user_id, credited_seconds
-  ) values (
-    _request_id, _user_id, v_credited_seconds
-  );
-
-  return v_credited_seconds;
-end;
-$$;
-revoke all on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
-  from public, anon, authenticated;
-grant execute on function public.record_user_heartbeat(uuid, date, integer, uuid, timestamptz)
-  to service_role;
-
-create or replace function public.cleanup_expired_user_activity_heartbeat_requests()
-returns bigint
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_deleted bigint;
-begin
-  delete from public.user_activity_heartbeat_requests
-   where created_at < clock_timestamp() - interval '8 days';
-  get diagnostics v_deleted = row_count;
-
-  return v_deleted;
-end;
-$$;
-revoke all on function public.cleanup_expired_user_activity_heartbeat_requests()
-  from public, anon, authenticated;
-grant execute on function public.cleanup_expired_user_activity_heartbeat_requests()
-  to postgres, service_role;
-
--- pg_cron is managed separately by Supabase. This script intentionally does
--- not change cron-schema grants or schedule jobs against extension-owned tables.
--- The cleanup function above can be scheduled later from the Supabase Cron UI
--- if heartbeat-request retention automation is required.
-
 commit;
-
 
 -- Consolidated dashboard, flashcard queue and entitlement RPCs.
 create index if not exists flashcards_active_deck_queue_idx on public.flashcards(deck_id, sort_order, created_at, id) where is_active = true;
@@ -878,8 +731,7 @@ profile_row as (
   from local_context u left join public.profiles p on p.id = u.user_id
 ),
 preference_row as (
-  select coalesce(p.daily_study_goal_minutes, 15) as daily_study_goal_minutes,
-    coalesce(p.preferred_jlpt_level, 'N5'::public.jlpt_level) as preferred_jlpt_level,
+  select coalesce(p.preferred_jlpt_level, 'N5'::public.jlpt_level) as preferred_jlpt_level,
     coalesce(p.show_romaji, true) as show_romaji, coalesce(p.show_furigana, true) as show_furigana
   from local_context u left join public.user_preferences p on p.user_id = u.user_id
 ),
@@ -976,20 +828,9 @@ flashcard_summary as (
   where s.user_id = (select user_id from local_context)
 ),
 recent_activity_rows as (
-  select a.activity_date, a.study_seconds, a.lessons_completed, a.quizzes_completed, a.vocabulary_reviewed,
-    a.flashcards_reviewed, a.flashcards_again, a.flashcards_known
+  select a.activity_date
   from public.user_daily_activity a where a.user_id = (select user_id from local_context)
   order by a.activity_date desc limit 400
-),
-activity_summary as (
-  select coalesce(sum(a.study_seconds), 0)::bigint as total_study_seconds,
-    coalesce(max(a.study_seconds) filter (where a.activity_date = (select local_today from local_context)), 0)::integer as today_study_seconds,
-    coalesce(jsonb_agg(jsonb_build_object(
-      'activity_date', a.activity_date, 'study_seconds', a.study_seconds, 'lessons_completed', a.lessons_completed,
-      'quizzes_completed', a.quizzes_completed, 'vocabulary_reviewed', a.vocabulary_reviewed,
-      'flashcards_reviewed', a.flashcards_reviewed, 'flashcards_again', a.flashcards_again, 'flashcards_known', a.flashcards_known
-    ) order by a.activity_date desc), '[]'::jsonb) as recent_activity
-  from recent_activity_rows a
 ),
 attempt_rows as (
   select a.id, a.quiz_id, a.score_percentage, a.submitted_at, a.status, q.title as quiz_title, q.slug as quiz_slug
@@ -1087,8 +928,9 @@ final_metrics as (
 )
 select jsonb_build_object(
   'profile', jsonb_build_object('displayName', (select display_name from profile_row), 'timezone', (select time_zone from profile_row)),
-  'preferences', jsonb_build_object('daily_study_goal_minutes', (select daily_study_goal_minutes from preference_row),
-    'preferred_jlpt_level', (select preferred_jlpt_level from preference_row), 'show_romaji', (select show_romaji from preference_row),
+  'preferences', jsonb_build_object(
+    'preferred_jlpt_level', (select preferred_jlpt_level from preference_row),
+    'show_romaji', (select show_romaji from preference_row),
     'show_furigana', (select show_furigana from preference_row)),
   'progress', jsonb_build_object('overallPercentage', f.overall_percentage, 'lessonsCompleted', f.lessons_completed,
     'lessonsTotal', f.lessons_total, 'lessonPercentage', f.lesson_percentage,
@@ -1103,9 +945,6 @@ select jsonb_build_object(
       'kana', f.kana, 'reading', f.reading, 'overallLessons', f.overall_lessons)),
   'streak', (select streak from streak_count),
   'due', jsonb_build_object('vocabulary', f.vocabulary_due, 'flashcards', f.flashcards_due, 'total', f.vocabulary_due + f.flashcards_due),
-  'dailyGoal', jsonb_build_object('minutes', (select daily_study_goal_minutes from preference_row), 'studiedSeconds', (select today_study_seconds from activity_summary)),
-  'totalStudySeconds', (select total_study_seconds from activity_summary),
-  'recentActivity', (select recent_activity from activity_summary),
   'recentAttempts', (select recent_attempts from attempt_summary),
   'flashcardSettings', (select jsonb_build_object('daily_new_limit', daily_new_limit, 'daily_review_limit', daily_review_limit,
     'show_romaji', show_romaji, 'show_furigana', show_furigana) from flashcard_settings_row)
@@ -1229,6 +1068,4 @@ $$;
 revoke all on function public.sync_plan_entitlements(uuid, uuid, uuid, uuid, timestamptz, timestamptz, boolean) from public, anon, authenticated;
 grant execute on function public.sync_plan_entitlements(uuid, uuid, uuid, uuid, timestamptz, timestamptz, boolean) to service_role;
 
-drop function if exists public.record_user_heartbeat(uuid, date);
-drop function if exists public.record_user_heartbeat(uuid, date, integer);
-drop function if exists public.record_user_heartbeat(uuid, date, integer, uuid);
+
