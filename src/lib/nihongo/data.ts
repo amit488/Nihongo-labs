@@ -65,8 +65,10 @@ type KanjiContentRow = {
 type GrammarExampleRow = { japanese?: string; sentence?: string; romaji?: string; meaning?: string; translation?: string };
 type GrammarContentRow = {
   id: string; title: string; pattern: string; explanation: string;
-  formation: string | null; examples: GrammarExampleRow[] | null;\n  meaning?: string | null; category?: string | null; difficulty?: 'Beginner' | 'Core' | 'Challenge' | null;\n  common_mistakes?: string[] | null; practice_questions?: import('./demo-content').GrammarPracticeQuestion[] | null;
-};
+  formation: string | null; examples: GrammarExampleRow[] | null;
+  meaning?: string | null; category?: string | null; difficulty?: 'Beginner' | 'Core' | 'Challenge' | null;
+  common_mistakes?: string[] | null; practice_questions?: import('./demo-content').GrammarPracticeQuestion[] | null;
+}
 type FlashcardContentRow = {
   id: string; deckId: string; deckTitle: string; deckSlug: string;
   front_text: string; front_reading: string | null; front_romaji: string | null;
