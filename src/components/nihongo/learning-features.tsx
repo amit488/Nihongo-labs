@@ -222,7 +222,7 @@ function GrammarStudio({ romaji, setRomaji, signedIn, search, preferredLevel, on
         setDrillResult(null);
         setShowExample(true);
       }
-      setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood. It can now appear in Quick Revision.');
+      setNotice(isLearned ? 'Removed from understood grammar.' : 'Marked as understood.');
       await onProgressSaved();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save grammar progress.');
