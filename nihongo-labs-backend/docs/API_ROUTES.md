@@ -107,4 +107,4 @@ For an ambiguous refund request, retry the exact same amount/reason with the sam
 
 ## Trusted SQL helpers
 
-`sql/011_backend_rpc.sql` contains service-role-only helper functions for quiz answer key retrieval, attempt reservation/finalization, daily activity heartbeats/counters, lesson progress, flashcard FSRS writes, vocabulary scheduling and refund ledger reconciliation. It also adds supporting indexes and a heartbeat table. Review this file before applying it to the existing local database; it is not executed by the source apply script.
+`sql/011_backend_rpc.sql` contains service-role-only helper functions for quiz answer key retrieval, attempt reservation/finalization, daily activity counters, lesson progress, flashcard FSRS writes, vocabulary scheduling and refund ledger reconciliation. It also adds supporting indexes. Review this file before applying it to the existing local database; it is not executed by the source apply script.
