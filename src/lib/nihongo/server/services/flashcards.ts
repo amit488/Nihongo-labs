@@ -155,7 +155,6 @@ export async function reviewFlashcard(
     _state_before: before,
     _state_after: stateAfter,
     _activity_date: localDateKey(now, timezone),
-    _study_seconds: 0,
     _daily_new_limit: Number(settings?.daily_new_limit ?? 20),
     _daily_review_limit: Number(settings?.daily_review_limit ?? 200),
   });
