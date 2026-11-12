@@ -911,7 +911,8 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     })).then(([n5, n4]) => {
       if (active) setSentenceProgress({ N5: n5[1], N4: n4[1] });
     }).catch(() => { if (active) setSentenceProgress(null); });
-  
+    return () => { active = false; };
+  }, [signedIn]);
   useEffect(() => {
     if (!signedIn) { setGrammarProgress(null); return; }
     let active = true;
@@ -925,12 +926,7 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     })).then(([n5, n4]) => {
       if (active) setGrammarProgress({ N5: n5[1], N4: n4[1] });
     }).catch(() => { if (active) setGrammarProgress(null); });
-    return () => { active = false; };
-  }, [signedIn]);
-
-  return () => { active = false; };
-  }, [signedIn]);
-  const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
+    const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
   const overallPercentage = Math.max(0, Math.min(100, Number(snapshot.overallPercentage) || 0));
   const weekDays = useMemo(() => {
