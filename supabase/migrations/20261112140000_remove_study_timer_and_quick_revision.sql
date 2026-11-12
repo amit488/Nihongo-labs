@@ -403,12 +403,10 @@ begin
   where user_id = _user_id and lesson_id = _lesson_id
   returning * into v_current;
 
-  if v_completed_increment > 0 then
-    perform public.record_user_activity(
-      _user_id, _activity_date,
-      jsonb_build_object('lessons_completed', v_completed_increment)
-    );
-  end if;
+  perform public.record_user_activity(
+    _user_id, _activity_date,
+    jsonb_build_object('lessons_completed', v_completed_increment)
+  );
   return v_current;
 end;
 $;
