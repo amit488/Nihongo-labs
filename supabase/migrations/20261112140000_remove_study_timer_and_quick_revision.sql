@@ -403,10 +403,12 @@ begin
   where user_id = _user_id and lesson_id = _lesson_id
   returning * into v_current;
 
-  perform public.record_user_activity(
-    _user_id, _activity_date,
-    jsonb_build_object('lessons_completed', v_completed_increment)
-  );
+  if v_completed_increment > 0 then
+    perform public.record_user_activity(
+      _user_id, _activity_date,
+      jsonb_build_object('lessons_completed', v_completed_increment)
+    );
+  end if;
   return v_current;
 end;
 $;
@@ -996,6 +998,17 @@ drop table if exists public.quick_revision_state;
 drop table if exists public.user_activity_heartbeat_requests;
 drop table if exists public.user_activity_heartbeat;
 drop table if exists nihongo_admin_private.cron_job_run_audit;
+
+-- Remove timer-only dates so they are not counted as historical learning streaks.
+delete from public.user_daily_activity
+where study_seconds > 0
+  and lessons_completed = 0
+  and quizzes_completed = 0
+  and vocabulary_reviewed = 0
+  and flashcards_reviewed = 0
+  and flashcards_again = 0
+  and flashcards_known = 0
+  and flashcards_new = 0;
 
 alter table if exists public.user_daily_activity drop column if exists study_seconds;
 alter table if exists public.user_preferences drop column if exists daily_study_goal_minutes;
