@@ -116,6 +116,7 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
   const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
   const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
+  const authForm = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
 
   assert.ok(quickRevision.includes('const FIRST_QUESTION_MS = 5 * 60_000'));
   assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
@@ -141,6 +142,13 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(globalController.includes("window.localStorage.removeItem(TIMER_STORAGE_KEY)"));
   assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
   assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
+  assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
+  assert.ok(globalController.includes("window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
+  assert.ok(authForm.includes("window.dispatchEvent(new Event('nihongo:auth-signed-in'))"));
+  assert.ok(globalController.includes("detail: { sessionElapsedMs: 0, elapsedMs: 0, paused: true, reset: true }"));
+  const flushPosition = learningApp.indexOf('await studyTimeFlushRef.current?.();');
+  const signOutPosition = learningApp.indexOf('const { error } = await client.auth.signOut();', flushPosition);
+  assert.ok(flushPosition >= 0 && signOutPosition > flushPosition, 'final study time must flush before auth sign-out');
   assert.ok(globalController.includes("sessionId={sessionId}"));
   assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
   assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
