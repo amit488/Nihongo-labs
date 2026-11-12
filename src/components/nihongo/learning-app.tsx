@@ -57,7 +57,7 @@ export default function LearningApp({ section = [] }: Props) {
   const isExcludedStudySection = active === 'reading' || active === 'exams';
   const isExcludedStudySectionRef = useRef(isExcludedStudySection);
   const studyEligibilityChangeRef = useRef<(() => void) | null>(null);
-  const studyTimeFlushRef = useRef<(() => Promise<void>) | null>(null);
+  const studyTimeFlushRef = useRef<(() => Promise<() => void>) | null>(null);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -552,6 +552,11 @@ export default function LearningApp({ section = [] }: Props) {
       stoppingForSignOut = true;
       stopActiveLoop?.();
       await sendPendingTime(true);
+      return () => {
+        if (disposed) return;
+        stoppingForSignOut = false;
+        acquireStudyLock();
+      };
     };
     studyTimeFlushRef.current = flushPendingStudyTime;
 
@@ -717,9 +722,10 @@ export default function LearningApp({ section = [] }: Props) {
       return;
     }
     // Save the final partial study-time batch before signOut clears the auth cookie.
-    await studyTimeFlushRef.current?.();
+    const resumeStudyTime = await studyTimeFlushRef.current?.();
     const { error } = await client.auth.signOut();
     if (error) {
+      resumeStudyTime?.();
       setActivityTrackingNotice(error.message);
       return;
     }
