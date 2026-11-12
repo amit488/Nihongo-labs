@@ -18,11 +18,11 @@ All JSON mutations are same-origin protected and authenticated unless marked Pub
 | Method | Route | Purpose |
 |---|---|---|
 | `GET` | `/api/learning/dashboard` | Personal dashboard, mastery, streak, due reviews and recent attempts |
-| `GET/PATCH` | `/api/learning/settings` | Read/update profile, timezone, Romaji, furigana and daily goal |
-| `POST` | `/api/learning/activity` | Server-limited 60-second visible-session heartbeat |
+| `GET/PATCH` | `/api/learning/settings` | Read/update profile, timezone, Romaji and furigana preferences |
 | `POST` | `/api/learning/progress` | Save lesson progress and completion atomically |
 | `GET/POST/DELETE` | `/api/learning/bookmarks` | Learner-owned bookmarks |
-| `GET` | `/api/learning/vocabulary-due` | Due and new vocabulary queue |\n| `GET/POST/DELETE` | `/api/learning/grammar-progress` | Learner-owned grammar points marked as understood |\n| `GET` | `/api/learning/quick-revision?view=question` | Weighted learned-item MCQ selection across vocabulary, kanji and grammar |\n| `GET` | `/api/learning/quick-revision?view=stats` | Quick Revision attempts, accuracy and concepts to revisit |\n| `POST` | `/api/learning/quick-revision` | Server-grade and persist a Quick Revision response; correct answers are returned only after submission |
+| `GET` | `/api/learning/vocabulary-due` | Due and new vocabulary queue |
+| `GET/POST/DELETE` | `/api/learning/grammar-progress` | Learner-owned grammar points marked as understood |
 | `POST` | `/api/learning/vocabulary-review` | SM-2 vocabulary review and daily counter update |
 | `GET` | `/api/learning/grammar-intelligence` | Learner's grammar error patterns and weak concepts |
 | `GET` | `/api/learning/vocabulary-intelligence?level=N5` | Vocabulary SM-2 risk, due queue and mastery insights |
