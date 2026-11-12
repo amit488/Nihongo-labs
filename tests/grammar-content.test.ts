@@ -97,7 +97,7 @@ test('grammar actions use database IDs and keep pending and feedback state per g
   assert.match(grammarUi, /GRAMMAR_UUID_PATTERN/);
   assert.match(grammarUi, /\[savingLearnedIds, setSavingLearnedIds\] = useState<Set<string>>/);
   assert.match(grammarUi, /\[savingBookmarkIds, setSavingBookmarkIds\] = useState<Set<string>>/);
-  assert.match(grammarUi, /notices: Record<string, string>/);
+  assert.match(grammarUi, /\[notices, setNotices\] = useState<Record<string, string>>/);
   assert.match(grammarUi, /notices\[item\.id\]/);
   assert.match(grammarUi, /commonMistakes\?\.length/);
   assert.match(grammarData, /commonMistakes: Array\.isArray\(row\.common_mistakes\)/);
