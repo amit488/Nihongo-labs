@@ -93,11 +93,22 @@ export async function GET(request: NextRequest) {
         }, { headers: { 'Cache-Control': 'private, no-store' } });
       }
 
+      const learner = await requireUser();
       let query = supabase.from('grammar_points')
         .select(grammarFields, { count: 'exact' })
         .eq('jlpt_level', level).eq('publication_status', 'published')
-        .order('sort_order').order('title').order('id')
-        .range(offset, offset + limit);
+        .order('sort_order').order('title').order('id');
+      if (learner.ok) {
+        const { data: learnedRows, error: learnedError } = await learner.supabase
+          .from('user_grammar_progress')
+          .select('grammar_id')
+          .eq('user_id', learner.user.id)
+          .limit(1000);
+        if (learnedError) throw new HttpError(500, 'Could not filter learned grammar sets.', learnedError.message);
+        const learnedIds = (learnedRows ?? []).map((row) => row.grammar_id).filter(Boolean);
+        if (learnedIds.length) query = query.not('id', 'in', `(${learnedIds.join(',')})`);
+      }
+      query = query.range(offset, offset + limit);
       if (search) query = query.or(`title.ilike.%${search}%,pattern.ilike.%${search}%,explanation.ilike.%${search}%`);
       const { data, error, count } = await query;
       if (error) throw new HttpError(500, 'Could not load grammar content.', error.message);
@@ -117,7 +128,7 @@ export async function GET(request: NextRequest) {
       });
       return NextResponse.json({
         items, hasMore, nextOffset: offset + items.length, total: count ?? 0,
-      }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
+      }, { headers: { 'Cache-Control': learner.ok ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300' } });
     }
     if (kind === 'vocabulary') {
       const targetId = request.nextUrl.searchParams.get('id')?.trim() ?? '';
