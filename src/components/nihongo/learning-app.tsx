@@ -643,13 +643,21 @@ export default function LearningApp({ section = [] }: Props) {
       if (isEligible()) acquireStudyLock();
       else stopActiveLoop?.();
     };
-    const handlePageHide = () => stopActiveLoop?.();
+    const handleBeforeAuthSessionEnd = (event: Event) => {
+      const detail = (event as CustomEvent<{ beforeSessionEnd?: () => Promise<void> }>).detail;
+      if (!detail) return;
+      detail.beforeSessionEnd = async () => {
+        // Stop the timer and wait for its final partial heartbeat before
+        // the global pagehide controller revokes a non-remembered session.
+        await studyTimeFlushRef.current?.();
+      };
+    };
 
     studyEligibilityChangeRef.current = handleEligibilityChange;
     document.addEventListener('visibilitychange', handleEligibilityChange);
     window.addEventListener('focus', handleEligibilityChange);
     window.addEventListener('blur', handleEligibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd);
 
     const initialize = async () => {
       const client = getSupabaseBrowserClient();
@@ -685,7 +693,7 @@ export default function LearningApp({ section = [] }: Props) {
       document.removeEventListener('visibilitychange', handleEligibilityChange);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd);
       stopActiveLoop?.();
     };
   }, [signedIn]);
