@@ -268,6 +268,12 @@ test('keep-me-signed-in controls Supabase persistence and close-time sign-out', 
   assert.ok(browserClient.includes('autoRefreshToken: false'));
   assert.ok(globalController.includes('shouldKeepSignedInInBrowser()'));
   assert.ok(globalController.includes("fetch('/api/auth/session-end'"));
+  assert.ok(globalController.includes('detail.finishStudySession(signOut)'));
+  assert.ok(learningApp.includes('detail.finishStudySession = (signOut) =>')) ;
+  assert.ok(learningApp.includes('endSession: signOut')) ;
+  assert.ok(learningApp.includes('stopActiveLoop?.(false)')) ;
+  assert.ok(sessionEndRoute.includes("admin.rpc('record_user_heartbeat'"));
+  assert.ok(sessionEndRoute.includes('context.supabase.auth.signOut()'));
   assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
   assert.ok(learningApp.includes("window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd)"));
   assert.ok(learningApp.includes('await studyTimeFlushRef.current?.();'));
