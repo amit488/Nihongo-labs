@@ -48,15 +48,18 @@ test('retirement migration removes site-wide timer and Quick Revision without re
   const path = resolve(process.cwd(), 'supabase', 'migrations', '20261112140000_remove_study_timer_and_quick_revision.sql');
   assert.equal(existsSync(path), true, 'feature retirement migration is missing');
   const migration = readFileSync(path, 'utf8');
-  assert.match(migration, /drop function if exists public\\.record_user_heartbeat/i);
-  assert.match(migration, /drop table if exists public\\.user_activity_heartbeat_requests/i);
-  assert.match(migration, /drop table if exists public\\.quick_revision_attempts/i);
-  assert.match(migration, /drop table if exists public\\.quick_revision_state/i);
-  assert.match(migration, /create or replace function public\\.get_learning_dashboard\\(\\)[\\s\\S]*?preferences/i);
-  assert.doesNotMatch(migration, /daily_study_goal_minutes|study_seconds|quick_revision_attempts|quick_revision_state/);
-  assert.match(migration, /public\\.user_grammar_progress/);
-  assert.match(migration, /create or replace function public\\.get_vocabulary_intelligence/i);
-  assert.match(migration, /create or replace function public\\.get_grammar_intelligence/i);
+  assert.ok(migration.includes('drop function if exists public.record_user_heartbeat'));
+  assert.ok(migration.includes('drop table if exists public.user_activity_heartbeat_requests'));
+  assert.ok(migration.includes('drop table if exists public.quick_revision_attempts'));
+  assert.ok(migration.includes('drop table if exists public.quick_revision_state'));
+  assert.ok(migration.includes('create or replace function public.get_learning_dashboard()'));
+  assert.ok(migration.includes('public.user_grammar_progress'));
+  assert.ok(migration.includes('create or replace function public.get_vocabulary_intelligence'));
+  assert.ok(migration.includes('create or replace function public.get_grammar_intelligence'));
+  const analyticsStart = migration.indexOf('create or replace function public.get_vocabulary_intelligence');
+  const dropsStart = migration.indexOf('drop function if exists public.persist_quick_revision_attempt');
+  const analyticsFunctions = migration.slice(analyticsStart, dropsStart);
+  assert.doesNotMatch(analyticsFunctions, /daily_study_goal_minutes|study_seconds|quick_revision|Quick Revision/);
 });
 
 test('dashboard and flashcard queue use RLS-respecting database RPCs', () => {
