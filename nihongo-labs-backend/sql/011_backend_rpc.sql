@@ -154,6 +154,7 @@ revoke all on function public.reserve_quiz_attempt(uuid, uuid) from public, anon
 grant execute on function public.reserve_quiz_attempt(uuid, uuid) to service_role;
 
 -- Make quiz response persistence, attempt finalization and activity increments one transaction.
+drop function if exists public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date, integer);
 create or replace function public.finalize_quiz_attempt(
   _attempt_id uuid,
   _user_id uuid,
@@ -261,8 +262,7 @@ revoke all on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric
 grant execute on function public.finalize_quiz_attempt(uuid, uuid, numeric, numeric, numeric, integer, jsonb, date) to service_role;
 
 -- Save a review event, the new FSRS state, session counters and daily activity atomically.
--- Drop the earlier service-only signature so PostgREST cannot ambiguously resolve
--- an overload after the daily-limit arguments were added.
+drop function if exists public.persist_flashcard_review(uuid, uuid, uuid, public.flashcard_rating, integer, jsonb, jsonb, date, integer, integer, integer);
 create or replace function public.persist_flashcard_review(
   _user_id uuid,
   _flashcard_id uuid,
@@ -532,8 +532,9 @@ $$;
 revoke all on function public.persist_vocabulary_review(uuid, uuid, smallint, date) from public, anon, authenticated;
 grant execute on function public.persist_vocabulary_review(uuid, uuid, smallint, date) to service_role;
 
--- Persist lesson progress and the completion/activity counters in one transaction.
+-- Persist lesson progress and the completion counters in one transaction.
 -- The app checks publication and entitlements before calling this service-role-only RPC.
+drop function if exists public.persist_lesson_progress(uuid, uuid, text, integer, date, integer);
 create or replace function public.persist_lesson_progress(
   _user_id uuid,
   _lesson_id uuid,
