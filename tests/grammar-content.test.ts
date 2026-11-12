@@ -87,8 +87,8 @@ test('grammar progress writes are idempotent and tied to the authenticated learn
 
 test('grammar actions use database IDs and keep pending and feedback state per grammar point', () => {
   assert.match(grammarUi, /GRAMMAR_UUID_PATTERN/);
-  assert.match(grammarUi, /savingLearnedIds: Set<string>/);
-  assert.match(grammarUi, /savingBookmarkIds: Set<string>/);
+  assert.match(grammarUi, /\[savingLearnedIds, setSavingLearnedIds\] = useState<Set<string>>/);
+  assert.match(grammarUi, /\[savingBookmarkIds, setSavingBookmarkIds\] = useState<Set<string>>/);
   assert.match(grammarUi, /notices: Record<string, string>/);
   assert.match(grammarUi, /notices\[item\.id\]/);
   assert.match(grammarUi, /commonMistakes\?\.length/);
