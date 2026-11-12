@@ -3,6 +3,7 @@ import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { KEEP_SIGNED_IN_COOKIE } from '@/lib/nihongo/auth-session';
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -11,8 +12,10 @@ function requiredEnv(name: string): string {
 }
 
 /** Cookie-backed client for Server Components, Server Actions and Route Handlers. */
-export async function createServerSupabase() {
+export async function createServerSupabase(options: { persistentSession?: boolean } = {}) {
   const cookieStore = await cookies();
+  const persistentSession = options.persistentSession ??
+    cookieStore.get(KEEP_SIGNED_IN_COOKIE)?.value === 'true';
   return createServerClient(
     requiredEnv('NEXT_PUBLIC_SUPABASE_URL'),
     requiredEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
@@ -23,8 +26,16 @@ export async function createServerSupabase() {
         },
         setAll(cookiesToSet) {
           try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+            for (const { name, value, options: cookieOptions } of cookiesToSet) {
+              const nextOptions = { ...cookieOptions };
+              // Supabase SSR defaults auth cookies to a long maxAge. Keep
+              // non-remembered sessions as browser-session cookies instead.
+              // Preserve maxAge=0 on removals so sign-out still deletes cookies.
+              if (!persistentSession && cookieOptions?.maxAge !== 0 && value) {
+                delete nextOptions.maxAge;
+                delete nextOptions.expires;
+              }
+              cookieStore.set(name, value, nextOptions);
             }
           } catch {
             // Server Components cannot write cookies. src/proxy.ts refreshes them.
