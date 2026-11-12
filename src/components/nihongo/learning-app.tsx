@@ -926,7 +926,10 @@ function Progress({snapshot,streak,signedIn}:{snapshot:LearnerSnapshot;streak:nu
     })).then(([n5, n4]) => {
       if (active) setGrammarProgress({ N5: n5[1], N4: n4[1] });
     }).catch(() => { if (active) setGrammarProgress(null); });
-    const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
+    return () => { active = false; };
+  }, [signedIn]);
+
+  const mastery = snapshot.mastery || { grammar:0, vocabulary:0, kanji:0, reading:0, kana:0, overallLessons:0 };
   const scores = snapshot.recentScores || [];
   const overallPercentage = Math.max(0, Math.min(100, Number(snapshot.overallPercentage) || 0));
   const weekDays = useMemo(() => {
