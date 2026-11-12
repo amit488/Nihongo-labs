@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { QuickRevision } from './quick-revision';
+import { clearKeepSignedInPreferenceInBrowser, shouldKeepSignedInInBrowser } from '@/lib/nihongo/auth-session';
 
 const TIMER_STORAGE_KEY = 'nihongo:quick-revision:timer:v1';
 const SESSION_STORAGE_KEY = 'nihongo:quick-revision:session:v1';
@@ -76,12 +77,55 @@ export default function GlobalQuickRevision() {
     const finishSignOut = () => {
       authRevision.current += 1;
       clearSignedInSession();
+      clearKeepSignedInPreferenceInBrowser();
       setSessionId(null);
       setSignedIn(false);
     };
 
     const handleAppSignOut = () => finishSignOut();
+    // A real document unload ends this tab's study session even if the user
+    // never clicked Sign out. Ordinary tab switching does not fire pagehide.
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      authRevision.current += 1;
+      clearSignedInSession();
+      // Every real document close ends the study timer and flushes pending activity.
+      const detail: { finishStudySession?: (signOut: boolean) => void } = {};
+      window.dispatchEvent(new CustomEvent('nihongo:before-auth-session-end', { detail }));
+      const signOut = !shouldKeepSignedInInBrowser();
+      if (detail.finishStudySession) {
+        detail.finishStudySession(signOut);
+      } else if (signOut) {
+        // Admin and other authenticated pages have no study-time heartbeat to flush.
+        void fetch('/api/auth/session-end', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endSession: true }),
+          cache: 'no-store',
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    };
+    const handleAppSignIn = () => {
+      authRevision.current += 1;
+      const revision = authRevision.current;
+      void client.auth.getUser().then(({ data, error }) => {
+        if (!alive || revision !== authRevision.current) return;
+        if (error || !data.user || data.user.is_anonymous) {
+          finishSignOut();
+          return;
+        }
+        const nextSessionId = startOrResumeSession(data.user.id);
+        setSessionId(nextSessionId);
+        setSignedIn(true);
+      }).catch(() => {
+        if (alive && revision === authRevision.current) finishSignOut();
+      });
+    };
     window.addEventListener('nihongo:auth-signed-out', handleAppSignOut);
+    window.addEventListener('nihongo:auth-signed-in', handleAppSignIn);
+    window.addEventListener('pagehide', handlePageHide);
 
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
@@ -126,6 +170,8 @@ export default function GlobalQuickRevision() {
       alive = false;
       authRevision.current += 1;
       window.removeEventListener('nihongo:auth-signed-out', handleAppSignOut);
+      window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn);
+      window.removeEventListener('pagehide', handlePageHide);
       listener.subscription.unsubscribe();
     };
   }, []);

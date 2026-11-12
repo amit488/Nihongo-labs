@@ -56,14 +56,14 @@ test('Quick Revision pauses on login, signup and auth callback routes', () => {
 
 test('question and answer endpoints remain protected by server-verified Supabase auth', () => {
   assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
-  assert.ok(supabaseServer.includes('if (error || !data.user || data.user.is_anonymous)'));
+  assert.ok(supabaseServer.includes('if (authResult.error || !user || user.is_anonymous)'));
 });
 
 
 test('anonymous Supabase users cannot activate Quick Revision or access learner endpoints', () => {
   assert.ok(globalController.includes('session?.user?.is_anonymous'));
   assert.ok(globalController.includes('data.user.is_anonymous'));
-  assert.ok(supabaseServer.includes('data.user.is_anonymous'));
+  assert.ok(supabaseServer.includes('user.is_anonymous'));
 });
 
 test('learner and admin logout clear the browser Supabase client session', () => {

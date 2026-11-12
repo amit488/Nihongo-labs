@@ -57,6 +57,7 @@ export default function LearningApp({ section = [] }: Props) {
   const isExcludedStudySection = active === 'reading' || active === 'exams';
   const isExcludedStudySectionRef = useRef(isExcludedStudySection);
   const studyEligibilityChangeRef = useRef<(() => void) | null>(null);
+  const studyTimeFlushRef = useRef<(() => Promise<() => void>) | null>(null);
   const [name, setName] = useState('Learner');
   const [signedIn, setSignedIn] = useState(false);
   const [activityTrackingNotice, setActivityTrackingNotice] = useState('');
@@ -296,6 +297,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     let disposed = false;
+    let stoppingForSignOut = false;
     let userId: string | null = null;
     let storageKey: string | null = null;
     type PendingStudyState = {
@@ -315,7 +317,7 @@ export default function LearningApp({ section = [] }: Props) {
     let currentSend: Promise<void> | null = null;
     let retryAfter = 0;
     let retryTimer: number | null = null;
-    let stopActiveLoop: (() => void) | null = null;
+    let stopActiveLoop: ((flushPending?: boolean) => void) | null = null;
 
     // Count only while this site tab is visible and focused; Reading and Mock Exams are exempt.
     const isEligible = () => !isExcludedStudySectionRef.current &&
@@ -545,6 +547,19 @@ export default function LearningApp({ section = [] }: Props) {
       await operation;
     };
 
+    const flushPendingStudyTime = async () => {
+      // Stop sampling and credit the final partial batch while the auth cookie is valid.
+      stoppingForSignOut = true;
+      stopActiveLoop?.();
+      await sendPendingTime(true);
+      return () => {
+        if (disposed) return;
+        stoppingForSignOut = false;
+        acquireStudyLock();
+      };
+    };
+    studyTimeFlushRef.current = flushPendingStudyTime;
+
     const startActiveLoop = (releaseLock: () => void) => {
       let stopped = false;
       let lastSampleAt = performance.now();
@@ -566,14 +581,18 @@ export default function LearningApp({ section = [] }: Props) {
         }
       };
 
-      const stop = () => {
+      const stop = (flushPending = true) => {
         if (stopped) return;
         stopped = true;
         window.clearInterval(timer);
         sample();
         stopActiveLoop = null;
-        // Keep the cross-tab lock until the final partial batch has been sent.
-        void sendPendingTime(true).finally(releaseLock);
+        if (flushPending) {
+          // Keep the cross-tab lock until the final partial batch has been sent.
+          void sendPendingTime(true).finally(releaseLock);
+        } else {
+          releaseLock();
+        }
       };
 
       stopActiveLoop = stop;
@@ -593,7 +612,7 @@ export default function LearningApp({ section = [] }: Props) {
     };
 
     const acquireStudyLock = () => {
-      if (disposed || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
+      if (disposed || stoppingForSignOut || !userId || !storageKey || !isStudyEligible() || lockRequestPending || stopActiveLoop) {
         return;
       }
 
@@ -628,13 +647,44 @@ export default function LearningApp({ section = [] }: Props) {
       if (isEligible()) acquireStudyLock();
       else stopActiveLoop?.();
     };
-    const handlePageHide = () => stopActiveLoop?.();
+    const handleBeforeAuthSessionEnd = (event: Event) => {
+      const detail = (event as CustomEvent<{ finishStudySession?: (signOut: boolean) => void }>).detail;
+      if (!detail) return;
+      detail.finishStudySession = (signOut) => {
+        stoppingForSignOut = signOut;
+        // Sample the final foreground interval without starting a separate
+        // heartbeat request that could race the session-ending request.
+        stopActiveLoop?.(false);
+        const pending = getOrCreateRequest();
+        const hasPendingBatch = Boolean(
+          pending.requestId && pending.requestCreatedAt && pending.requestSeconds,
+        );
+        const body = {
+          endSession: signOut,
+          ...(hasPendingBatch ? {
+            seconds: pending.requestSeconds,
+            requestId: pending.requestId,
+            requestCreatedAt: pending.requestCreatedAt,
+          } : {}),
+        };
+        // One keepalive request records any final study-time batch and, when
+        // required, revokes the Supabase session after the heartbeat succeeds.
+        void fetch('/api/auth/session-end', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          cache: 'no-store',
+          keepalive: true,
+        }).catch(() => undefined);
+      };
+    };
 
     studyEligibilityChangeRef.current = handleEligibilityChange;
     document.addEventListener('visibilitychange', handleEligibilityChange);
     window.addEventListener('focus', handleEligibilityChange);
     window.addEventListener('blur', handleEligibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd);
 
     const initialize = async () => {
       const client = getSupabaseBrowserClient();
@@ -664,10 +714,13 @@ export default function LearningApp({ section = [] }: Props) {
       if (studyEligibilityChangeRef.current === handleEligibilityChange) {
         studyEligibilityChangeRef.current = null;
       }
+      if (studyTimeFlushRef.current === flushPendingStudyTime) {
+        studyTimeFlushRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleEligibilityChange);
       window.removeEventListener('focus', handleEligibilityChange);
       window.removeEventListener('blur', handleEligibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd);
       stopActiveLoop?.();
     };
   }, [signedIn]);
@@ -703,8 +756,11 @@ export default function LearningApp({ section = [] }: Props) {
       setActivityTrackingNotice('Authentication is temporarily unavailable. Please try again.');
       return;
     }
+    // Save the final partial study-time batch before signOut clears the auth cookie.
+    const resumeStudyTime = await studyTimeFlushRef.current?.();
     const { error } = await client.auth.signOut();
     if (error) {
+      resumeStudyTime?.();
       setActivityTrackingNotice(error.message);
       return;
     }

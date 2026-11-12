@@ -24,6 +24,9 @@
 .authCard input:focus{border-color:#b54c43;box-shadow:0 0 0 3px rgba(181,76,67,.12)}
 .authCard input::placeholder{color:#a3adb5;font-weight:400}
 .authCard form button{height:43px;border:0;border-radius:8px;background:#b54c43;color:white;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:16px;cursor:pointer;margin-top:6px;transition:background .18s,transform .18s}
+.rememberMe{display:flex!important;flex-direction:row!important;align-items:center;gap:9px!important;margin-top:1px;color:#56616b!important;font-size:13px!important;font-weight:650!important;cursor:pointer;user-select:none}
+.rememberMe input{width:16px;height:16px;flex:0 0 16px;margin:0;accent-color:#b54c43;cursor:pointer}
+.rememberMe span{line-height:1.4}
 .authCard form button:hover{background:#913b35;transform:translateY(-1px)}
 .authCard form button:disabled{opacity:.55;cursor:wait}
 .authMessage{margin-top:14px;background:#f5e8e5;border:1px solid #edd3ce;color:#913b35;border-radius:7px;padding:10px;font-size:15px;line-height:1.55}

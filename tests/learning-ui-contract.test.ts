@@ -116,6 +116,7 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
   const quickStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/quick-revision.module.css'), 'utf8');
   const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
+  const authForm = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
 
   assert.ok(quickRevision.includes('const FIRST_QUESTION_MS = 5 * 60_000'));
   assert.ok(quickRevision.includes('const NEXT_QUESTION_MIN_MS = 4 * 60_000'));
@@ -141,6 +142,19 @@ test('Quick Revision is automatic, full-screen and repeats on a four-to-five-min
   assert.ok(globalController.includes("window.localStorage.removeItem(TIMER_STORAGE_KEY)"));
   assert.ok(globalController.includes("window.localStorage.removeItem(SESSION_STORAGE_KEY)"));
   assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-out', handleAppSignOut)"));
+  assert.ok(globalController.includes("window.addEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
+  assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
+  assert.ok(globalController.includes("window.removeEventListener('pagehide', handlePageHide)"));
+  assert.ok(globalController.includes('if (event.persisted) return;'));
+  assert.ok(globalController.includes('clearSignedInSession();'));
+  assert.ok(globalController.includes("window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn)"));
+  assert.ok(authForm.includes("window.dispatchEvent(new Event('nihongo:auth-signed-in'))"));
+  assert.ok(globalController.includes("detail: { sessionElapsedMs: 0, elapsedMs: 0, paused: true, reset: true }"));
+  const flushPosition = learningApp.indexOf('await studyTimeFlushRef.current?.();');
+  const signOutPosition = learningApp.indexOf('const { error } = await client.auth.signOut();', flushPosition);
+  assert.ok(flushPosition >= 0 && signOutPosition > flushPosition, 'final study time must flush before auth sign-out');
+  assert.ok(learningApp.includes('stoppingForSignOut = false;'));
+  assert.ok(learningApp.includes('resumeStudyTime?.();'));
   assert.ok(globalController.includes("sessionId={sessionId}"));
   assert.ok(quickRevision.includes("savedTimer?.sessionId === sessionId"));
   assert.ok(quickRevision.includes("storedSession.sessionId === sessionId"));
@@ -229,4 +243,54 @@ test('grammar catalogue is fetched in ten-set pages and learned sets have their 
   assert.ok(learningStyles.includes('height:clamp(280px,68vh,720px);min-height:0;overflow-y:auto;overscroll-behavior-y:contain;'));
   assert.ok(learningStyles.includes('@media(max-width:780px){.lessonList{height:clamp(260px,55vh,520px)}}'));
   assert.ok(n5ExamplesMigration.includes('grammar.jlpt_level::text = item.jlpt_level'));
+});
+
+
+test('keep-me-signed-in controls Supabase persistence and close-time sign-out', () => {
+  const authForm = readFileSync(resolve(process.cwd(), 'src/components/nihongo/auth-form.tsx'), 'utf8');
+  const authActions = readFileSync(resolve(process.cwd(), 'src/app/actions/auth.ts'), 'utf8');
+  const serverClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/server/supabase.ts'), 'utf8');
+  const browserClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/supabase.ts'), 'utf8');
+  const proxy = readFileSync(resolve(process.cwd(), 'src/proxy.ts'), 'utf8');
+  const globalController = readFileSync(resolve(process.cwd(), 'src/components/nihongo/global-quick-revision.tsx'), 'utf8');
+  const learningApp = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.tsx'), 'utf8');
+  const sessionEndRoute = readFileSync(resolve(process.cwd(), 'src/app/api/auth/session-end/route.ts'), 'utf8');
+
+  assert.ok(authForm.includes('Keep me signed in'));
+  assert.ok(authForm.includes("formData.set('keepSignedIn', keepSignedIn ? 'true' : 'false')"));
+  assert.ok(authForm.includes('KEEP_SIGNED_IN_STORAGE_KEY'));
+  assert.ok(authActions.includes("formData.get('keepSignedIn') === 'true'"));
+  assert.ok(authActions.includes('createServerSupabase({ persistentSession: keepSignedIn })'));
+  assert.ok(serverClient.includes('cookieStore.get(KEEP_SIGNED_IN_COOKIE)?.value === \'true\''));
+  assert.ok(serverClient.includes('delete nextOptions.maxAge;'));
+  assert.ok(proxy.includes("request.cookies.get(KEEP_SIGNED_IN_COOKIE)?.value === 'true'"));
+  assert.ok(proxy.includes('delete nextOptions.maxAge;'));
+  assert.ok(browserClient.includes('autoRefreshToken: false'));
+  assert.ok(globalController.includes('shouldKeepSignedInInBrowser()'));
+  assert.ok(globalController.includes("fetch('/api/auth/session-end'"));
+  assert.ok(globalController.includes('detail.finishStudySession(signOut)'));
+  assert.ok(learningApp.includes('detail.finishStudySession = (signOut) =>')) ;
+  assert.ok(learningApp.includes('endSession: signOut')) ;
+  assert.ok(learningApp.includes('stopActiveLoop?.(false)')) ;
+  assert.ok(sessionEndRoute.includes("admin.rpc('record_user_heartbeat'"));
+  assert.ok(sessionEndRoute.includes('context.supabase.auth.signOut()'));
+  assert.ok(globalController.includes("window.addEventListener('pagehide', handlePageHide)"));
+  assert.ok(learningApp.includes("window.addEventListener('nihongo:before-auth-session-end', handleBeforeAuthSessionEnd)"));
+  assert.ok(learningApp.includes('const resumeStudyTime = await studyTimeFlushRef.current?.();'));
+  assert.ok(sessionEndRoute.includes('supabase.auth.signOut()'));
+  assert.ok(sessionEndRoute.includes('assertSameOrigin(request)'));
+});
+
+test('server auth verification recovers from stale sessions and does not misreport transient failures as sign-out', () => {
+  const serverClient = readFileSync(resolve(process.cwd(), 'src/lib/nihongo/server/supabase.ts'), 'utf8');
+  const quickRevisionApi = readFileSync(resolve(process.cwd(), 'src/app/api/learning/quick-revision/route.ts'), 'utf8');
+
+  assert.match(serverClient, /AuthRetryableFetchError/);
+  assert.match(serverClient, /TRANSIENT_AUTH_HTTP_STATUSES/);
+  assert.match(serverClient, /getUserWithTransientRetry/);
+  assert.match(serverClient, /supabase\.auth\.refreshSession\(\)/);
+  assert.match(serverClient, /new HttpError\(503, AUTH_UNAVAILABLE_MESSAGE\)/);
+  assert.match(serverClient, /Authentication is temporarily unavailable/);
+  assert.match(serverClient, /Authentication required\./);
+  assert.match(quickRevisionApi, /const context = await requireUser\(\)/);
 });

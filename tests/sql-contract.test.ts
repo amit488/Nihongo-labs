@@ -84,7 +84,7 @@ test('study-time client persists partial seconds and coordinates active tabs', (
   const component = readFileSync(componentPath, 'utf8');
   assert.ok(component.includes('localStorage.setItem(storageKey'));
   assert.ok(component.includes('navigator as unknown as { locks?: BrowserLockManager }'));
-  assert.ok(component.includes('pagehide'));
+  assert.ok(component.includes("nihongo:before-auth-session-end"));
   assert.ok(component.includes('sendPendingTime(true)'));
   assert.ok(component.includes('crypto.randomUUID()'));
   assert.ok(!component.includes('inactivityLimitMilliseconds'));

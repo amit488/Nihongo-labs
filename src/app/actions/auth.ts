@@ -1,7 +1,9 @@
 'use server';
 
 import { z } from 'zod';
+import { cookies } from 'next/headers';
 import { createServerSupabase } from '@/lib/nihongo/server/supabase';
+import { KEEP_SIGNED_IN_COOKIE, PERSISTENT_SESSION_MAX_AGE_SECONDS } from '@/lib/nihongo/auth-session';
 
 const credentials = z.object({ email: z.string().trim().email().max(254), password: z.string().min(8).max(128) });
 const emailOnly = z.object({ email: z.string().trim().email().max(254) });
@@ -19,12 +21,23 @@ function getEmailRedirectUrl() {
   return new URL('/auth/callback?next=/learn', siteUrl).toString();
 }
 
+async function saveKeepSignedInPreference(keepSignedIn: boolean) {
+  const cookieStore = await cookies();
+  cookieStore.set(KEEP_SIGNED_IN_COOKIE, keepSignedIn ? 'true' : 'false', {
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    ...(keepSignedIn ? { maxAge: PERSISTENT_SESSION_MAX_AGE_SECONDS } : {}),
+  });
+}
+
 export async function signUpAction(formData: FormData): Promise<AuthActionResult> {
   const parsed = credentials.safeParse({ email: formData.get('email'), password: formData.get('password') });
   if (!parsed.success) return { success: false, message: 'Enter a valid email and a password of at least 8 characters.' };
 
   const displayName = String(formData.get('displayName') ?? '').trim().slice(0, 80);
-  const supabase = await createServerSupabase();
+  // Sign-up has no remember-me choice, so its session is temporary by default.
+  const supabase = await createServerSupabase({ persistentSession: false });
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -67,6 +80,7 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
       message: 'If this address can be registered, a confirmation email will arrive shortly.',
     };
   }
+  await saveKeepSignedInPreference(false);
   return { success: true, authenticated: true, message: 'Account created successfully.' };
 }
 
@@ -88,11 +102,13 @@ export async function resendSignupConfirmationAction(formData: FormData): Promis
 export async function signInAction(formData: FormData): Promise<AuthActionResult> {
   const parsed = credentials.safeParse({ email: formData.get('email'), password: formData.get('password') });
   if (!parsed.success) return { success: false, message: 'Enter a valid email and password.' };
-  const supabase = await createServerSupabase();
+  const keepSignedIn = formData.get('keepSignedIn') === 'true' || formData.get('keepSignedIn') === 'on';
+  const supabase = await createServerSupabase({ persistentSession: keepSignedIn });
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     return { success: false, message: 'Invalid email or password, or additional verification is required.' };
   }
+  await saveKeepSignedInPreference(keepSignedIn);
   const { data: roleRows, error: roleError } = await supabase
     .from('user_roles')
     .select('role')
@@ -110,5 +126,7 @@ export async function signOutAction(): Promise<AuthActionResult> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.auth.signOut();
   if (error) return { success: false, message: error.message };
+  const cookieStore = await cookies();
+  cookieStore.set(KEEP_SIGNED_IN_COOKIE, '', { path: '/', maxAge: 0 });
   return { success: true, message: 'Signed out.' };
 }
