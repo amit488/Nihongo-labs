@@ -81,6 +81,13 @@ export default function GlobalQuickRevision() {
     };
 
     const handleAppSignOut = () => finishSignOut();
+    // A real document unload ends this tab's study session even if the user
+    // never clicked Sign out. Ordinary tab switching does not fire pagehide.
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      authRevision.current += 1;
+      clearSignedInSession();
+    };
     const handleAppSignIn = () => {
       authRevision.current += 1;
       const revision = authRevision.current;
@@ -99,6 +106,7 @@ export default function GlobalQuickRevision() {
     };
     window.addEventListener('nihongo:auth-signed-out', handleAppSignOut);
     window.addEventListener('nihongo:auth-signed-in', handleAppSignIn);
+    window.addEventListener('pagehide', handlePageHide);
 
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
@@ -144,6 +152,7 @@ export default function GlobalQuickRevision() {
       authRevision.current += 1;
       window.removeEventListener('nihongo:auth-signed-out', handleAppSignOut);
       window.removeEventListener('nihongo:auth-signed-in', handleAppSignIn);
+      window.removeEventListener('pagehide', handlePageHide);
       listener.subscription.unsubscribe();
     };
   }, []);
