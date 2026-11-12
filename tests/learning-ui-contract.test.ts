@@ -220,7 +220,7 @@ test('grammar catalogue is fetched in ten-set pages and learned sets have their 
 
   const learningStyles = readFileSync(resolve(process.cwd(), 'src/components/nihongo/learning-app.module.css'), 'utf8');
   const n5ExamplesMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261112130000_expand_n5_grammar_examples.sql'), 'utf8');
-  assert.ok(grammarApi.includes("learner.supabase.from('user_grammar_progress')"));
+  assert.match(grammarApi, /learner\.supabase\s+\.from\('user_grammar_progress'\)/);
   assert.ok(grammarApi.includes("query = query.not('id', 'in', `(${learnedIds.join(',')})`)"));
   assert.ok(grammarApi.includes("'Cache-Control': learner.ok ? 'private, no-store'"));
   assert.match(features, /view === 'all' && !isLearned/);
