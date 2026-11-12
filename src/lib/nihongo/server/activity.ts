@@ -17,11 +17,11 @@ export async function bumpDailyActivity(
   admin: SupabaseClient,
   userId: string,
   timezone: string,
-  increments: Partial<Record<'study_seconds' | 'lessons_completed' | 'quizzes_completed' | 'vocabulary_reviewed' | 'flashcards_reviewed' | 'flashcards_again' | 'flashcards_known' | 'flashcards_new', number>>,
+  increments: Partial<Record<'lessons_completed' | 'quizzes_completed' | 'vocabulary_reviewed' | 'flashcards_reviewed' | 'flashcards_again' | 'flashcards_known' | 'flashcards_new', number>>,
 ) {
   const date = localDateKey(new Date(), timezone);
   const allowed = new Set([
-    'study_seconds', 'lessons_completed', 'quizzes_completed', 'vocabulary_reviewed',
+    'lessons_completed', 'quizzes_completed', 'vocabulary_reviewed',
     'flashcards_reviewed', 'flashcards_again', 'flashcards_known', 'flashcards_new',
   ]);
   for (const [key, value] of Object.entries(increments)) {
