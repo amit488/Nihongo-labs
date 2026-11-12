@@ -2,7 +2,7 @@ export type GrammarPracticeQuestion = {
   id: string;
   prompt: string;
   options: string[];
-  answer: string;
+  answer?: string;
   explanation: string;
 };
 
