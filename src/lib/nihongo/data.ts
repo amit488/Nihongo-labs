@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from './supabase';
-import { grammar, kanji, vocabulary, type VocabularyItem } from './demo-content';
+import { grammar, kanji, vocabulary, type GrammarItem, type VocabularyItem } from './demo-content';
 
 export type LearnerSnapshot = {
   displayName: string;
@@ -66,6 +66,8 @@ type GrammarExampleRow = { japanese?: string; sentence?: string; romaji?: string
 type GrammarContentRow = {
   id: string; title: string; pattern: string; explanation: string;
   formation: string | null; examples: GrammarExampleRow[] | null;
+  common_mistakes: string[] | null; category: string | null;
+  difficulty: GrammarItem['difficulty'] | null; sort_order: number;
 };
 type FlashcardContentRow = {
   id: string; deckId: string; deckTitle: string; deckSlug: string;
@@ -215,15 +217,22 @@ export async function getPublishedKanji(level: 'N5' | 'N4' = 'N5') {
 export async function getPublishedGrammar(level: 'N5' | 'N4' = 'N5') {
   try {
     const { items } = await apiGet<ContentResponse<GrammarContentRow>>(`/api/learning/content?kind=grammar&level=${level}&limit=250`);
-    if (!items.length) return level === 'N5' ? grammar : [];
-    return items.map((row) => ({
+    // An empty published catalogue is genuinely empty. Do not turn it into
+    // preview rows with non-UUID IDs that cannot be saved to learner tables.
+    return (items ?? []).map((row) => ({
       id: row.id, title: row.title, pattern: row.pattern, explanation: row.explanation,
-      formation: row.formation || '', category: 'Grammar', difficulty: 'Core' as const,
+      formation: row.formation || '', category: row.category || 'Grammar',
+      difficulty: row.difficulty || 'Core',
+      commonMistakes: Array.isArray(row.common_mistakes) ? row.common_mistakes : [],
       examples: Array.isArray(row.examples) ? row.examples.map((item) => ({
         japanese: item.japanese || item.sentence || '', romaji: item.romaji || '', meaning: item.meaning || item.translation || '',
       })) : [],
     }));
-  } catch { return level === 'N5' ? grammar : []; }
+  } catch {
+    // Keep a read-only N5 preview if the API is unavailable. GrammarStudio
+    // prevents preview IDs from being submitted to persistence endpoints.
+    return level === 'N5' ? grammar : [];
+  }
 }
 
 export type LearnerFlashcard = {
