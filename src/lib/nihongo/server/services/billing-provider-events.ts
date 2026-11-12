@@ -122,7 +122,7 @@ export async function syncSubscriptionEvent(
     }
   }
 
-  if (statusApplied === true && (event === 'subscription.activated' || event === 'subscription.charged') && subscription.user_id) {
+  if (statusApplied === true && mappedStatus === 'active' && (event === 'subscription.activated' || event === 'subscription.charged') && subscription.user_id) {
     await syncPlanEntitlements(admin, {
       userId: subscription.user_id,
       planId: subscription.plan_id,

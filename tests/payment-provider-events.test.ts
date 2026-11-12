@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   isPaymentCaptureFinal,
   mapRazorpaySubscriptionStatus,
@@ -33,4 +35,15 @@ test('captured and refunded payment states are final against a late failure even
   assert.equal(isPaymentCaptureFinal('refunded'), true);
   assert.equal(isPaymentCaptureFinal('failed'), false);
   assert.equal(isPaymentCaptureFinal('authorized'), false);
+});
+
+test('paused and terminal activation payloads never grant active entitlements', async () => {
+  const source = readFileSync(
+    resolve(process.cwd(), 'src/lib/nihongo/server/services/billing-provider-events.ts'),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /statusApplied === true && mappedStatus === 'active'[\s\S]*?syncPlanEntitlements/,
+  );
 });
