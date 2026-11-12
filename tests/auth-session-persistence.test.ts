@@ -64,7 +64,7 @@ test('closing the website signs out non-remembered sessions after pending study-
   const controller = read('src/components/nihongo/global-quick-revision.tsx');
   const learning = read('src/components/nihongo/learning-app.tsx');
   const route = read('src/app/api/auth/session/route.ts');
-  assert.match(controller, /if \(isAuthRouteRef\.current \|\| hasKeepSignedInPreference\(\)\) return/);
+  assert.match(controller, /if \(isAuthScreen \|\| hasKeepSignedInPreference\(\)\) return/);
   assert.match(controller, /Promise\.allSettled\(pendingFlushes\)/);
   assert.match(controller, /fetch\('\/api\/auth\/session'/);
   assert.match(learning, /nihongo:prepare-session-end/);

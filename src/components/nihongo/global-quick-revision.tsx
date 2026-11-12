@@ -78,8 +78,6 @@ export default function GlobalQuickRevision() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isAuthRoute = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/');
   const authRevision = useRef(0);
-  const isAuthRouteRef = useRef(isAuthRoute);
-  isAuthRouteRef.current = isAuthRoute;
   // Authentication screens are not study time and must never trigger revision questions.
   const activeSection = isAuthRoute ? 'auth' : pathname.startsWith('/learn')
     ? pathname.split('/')[2] || 'overview'
@@ -107,7 +105,9 @@ export default function GlobalQuickRevision() {
       } catch {
         // The next fresh browser tab still receives a new storage session.
       }
-      if (isAuthRouteRef.current || hasKeepSignedInPreference()) return;
+      const currentPath = window.location.pathname;
+      const isAuthScreen = currentPath === '/login' || currentPath === '/signup' || currentPath.startsWith('/auth/');
+      if (isAuthScreen || hasKeepSignedInPreference()) return;
       const pendingFlushes: Promise<unknown>[] = [];
       window.dispatchEvent(new CustomEvent('nihongo:prepare-session-end', {
         detail: { register: (flush: Promise<unknown>) => pendingFlushes.push(flush) },
