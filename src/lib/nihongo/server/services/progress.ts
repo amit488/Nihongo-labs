@@ -7,7 +7,7 @@ export async function saveLessonProgress(
   userClient: SupabaseClient,
   admin: SupabaseClient,
   userId: string,
-  input: { lessonId: string; status: 'in_progress' | 'completed'; lastPositionSeconds: number; studySeconds?: number },
+  input: { lessonId: string; status: 'in_progress' | 'completed'; lastPositionSeconds: number },
 ) {
   const { data: lesson, error: lessonError } = await userClient.from('lessons')
     .select('id,access_level,course_units!inner(course_id,courses!inner(access_level))')
@@ -50,8 +50,6 @@ export async function getDashboard(userClient: SupabaseClient) {
     preferences: { daily_study_goal_minutes: number; preferred_jlpt_level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'; show_romaji: boolean; show_furigana: boolean };
     progress: Record<string, unknown> & { mastery: Record<string, number> };
     streak: number; due: { vocabulary: number; flashcards: number; total: number };
-    dailyGoal: { minutes: number; studiedSeconds: number }; totalStudySeconds: number;
-    recentActivity: Array<Record<string, unknown> & { activity_date: string; study_seconds: number }>;
     recentAttempts: Array<Record<string, unknown> & { score_percentage: number | null }>;
     flashcardSettings: { daily_new_limit: number; daily_review_limit: number; show_romaji: boolean; show_furigana: boolean } | null;
   };
