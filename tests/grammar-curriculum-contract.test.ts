@@ -50,7 +50,7 @@ type LegacyN5SeedRow = {
 function readLegacyN5SeedRows(sql: string): LegacyN5SeedRow[] {
   const rows = sql.split('\n').filter((line) => line.trimStart().startsWith('insert into public.grammar_points'));
   return rows.map((line) => {
-    const match = line.match(/values \\('N5','[^']*','([^']*)','[^']*','[^']*','(\\[.*?\\])'::jsonb/);
+    const match = line.match(/values \('N5','[^']*','([^']*)','[^']*','[^']*','(\[.*?\])'::jsonb/);
     assert.ok(match, 'Every legacy N5 grammar seed row must expose its pattern and examples');
     return {
       pattern: match[1],
