@@ -5,6 +5,7 @@ export type GrammarItem = {
   explanation: string;
   formation: string;
   examples: { japanese: string; romaji: string; meaning: string }[];
+  commonMistakes?: string[];
   category: string;
   difficulty: 'Beginner' | 'Core' | 'Challenge';
 };
