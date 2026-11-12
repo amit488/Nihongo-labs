@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/nihongo/supabase';
 import { QuickRevision } from './quick-revision';
+import { clearKeepSignedInPreferenceInBrowser, shouldKeepSignedInInBrowser } from '@/lib/nihongo/auth-session';
 
 const TIMER_STORAGE_KEY = 'nihongo:quick-revision:timer:v1';
 const SESSION_STORAGE_KEY = 'nihongo:quick-revision:session:v1';
@@ -76,6 +77,7 @@ export default function GlobalQuickRevision() {
     const finishSignOut = () => {
       authRevision.current += 1;
       clearSignedInSession();
+      clearKeepSignedInPreferenceInBrowser();
       setSessionId(null);
       setSignedIn(false);
     };
@@ -87,6 +89,25 @@ export default function GlobalQuickRevision() {
       if (event.persisted) return;
       authRevision.current += 1;
       clearSignedInSession();
+      if (shouldKeepSignedInInBrowser()) return;
+
+      // Let the learning workspace flush its final partial heartbeat first.
+      // The global fallback still signs out admin and other authenticated pages.
+      const detail: { beforeSessionEnd?: () => Promise<void> } = {};
+      window.dispatchEvent(new CustomEvent('nihongo:before-auth-session-end', { detail }));
+      void (async () => {
+        try { await detail.beforeSessionEnd?.(); } catch { /* The server sign-out is still attempted. */ }
+        try {
+          await fetch('/api/auth/session-end', {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            keepalive: true,
+          });
+        } catch {
+          // The non-remembered Supabase cookie is also a browser-session cookie.
+        }
+      })();
     };
     const handleAppSignIn = () => {
       authRevision.current += 1;
