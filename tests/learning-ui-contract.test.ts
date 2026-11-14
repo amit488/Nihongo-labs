@@ -11,7 +11,7 @@ const copyProtection = readFileSync(resolve(process.cwd(), 'src/components/copy-
 test('daily-goal ring and progress use measured study seconds', () => {
   assert.match(dashboard, /rawStudiedSeconds/);
   assert.match(dashboard, /studiedSeconds\s*\/\s*\(goal\s*\*\s*60\)/);
-  assert.match(dashboard, /conic-gradient\(#c7695e 0 \$\{goalPercent\}%/);
+  assert.match(dashboard, /conic-gradient\(#5367e8 0 \$\{goalPercent\}%/);
   assert.match(dashboard, /aria-label=\{\`\$\{goalPercent\}% of the daily study goal completed\`\}/);
 });
 
