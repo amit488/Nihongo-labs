@@ -361,3 +361,209 @@
 }
 
 @media(max-width:780px){.lessonList{height:clamp(260px,55vh,520px)}}
+
+
+/* Premium Nihongo Labs workspace theme — visual-only overrides, preserving learning behavior. */
+.appFrame {
+  --ink: #1d2933;
+  --muted: #758188;
+  --line: #e7e0d6;
+  --paper: #f5f2eb;
+  --green: #a84f43;
+  --green-dark: #172832;
+  --mint: #f3e9e1;
+  --orange: #c69b61;
+  --blue: #6f9291;
+  --shadow: 0 16px 42px rgba(29, 41, 51, .065);
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(198,155,97,.07), transparent 32rem),
+    var(--paper);
+  color: var(--ink);
+}
+.appFrame .sidebar {
+  background: linear-gradient(165deg, #172832 0%, #1d343c 58%, #233c42 100%);
+  border-right: 1px solid rgba(255,255,255,.08);
+  box-shadow: 12px 0 40px rgba(23,40,50,.06);
+}
+.appFrame .brandMark { background: #d7b17a; color: #172832; }
+.appFrame .levelCard {
+  border-color: rgba(238,226,205,.15);
+  border-radius: 15px;
+  background: rgba(255,255,255,.055);
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+}
+.appFrame .navLabel { color: #9ba9a8; }
+.appFrame .navLink {
+  border-radius: 11px;
+  color: #c1ccca;
+  transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+.appFrame .navLink:hover { background: rgba(255,255,255,.085); color: #fffdf8; }
+.appFrame .navActive {
+  color: #fffdf8;
+  background: rgba(255,255,255,.12);
+  box-shadow: inset 3px 0 #d7b17a;
+}
+.appFrame .navActive .icon { color: #e0bd87; }
+.appFrame .helpCard {
+  border-color: rgba(255,255,255,.1);
+  border-radius: 15px;
+  background: rgba(255,255,255,.07);
+}
+.appFrame .mainArea { background: transparent; }
+.appFrame .topbar {
+  background: rgba(255,253,249,.9);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 5px 22px rgba(29,41,51,.025);
+  backdrop-filter: blur(16px);
+}
+.appFrame .breadcrumb { color: #899397; }
+.appFrame .breadcrumb strong { color: var(--ink); }
+.appFrame .contentArea { max-width: 1540px; padding-top: 34px; }
+.appFrame .footer {
+  background: rgba(255,253,249,.78);
+  border-top-color: var(--line);
+  color: #899397;
+}
+.appFrame .welcomeRow h1,
+.appFrame .sectionHeading h1 {
+  color: var(--ink);
+  letter-spacing: -.9px;
+}
+.appFrame .welcomeRow p,
+.appFrame .sectionHeading p { color: var(--muted); }
+.appFrame .eyebrow { color: #8a9697; }
+.appFrame .heroCard {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 22px;
+  background: linear-gradient(125deg, #172832 0%, #203840 65%, #2a4749 100%);
+  box-shadow: 0 22px 50px rgba(23,40,50,.16);
+}
+.appFrame .heroCopy h2 em { color: #dfbd88; }
+.appFrame .heroTag span { background: #d7b17a; }
+.appFrame .heroArt { background: linear-gradient(112deg,#203840,#172832); }
+.appFrame .sunDisc { background: linear-gradient(145deg,#d9bb88,#b77a61); }
+.appFrame .heroKanji { color: #fff8eb; }
+.appFrame .primaryButton {
+  border-radius: 999px;
+  background: #d9b77f;
+  color: #1d2933;
+  box-shadow: 0 9px 22px rgba(12,25,31,.16);
+}
+.appFrame .primaryButton:hover { background: #e5c894; box-shadow: 0 12px 26px rgba(12,25,31,.2); }
+.appFrame .statCard,
+.appFrame .panel,
+.appFrame .focusCard,
+.appFrame .vocabCard,
+.appFrame .masteryCard {
+  border-color: var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.appFrame .statCard { padding: 18px 17px 15px; }
+.appFrame .statLabel,
+.appFrame .focusCard p,
+.appFrame .panel p { color: var(--muted); }
+.appFrame .statValue { color: var(--ink); }
+.appFrame .tone_green { background: #f5e9e4; color: var(--brand); }
+.appFrame .tone_orange { background: #f4ecdf; color: #9b7440; }
+.appFrame .tone_blue { background: #eaf0ed; color: #55796f; }
+.appFrame .tone_purple { background: #f0edf2; color: #77677f; }
+.appFrame .focusCard { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.appFrame .focusCard:hover { border-color: #d5b48a; box-shadow: 0 20px 44px rgba(29,41,51,.1); }
+.appFrame .focus_green { border-top-color: #a84f43; }
+.appFrame .focus_orange { border-top-color: #c69b61; }
+.appFrame .focus_blue { border-top-color: #6f9291; }
+.appFrame .progressTrack { background: #eee8df; }
+.appFrame .progressTrack > span { background: linear-gradient(90deg,#a84f43,#c97e67); }
+.appFrame .progressTrack.orange > span { background: linear-gradient(90deg,#b58a50,#d6b77d); }
+.appFrame .progressTrack.blue > span { background: linear-gradient(90deg,#55796f,#88aaa0); }
+.appFrame .lessonList { scrollbar-color: #c5b8a5 transparent; }
+.appFrame .lessonRow {
+  border-color: var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.appFrame .lessonRow:hover { border-color: #d5b48a; transform: translateY(-1px); }
+.appFrame .lessonRowActive {
+  border-color: #c9917e;
+  background: #f7eee8;
+  box-shadow: inset 3px 0 var(--brand);
+}
+.appFrame .lessonDetail,
+.appFrame .practiceMain,
+.appFrame .readingPanel,
+.appFrame .comprehensionPanel,
+.appFrame .flashStage,
+.appFrame .kanaChart,
+.appFrame .kanaQuiz,
+.appFrame .kanjiDetail,
+.appFrame .examIntro,
+.appFrame .examQuestion,
+.appFrame .examResult,
+.appFrame .planCard {
+  border-color: var(--line);
+  border-radius: 17px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.appFrame .patternChip,
+.appFrame .formationBox,
+.appFrame .kanaFeedback,
+.appFrame .translationBox,
+.appFrame .kanjiExample,
+.appFrame .questionType {
+  background: #f4eee5;
+  color: #8f5447;
+}
+.appFrame .vocabCard { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.appFrame .vocabCard:hover,
+.appFrame .vocabExpanded { border-color: #cfae82; box-shadow: 0 14px 32px rgba(29,41,51,.08); }
+.appFrame .kanjiTile {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.appFrame .kanjiTile:hover,
+.appFrame .kanjiSelected { border-color: #cfae82; background: #f7eee8; }
+.appFrame .filterPills .filterActive { background: var(--navy); border-color: var(--navy); }
+.appFrame .secondaryButton,
+.appFrame .ghostButton {
+  border-color: var(--line);
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #42515a;
+}
+.appFrame .secondaryButton:hover,
+.appFrame .ghostButton:hover { border-color: #d5b48a; background: #f5eee4; }
+.appFrame input,
+.appFrame select,
+.appFrame textarea {
+  border-color: #ded6cb;
+  border-radius: 10px;
+  background: #fffdf9;
+  color: var(--ink);
+}
+.appFrame input:focus,
+.appFrame select:focus,
+.appFrame textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(168,79,67,.11); }
+.appFrame .datePill,
+.appFrame .smallBadge,
+.appFrame .counterPill { border-color: var(--line); background: #fffdf9; }
+.appFrame .emptyState { border-color: #ded6cb; border-radius: 16px; background: rgba(255,253,249,.72); }
+@media (max-width: 1100px) {
+  .appFrame .contentArea { padding-top: 27px; }
+}
+@media (max-width: 700px) {
+  .appFrame .sidebar { box-shadow: 0 8px 24px rgba(23,40,50,.09); }
+  .appFrame .topbar { padding-right: 15px; padding-left: 15px; }
+  .appFrame .contentArea { padding: 23px 15px 30px; }
+  .appFrame .heroCard { border-radius: 18px; }
+  .appFrame .statCard,
+  .appFrame .panel,
+  .appFrame .focusCard,
+  .appFrame .vocabCard,
+  .appFrame .masteryCard { border-radius: 13px; }
+}
