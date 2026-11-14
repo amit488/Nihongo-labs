@@ -130,3 +130,73 @@
   .navLink,.navActive { border-radius: 999px; }
   .panel { padding: 16px; }
 }
+
+
+/* Admin console v2 — consistent midnight navigation and crisp operator surfaces. */
+.adminFrame { background: #f3f6fb; color: #17243a; }
+.sidebar {
+  background:
+    radial-gradient(circle at 8% 0%,rgba(111,132,255,.2),transparent 19rem),
+    linear-gradient(165deg,#0f1b32 0%,#172949 62%,#1d3659 100%);
+  box-shadow: 13px 0 42px rgba(16,29,53,.1);
+}
+.brandMark { border-radius: 12px; border-color: rgba(255,255,255,.5); }
+.navLink,.navActive { border-radius: 11px; }
+.navLink:hover { background: rgba(255,255,255,.075); }
+.navActive { background: linear-gradient(100deg,rgba(97,117,239,.3),rgba(52,188,173,.105)); box-shadow: inset 3px 0 #9ba8ff; }
+.navIcon { color: #9caaff; }
+.roleCard { border-color: rgba(255,255,255,.12); border-radius: 13px; background: rgba(255,255,255,.065); }
+.topbar {
+  background: rgba(255,255,255,.9);
+  border-bottom-color: #e4eaf3;
+  box-shadow: 0 5px 24px rgba(20,37,68,.035);
+  backdrop-filter: blur(18px);
+}
+.content { max-width: 1560px; padding-top: 38px; }
+.pageHeading h1 { color: #17243a; letter-spacing: -1px; }
+.pageHeading p { color: #748198; }
+.eyebrow { color: #5367e8; }
+.headingMeta,.metric,.panel,.loading,.cronToolbar {
+  border-color: #e4eaf3;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 11px 30px rgba(20,37,68,.045);
+}
+.metric { padding: 19px 20px; transition: transform .2s,box-shadow .2s; }
+.metric:hover { transform: translateY(-3px); box-shadow: 0 17px 36px rgba(20,37,68,.08); }
+.metricTop { color: #748198; }
+.metricTop i { border-radius: 10px; background: #eef1ff; color: #5367e8; }
+.metric > strong { color: #17243a; }
+.panel { padding: 22px; }
+.panelHeading h2 { color: #17243a; }
+.inventory > div,.analyticsGrid > div,.cronSchedule { border: 1px solid #e4eaf3; border-radius: 11px; background: #f7f9fd; }
+.tableWrap th { background: #f2f5fb; color: #7b89a0; }
+.tableWrap td { border-bottom-color: #edf1f7; color: #52627c; }
+.tableWrap td strong { color: #17243a; }
+.searchForm input,.cronToolbar select { border-color: #dfe6f1; border-radius: 10px; background: #fff; color: #17243a; }
+.searchForm input:focus,.cronToolbar select:focus { outline: 3px solid rgba(83,103,232,.12); border-color: #8190ec; }
+.searchForm button,.error button,.messageActions button {
+  border-radius: 10px;
+  background: linear-gradient(110deg,#5367e8,#647bf0);
+  box-shadow: 0 8px 18px rgba(83,103,232,.15);
+}
+.searchForm button:hover,.error button:hover,.messageActions button:hover { background: #455ad3; }
+.message { border-color: #e4eaf3; border-radius: 13px; background: #fff; }
+.status_active,.status_captured,.status_resolved,.status_replied,.status_processed,.status_succeeded { background: #e7f5f0; color: #287b6b; }
+.status_failed,.status_refunded,.status_closed,.status_unpaid { background: #fff0ed; color: #a54a57; }
+.loading { color: #748198; }
+.loading span { border-color: #e2e7f7; border-top-color: #5367e8; }
+.error { border-color: #f0d7d8; border-radius: 11px; background: #fff4f3; color: #9e4957; }
+.pagination button,.cronViewLink,.cronBackLink { border-color: #e0e7f2; border-radius: 10px; color: #5367e8; }
+.pagination button:hover,.cronViewLink:hover,.cronBackLink:hover { background: #f1f4ff; border-color: #c8d0f4; }
+.storageTrack { background: #edf1f7; }
+.storageTrack span { background: linear-gradient(90deg,#5367e8,#4ec7b4); }
+.cronJob { border-top-color: #e4eaf3; }
+.cronSchedule { border-color: #e4eaf3; }
+.cronJobHeader strong,.cronSchedule strong { color: #17243a; }
+@media(max-width:700px) {
+  .content { padding-top: 25px; }
+  .sidebar { box-shadow: 0 9px 25px rgba(16,29,53,.12); }
+  .navLink,.navActive { border-radius: 999px; }
+  .panel { padding: 16px; }
+}
