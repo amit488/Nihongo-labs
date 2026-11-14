@@ -31,3 +31,22 @@
 .error { color:#b35f4d; font-size:var(--workspace-font-secondary); }
 @media (max-width:850px) { .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .columns { grid-template-columns:1fr; } }
 @media (max-width:540px) { .heading { align-items:flex-start; flex-direction:column; } .headingActions { flex-wrap:wrap; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+
+/* Learning Intelligence uses the same compact pearl panels and indigo data accents. */
+.wrapper { color: #17243a; }
+.heading h2 { color: #17243a; font-family: var(--font-family-sans); font-weight: 700; letter-spacing: -.6px; }
+.heading span,.panelTitle span { color: #7c8aa1; }
+.heading p { color: #748198; }
+.headingActions select { border-color: #e1e8f2; border-radius: 10px; background: #fff; }
+.heading a,.word a { color: #5367e8; }
+.metrics article,.panel { border-color: #e4eaf3; border-radius: 15px; background: #fff; box-shadow: 0 9px 26px rgba(20,37,68,.045); }
+.metrics article strong { color: #17243a; }
+.panelTitle h3 { color: #20304b; font-family: var(--font-family-sans); font-weight: 650; }
+.empty,.topic small,.word small,.topic p,.word p { color: #8190a5; }
+.topic,.word { border-bottom-color: #edf1f7; }
+.progress { background: #edf1f7; }
+.progress i { background: linear-gradient(90deg,#6478e9,#50c4b0); }
+.risk { color: #b15a67; }
+.due { color: #2d9a83; }
+.error { color: #ad5362; }
