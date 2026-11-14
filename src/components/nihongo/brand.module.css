@@ -3,7 +3,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  color: #232c37;
+  color: var(--ink, #1d2933);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -11,10 +11,10 @@
   display: block;
   flex: 0 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(35, 44, 55, .08);
+  border: 1px solid rgba(29, 41, 51, .09);
   border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 5px 13px rgba(35, 44, 55, .1);
+  background: var(--surface, #fffdf9);
+  box-shadow: 0 5px 13px rgba(29, 41, 51, .12);
 }
 .markImage {
   display: block;
@@ -29,10 +29,10 @@
   font: 750 19px/1 Inter, ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -.7px;
 }
-.dark { color: #f7f5f1; }
+.dark { color: #fbf8f1; }
 .dark .mark {
   background: #fff;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, .2);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .22);
 }
 @media (max-width: 420px) {
   .name { font-size: 17px; }
