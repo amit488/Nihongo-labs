@@ -53,3 +53,23 @@ Use the global tokens in `src/app/globals.css` instead of introducing independen
 | `--shadow` / `--shadow-soft` | Shared elevation |
 
 Keep large page backgrounds quiet. Use the brand color for meaningful actions and small emphasis, not as a large uninterrupted fill. Prefer rounded card corners, subtle borders, and restrained shadows over heavy outlines.
+
+
+## Shared visual direction
+
+Use the palette in \`src/app/globals.css\` for all new and updated surfaces:
+
+| Token | Role |
+|---|---|
+| \`--ink\` | Primary text and headings |
+| \`--muted\` | Supporting text |
+| \`--paper\` | Cool pearl page background |
+| \`--surface\` | White elevated surfaces |
+| \`--surface-soft\` | Secondary cool surface |
+| \`--line\` | Subtle borders and dividers |
+| \`--brand\` / \`--brand-dark\` | Indigo actions and hover states |
+| \`--navy\` | Midnight navigation and feature panels |
+| \`--sage\` | Jade learning-state accent |
+| \`--brass\` | Restrained highlight accent |
+
+Keep cards tactile but restrained: clear borders, soft shadows, rounded corners, and short hover transitions. Use motion to communicate affordance and feedback, not decoration. Respect reduced-motion preferences. Avoid muddy beige backgrounds, heavy shadows, and large blocks of accent color.
