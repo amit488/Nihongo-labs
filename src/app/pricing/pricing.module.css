@@ -680,3 +680,71 @@
 @media (prefers-reduced-motion: reduce) {
   .page *, .page *::before, .page *::after { transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+
+/* Premium public pricing surface — shared porcelain and ink palette. */
+.page {
+  --pricing-ink: var(--ink);
+  --pricing-charcoal: var(--navy);
+  --pricing-muted: var(--muted);
+  --pricing-brand: var(--brand);
+  --pricing-peach: #d8b77f;
+  --pricing-paper: var(--paper);
+  --pricing-line: var(--line);
+  --pricing-surface: var(--surface);
+  background:
+    radial-gradient(ellipse at 90% 0%, rgba(198,155,97,.07), transparent 34rem),
+    var(--pricing-paper);
+}
+.nav { border-bottom-color: var(--line); }
+.navLinks a { color: #59666d; }
+.navLinks .navCta {
+  border-radius: 999px;
+  background: var(--brand);
+  box-shadow: 0 12px 26px rgba(168,79,67,.18);
+}
+.hero h1,.sectionHeading h2,.includedIntro h2,.faqIntro h2 { color: var(--ink); }
+.heroVisual {
+  border-radius: 24px;
+  background: radial-gradient(ellipse at 56% 46%,#e8dfd2 0%,#f0e9df 42%,rgba(240,233,223,0) 73%);
+}
+.paperBack,.studyCard { border-radius: 17px; border-color: #e7dfd4; }
+.paperBack { background: #eee6db; box-shadow: 0 28px 70px rgba(29,41,51,.11); }
+.studyCard { box-shadow: 0 30px 75px rgba(29,41,51,.15); }
+.studyRule { border: 1px solid #eee5d9; background: #f4eee5; }
+.floatingNote { border-color: #e8dfd4; border-radius: 13px; box-shadow: 0 16px 38px rgba(29,41,51,.12); }
+.planCard,.featuredPlan {
+  border-radius: 17px;
+  box-shadow: 0 15px 38px rgba(29,41,51,.06);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.planCard:hover,.featuredPlan:hover { transform: translateY(-4px); box-shadow: 0 22px 48px rgba(29,41,51,.1); }
+.featuredPlan { border-color: #c99b7f; box-shadow: 0 18px 42px rgba(168,79,67,.09); }
+.recommended { background: var(--brand); border-radius: 0 0 8px 8px; }
+.primaryButton,.secondaryButton { border-radius: 999px; }
+.primaryButton { background: var(--brand); box-shadow: 0 9px 22px rgba(168,79,67,.16); }
+.primaryButton:hover { background: var(--brand-dark); }
+.secondaryButton { background: #f0ebe2; color: #34434b; }
+.secondaryButton:hover { background: #e9e1d6; }
+.includedCard { border-radius: 14px; background: var(--surface); }
+.includedCard:hover { border-color: #d5b48a; box-shadow: 0 15px 34px rgba(29,41,51,.08); }
+.featureIcon { border-radius: 11px; background: #f5e9e3; color: var(--brand); }
+.ctaPanel {
+  border-radius: 22px;
+  background: linear-gradient(125deg,#172832 0%,#203840 66%,#2a4749 100%);
+  box-shadow: 0 22px 55px rgba(23,40,50,.17);
+}
+.ctaContent .eyebrow { color: #d5d0c5; }
+.ctaContent h2 em { color: #dfbd88; }
+.ctaButton { border-radius: 999px; background: #d9b77f; color: #1d2933; }
+.ctaButton:hover { background: #e5c894; }
+.ctaDisc { background: linear-gradient(145deg,#d9bb88,#b77a61); opacity: .48; }
+.ctaKanji { color: rgba(255,249,239,.75); }
+.faqItem { border-bottom-color: var(--line); }
+.faqItem summary { color: var(--ink); }
+.footer { border-top-color: var(--line); }
+@media(max-width:680px) {
+  .heroVisual { border-radius: 18px; }
+  .planCard,.featuredPlan { border-radius: 15px; }
+  .ctaPanel { border-radius: 18px; }
+}

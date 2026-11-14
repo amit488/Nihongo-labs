@@ -29,3 +29,104 @@
 .cronViewLink,.cronBackLink{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid #e1e6e9;border-radius:7px;background:#fff;color:#a94e45;font-size:var(--type-size-secondary);font-weight:700;text-decoration:none;white-space:nowrap}.cronViewLink:hover,.cronBackLink:hover{background:#fbf4f2;border-color:#e8cbc7}
 .cronToolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border:1px solid #e8ebee;border-radius:9px;background:#fff}.cronToolbar label{display:flex;align-items:center;gap:10px;color:#5d6b74;font-size:var(--type-size-secondary);font-weight:650}.cronToolbar select{min-width:145px;padding:9px 30px 9px 10px;border:1px solid #dfe5e8;border-radius:7px;background:#fff;color:#293640;font:inherit;cursor:pointer}
 @media(max-width:700px){.cronToolbar{align-items:stretch;flex-direction:column}.cronToolbar label{justify-content:space-between}.cronToolbar select{min-width:0}}
+
+
+/* Premium operations console — same design language as the learner workspace. */
+.adminFrame { background: var(--paper); color: var(--ink); }
+.sidebar {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(198,155,97,.13), transparent 19rem),
+    linear-gradient(165deg,#172832 0%,#1d343c 65%,#223e42 100%);
+  box-shadow: 12px 0 38px rgba(23,40,50,.07);
+}
+.brandMark { border-radius: 11px; border-color: rgba(255,255,255,.45); }
+.navLink,.navActive { border-radius: 11px; }
+.navLink:hover { background: rgba(255,255,255,.085); }
+.navActive { background: rgba(255,255,255,.12); box-shadow: inset 3px 0 #d7b17a; }
+.navIcon { color: #d7b17a; }
+.roleCard { border-color: rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.065); }
+.topbar {
+  background: rgba(255,253,249,.92);
+  border-bottom-color: var(--line);
+  box-shadow: 0 5px 24px rgba(29,41,51,.035);
+  backdrop-filter: blur(16px);
+}
+.content { max-width: 1540px; padding-top: 38px; }
+.pageHeading h1 { color: var(--ink); letter-spacing: -.8px; }
+.pageHeading p { color: var(--muted); }
+.eyebrow { color: var(--brand); }
+.headingMeta,
+.metric,
+.panel,
+.loading,
+.cronToolbar {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(29,41,51,.045);
+}
+.metric { padding: 19px 20px; }
+.metricTop { color: var(--muted); }
+.metricTop i { border-radius: 10px; background: #f5e9e3; color: var(--brand); }
+.metric > strong { color: var(--ink); }
+.panel { padding: 22px; }
+.panelHeading h2 { color: var(--ink); }
+.inventory > div,
+.analyticsGrid > div,
+.cronSchedule { border: 1px solid var(--line); border-radius: 10px; background: #f7f3ec; }
+.tableWrap th { background: #f2eee6; color: #7d898c; }
+.tableWrap td { border-bottom-color: #eee8df; color: #526068; }
+.tableWrap td strong { color: var(--ink); }
+.searchForm input,
+.cronToolbar select {
+  border-color: #ded6cb;
+  border-radius: 9px;
+  background: #fffdf9;
+  color: var(--ink);
+}
+.searchForm input:focus,
+.cronToolbar select:focus { outline: 3px solid rgba(168,79,67,.12); border-color: var(--brand); }
+.searchForm button,
+.error button,
+.messageActions button {
+  border-radius: 999px;
+  background: var(--brand);
+  box-shadow: 0 7px 18px rgba(168,79,67,.12);
+}
+.searchForm button:hover,
+.error button:hover,
+.messageActions button:hover { background: var(--brand-dark); }
+.message { border-color: var(--line); border-radius: 12px; background: #fffefa; }
+.status_active,.status_captured,.status_resolved,.status_replied,.status_processed,.status_succeeded {
+  background: #eaf2ec;
+  color: #4d7667;
+}
+.status_failed,.status_refunded,.status_closed,.status_unpaid {
+  background: #f7eae5;
+  color: #9c5146;
+}
+.loading { color: var(--muted); }
+.loading span { border-color: #ecdcd1; border-top-color: var(--brand); }
+.error { border-color: #ead6cf; border-radius: 11px; background: #fbf1ed; color: var(--brand-dark); }
+.pagination button,
+.cronViewLink,
+.cronBackLink {
+  border-color: var(--line);
+  border-radius: 999px;
+  color: var(--brand);
+}
+.pagination button:hover,
+.cronViewLink:hover,
+.cronBackLink:hover { background: #f7eee8; border-color: #d9b9a8; }
+.storageTrack { background: #eee8df; }
+.storageTrack span { background: linear-gradient(90deg,#a84f43,#d2a36e); }
+.cronJob { border-top-color: var(--line); }
+.cronSchedule { border-color: var(--line); }
+.cronJobHeader strong,
+.cronSchedule strong { color: var(--ink); }
+@media(max-width:700px) {
+  .content { padding-top: 25px; }
+  .sidebar { box-shadow: 0 8px 24px rgba(23,40,50,.09); }
+  .navLink,.navActive { border-radius: 999px; }
+  .panel { padding: 16px; }
+}

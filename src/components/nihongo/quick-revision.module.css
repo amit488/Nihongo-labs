@@ -86,3 +86,66 @@
 @media (max-width: 560px) {
   .errorToast { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
 }
+
+
+/* Quick Revision — keep the study overlay visually connected to the shared theme. */
+.dialog {
+  border-color: var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 30px 90px rgba(20,30,40,.3);
+}
+.dialog.correct {
+  border: 1px solid #c4d9c9;
+  background: #edf4ee;
+  color: #3f6b52;
+}
+.dialog.incorrect {
+  border: 1px solid #e7c8bd;
+  background: #f9efeb;
+  color: var(--brand-dark);
+}
+.brandMark { border-color: var(--line); border-radius: 11px; background: var(--surface); }
+.prompt {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: #fffefa;
+  color: var(--ink);
+}
+.option {
+  border-color: var(--line);
+  border-radius: 12px;
+  background: #fffefa;
+  color: var(--ink);
+}
+.option:hover { border-color: #cda67d; }
+.optionSelected { border-color: var(--brand); background: #f7eee8; }
+.optionSelected .optionLetter { background: var(--brand); }
+.optionLetter { border-radius: 8px; background: #f0ebe2; }
+.checkButton {
+  border-color: var(--brand);
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fffdf9;
+}
+.checkButton:hover:not(:disabled) { background: var(--brand-dark); }
+.forgotButton {
+  border-color: var(--line);
+  border-radius: 999px;
+  background: #f4efe7;
+}
+.continueButton { border-radius: 999px; }
+.statsSection { border-color: var(--line); border-radius: 16px; background: var(--surface); }
+.statsHeading h2,.statCard strong,.needsWork h3 { color: var(--ink); }
+.statsEmpty { border-color: #ded6cb; border-radius: 12px; }
+.statCard { border-color: var(--line); border-radius: 12px; background: #f7f3ec; }
+.typeSummary > div { border-radius: 11px; background: #f5e9e3; }
+.typeSummary span,.needsWorkType { color: var(--brand); }
+.needsWorkItem { border-color: #ead8ce; border-radius: 11px; background: #fffaf6; }
+.needsWorkType { color: var(--brand-dark); }
+.errorToast { border-color: var(--line); border-radius: 15px; background: var(--surface); color: var(--ink); }
+@media(max-width:560px) {
+  .dialog { border-radius: 16px; }
+  .statsSection { border-radius: 13px; }
+}

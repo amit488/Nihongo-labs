@@ -1,6 +1,6 @@
 # Nihongo Labs UI typography
 
-This is the shared typography standard for all new and updated user-facing UI.
+This is the shared typography and visual standard for all new and updated user-facing UI. The site uses a calm Japanese editorial direction: warm porcelain surfaces, ink-dark navigation, lacquer-red primary actions, and restrained brass and sage accents.
 
 ## Font families
 
@@ -32,3 +32,24 @@ Use `--type-line-tight` for compact headings and `--type-line-body` for readable
 6. When a new type role is genuinely needed, add it to the global tokens and update this document rather than adding an isolated value.
 
 Before shipping new UI, compare it with adjacent pages and existing components to confirm that font family, size, weight, line height and colour belong to the same visual system.
+
+
+## Shared visual tokens
+
+Use the global tokens in `src/app/globals.css` instead of introducing independent palettes:
+
+| Token | Role |
+|---|---|
+| `--ink` | Primary text and headings |
+| `--muted` | Supporting text |
+| `--paper` | Warm page background |
+| `--surface` | Elevated card and panel surface |
+| `--surface-soft` | Secondary surface |
+| `--line` | Subtle borders and dividers |
+| `--brand` / `--brand-dark` | Lacquer-red action and hover colors |
+| `--navy` | Ink-dark navigation and feature panels |
+| `--sage` | Supporting learning-state accent |
+| `--brass` | Restrained highlight and progress accent |
+| `--shadow` / `--shadow-soft` | Shared elevation |
+
+Keep large page backgrounds quiet. Use the brand color for meaningful actions and small emphasis, not as a large uninterrupted fill. Prefer rounded card corners, subtle borders, and restrained shadows over heavy outlines.

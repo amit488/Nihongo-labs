@@ -1,15 +1,22 @@
 :root {
   color-scheme: light;
-  --ink: #17212b;
-  --muted: #687682;
-  --paper: #f7f8fa;
-  --line: #e6e9ed;
-  --brand: #b54c43;
-  --brand-dark: #913b35;
-  --surface: #ffffff;
-  --shadow: 0 18px 55px rgba(25, 37, 49, .08);
+  --ink: #1d2933;
+  --muted: #6f7c83;
+  --paper: #f5f2eb;
+  --line: #e7e0d6;
+  --brand: #a84f43;
+  --brand-dark: #7d3932;
+  --surface: #fffdf9;
+  --surface-soft: #efe9df;
+  --navy: #172832;
+  --sage: #55796f;
+  --brass: #c69b61;
+  --shadow: 0 22px 60px rgba(29, 41, 51, .085);
+  --shadow-soft: 0 10px 30px rgba(29, 41, 51, .055);
+  --radius-card: 16px;
+  --radius-control: 10px;
 
-  /* Shared UI typography: use these roles instead of one-off font sizes. */
+  /* Shared UI typography: one consistent scale across public, learning and admin surfaces. */
   --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-family-display: Georgia, "Times New Roman", serif;
   --type-size-micro: 0.6875rem;
@@ -26,8 +33,8 @@ html { min-width: 320px; scroll-behavior: smooth; background: var(--paper); }
 body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--paper); font-family: var(--font-family-sans); -webkit-font-smoothing: antialiased; }
 button, input, textarea, select { font: inherit; }
 a { color: inherit; }
-::selection { color: #fff; background: #b54c43; }
-:focus-visible { outline: 3px solid rgba(181, 76, 67, .36); outline-offset: 2px; }
+::selection { color: #fff; background: var(--brand); }
+:focus-visible { outline: 3px solid rgba(168, 79, 67, .35); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
 
@@ -43,3 +50,15 @@ input, textarea, select, [contenteditable="true"], [data-allow-copy="true"], [da
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+
+/* Shared premium surface defaults. Component-specific layouts retain their own geometry. */
+body {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(198, 155, 97, .065), transparent 33rem),
+    var(--paper);
+}
+button, input, textarea, select {
+  accent-color: var(--brand);
+}
+::selection { background: rgba(168, 79, 67, .18); color: var(--ink); }
