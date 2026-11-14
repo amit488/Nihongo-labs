@@ -99,3 +99,36 @@
 @media(max-width:520px) {
   .formCard { border-radius: 16px; }
 }
+
+
+/* Contact surface v2 — pearl card, indigo focus states and compact interaction polish. */
+.page {
+  background: radial-gradient(ellipse at 12% 8%,rgba(83,103,232,.065),transparent 36rem),#f3f6fb;
+  color: #17243a;
+}
+.nav,.footer { border-color: #e4eaf3; }
+.workspaceLink,.footer a { color: #5f6f88; }
+.workspaceLink span { color: #5367e8; }
+.eyebrow { color: #5367e8; }
+.eyebrow i { background: #5367e8; }
+.intro h1 { color: #17243a; }
+.intro h1 em { color: #5367e8; }
+.lead { color: #748198; }
+.promise { border-color: #e4eaf3; }
+.promiseIcon { border-radius: 11px; background: #eef1ff; color: #5367e8; }
+.promise strong { color: #20304b; }
+.promise p,.privacy { color: #8290a5; }
+.formCard { border-color: #e3e9f3; border-radius: 21px; background: #fff; box-shadow: 0 26px 66px rgba(20,37,68,.09); }
+.formStep { color: #5367e8; }
+.formHeading h2,.success h2 { color: #17243a; }
+.formHeading p,.success > p { color: #748198; }
+.field label,.messageLabel label { color: #475975; }
+.field input,.field select,.field textarea { border-color: #dfe6f1; border-radius: 10px; background: #fbfcff; color: #17243a; }
+.field input:focus,.field select:focus,.field textarea:focus { border-color: #8291ec; box-shadow: 0 0 0 4px rgba(83,103,232,.1); }
+.submitButton { border-radius: 11px; background: linear-gradient(110deg,#5367e8,#647bf0); box-shadow: 0 10px 23px rgba(83,103,232,.18); }
+.submitButton:hover:not(:disabled) { background: #455ad3; }
+.error { border-color: #f0d7d8; border-radius: 10px; background: #fff4f3; color: #9e4957; }
+.successMark { background: #e8f6f1; color: #2d9a83; }
+.secondaryButton { border-color: #dce4f1; border-radius: 10px; background: #f7f9fd; color: #5367e8; }
+.backLink { color: #5f6f88; }
+@media(max-width:520px) { .formCard { border-radius: 17px; } }
