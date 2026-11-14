@@ -567,3 +567,330 @@
   .appFrame .vocabCard,
   .appFrame .masteryCard { border-radius: 13px; }
 }
+
+
+/* Premium interactive workspace v2 — crisp pearl surfaces, midnight ink and vivid indigo/jade. */
+.appFrame {
+  --workspace-font-family: var(--font-family-sans);
+  --workspace-heading-family: var(--font-family-sans);
+  --workspace-font-body: var(--type-size-body-large);
+  --workspace-font-secondary: var(--type-size-body);
+  --workspace-font-meta: var(--type-size-secondary);
+  --workspace-font-micro: var(--type-size-caption);
+  --workspace-line-height: var(--type-line-body);
+  --ink: #17243a;
+  --muted: #748198;
+  --line: #e4eaf3;
+  --paper: #f3f6fb;
+  --green: #5367e8;
+  --green-dark: #101d35;
+  --mint: #edf0ff;
+  --orange: #d5b36f;
+  --blue: #47a8b9;
+  --shadow: 0 16px 44px rgba(20,37,68,.065);
+  position: relative;
+  background:
+    radial-gradient(ellipse at 72% -8%, rgba(83,103,232,.07), transparent 33rem),
+    radial-gradient(ellipse at 100% 18%, rgba(45,169,145,.045), transparent 28rem),
+    var(--paper);
+  color: var(--ink);
+}
+.appFrame .sidebar {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(105,126,245,.2), transparent 19rem),
+    linear-gradient(165deg,#0f1b32 0%,#172949 58%,#1d3659 100%);
+  border-right: 1px solid rgba(255,255,255,.07);
+  box-shadow: 14px 0 42px rgba(16,29,53,.09);
+}
+.appFrame .sidebarBrand { color: #f7f9ff; }
+.appFrame .levelCard {
+  border: 1px solid rgba(197,211,255,.16);
+  border-radius: 15px;
+  background: linear-gradient(145deg,rgba(255,255,255,.095),rgba(255,255,255,.035));
+  box-shadow: inset 0 1px rgba(255,255,255,.05);
+}
+.appFrame .levelKicker,.appFrame .navLabel { color: #95a5c0; }
+.appFrame .levelTitle { color: #f5f7ff; }
+.appFrame .levelTitle span { color: #91a2c4; font-size: 10px; letter-spacing: .9px; }
+.appFrame .levelFoot { color: #a7b5cc; }
+.appFrame .progressTrack { background: rgba(255,255,255,.13); }
+.appFrame .progressTrack > span { background: linear-gradient(90deg,#8291ff,#48d1b5); }
+.appFrame .progressTrack.orange > span { background: linear-gradient(90deg,#c59a51,#f0d18b); }
+.appFrame .progressTrack.blue > span { background: linear-gradient(90deg,#3d9eaf,#77d2d0); }
+.appFrame .navigation { gap: 4px; }
+.appFrame .navGroup { margin-bottom: 23px; }
+.appFrame .navLabel { padding-bottom: 10px; }
+.appFrame .navLink {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #c5d0e2;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, color .18s ease;
+}
+.appFrame .navLink:hover {
+  transform: translateX(3px);
+  background: rgba(255,255,255,.075);
+  color: #fff;
+}
+.appFrame .navActive {
+  color: #fff;
+  border-color: rgba(161,174,255,.16);
+  background: linear-gradient(100deg,rgba(97,117,239,.3),rgba(52,188,173,.105));
+  box-shadow: inset 3px 0 #9ba8ff, 0 8px 22px rgba(3,10,28,.13);
+}
+.appFrame .navActive .icon { color: #bdc7ff; }
+.appFrame .helpCard {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 15px;
+  background: linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));
+}
+.appFrame .helpCard strong { color: #f3f6ff; }
+.appFrame .helpCard p { color: #aab8cc; }
+.appFrame .helpCard a { color: #c4cdff; }
+.appFrame .sidebarUser { border-top-color: rgba(255,255,255,.11); }
+.appFrame .userMeta strong { color: #f6f8ff; }
+.appFrame .userMeta span { color: #9caec6; }
+.appFrame .avatar { background: linear-gradient(145deg,#8794fa,#48c7b3); color: #101d35; }
+.appFrame .mainArea { background: transparent; }
+.appFrame .topbar {
+  background: rgba(255,255,255,.86);
+  border-bottom: 1px solid rgba(221,229,241,.88);
+  box-shadow: 0 6px 28px rgba(20,37,68,.035);
+  backdrop-filter: blur(18px) saturate(1.35);
+}
+.appFrame .breadcrumb { color: #8794a8; }
+.appFrame .breadcrumb strong { color: var(--ink); }
+.appFrame .searchBox {
+  border: 1px solid #e4eaf3;
+  border-radius: 11px;
+  background: #f8faff;
+  box-shadow: inset 0 1px 2px rgba(20,37,68,.025);
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+.appFrame .searchBox:focus-within {
+  border-color: #9ba8f4;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(83,103,232,.09);
+}
+.appFrame .searchBox input { color: var(--ink); }
+.appFrame .searchBox kbd { border-color: #dfe6f1; background: #fff; color: #78869b; }
+.appFrame .searchResults {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 22px 54px rgba(20,37,68,.15);
+}
+.appFrame .searchResult:hover { background: #f3f6ff; }
+.appFrame .searchResultMeta { color: #6678dc; }
+.appFrame .counterPill {
+  border: 1px solid #dce5f0;
+  border-radius: 999px;
+  background: linear-gradient(110deg,#f0f3ff,#eefaf7);
+  color: #4d628d;
+  font-variant-numeric: tabular-nums;
+}
+.appFrame .iconButton {
+  border: 1px solid #e5ebf4;
+  border-radius: 11px;
+  background: #fff;
+  color: #65748e;
+  transition: background .18s, transform .18s, border-color .18s;
+}
+.appFrame .iconButton:hover { transform: translateY(-2px); border-color: #cbd5f4; background: #f5f7ff; }
+.appFrame .topAvatar { background: linear-gradient(145deg,#e5eaff,#dff6ef); color: #3e57bd; }
+.appFrame .signInButton,.appFrame .signOutButton {
+  border: 1px solid #dfe5f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #3f4f70;
+}
+.appFrame .signInButton:hover,.appFrame .signOutButton:hover { border-color: #aab6f0; background: #f4f6ff; }
+.appFrame .feedbackLink { color: #5367d7; }
+.appFrame .contentArea { max-width: 1580px; padding-top: 32px; }
+.appFrame .welcomeRow { margin-bottom: 25px; }
+.appFrame .eyebrow { color: #6575c7; letter-spacing: 1.45px; }
+.appFrame .welcomeRow h1,.appFrame .sectionHeading h1 {
+  color: #182844;
+  font-family: var(--font-family-sans);
+  font-size: clamp(27px,2.3vw,34px);
+  font-weight: 720;
+  letter-spacing: -1.15px;
+}
+.appFrame .welcomeRow h1 span { color: #7786a0; font-weight: 500; }
+.appFrame .welcomeRow p,.appFrame .sectionHeading p { color: #75839a; }
+.appFrame .jlptCountdown {
+  border: 1px solid #e1e7f3;
+  border-radius: 15px;
+  background: linear-gradient(145deg,#fff,#f4f6ff);
+  box-shadow: 0 8px 25px rgba(20,37,68,.045);
+}
+.appFrame .jlptCountdownKicker { color: #6678d9; }
+.appFrame .jlptCountdown strong { color: #1d2d4a; }
+.appFrame .jlptCountdownCopy,.appFrame .jlptCountdownDate { color: #8390a5; }
+.appFrame .heroCard {
+  min-height: 265px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 23px;
+  background:
+    radial-gradient(ellipse at 88% 4%,rgba(88,211,196,.21),transparent 29rem),
+    linear-gradient(112deg,#111f3b 0%,#243b70 56%,#275c70 100%);
+  box-shadow: 0 24px 60px rgba(26,47,94,.2), inset 0 1px rgba(255,255,255,.1);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.appFrame .heroCard:hover { transform: translateY(-2px); box-shadow: 0 29px 68px rgba(26,47,94,.24), inset 0 1px rgba(255,255,255,.13); }
+.appFrame .heroCopy { padding: 32px 36px; }
+.appFrame .heroTag { color: #b9c8e5; letter-spacing: 1.7px; }
+.appFrame .heroTag span { background: #54d0bc; box-shadow: 0 0 0 5px rgba(84,208,188,.12); }
+.appFrame .heroCopy h2 {
+  color: #fbfcff;
+  font-family: var(--font-family-display);
+  font-size: clamp(36px,3.3vw,45px);
+  letter-spacing: -1.3px;
+  line-height: 1.01;
+}
+.appFrame .heroCopy h2 em { color: #8fe4d6; }
+.appFrame .heroCopy p { color: #c3cfe3; max-width: 380px; }
+.appFrame .heroMeta { color: #a8b8d2; }
+.appFrame .heroArt {
+  background:
+    radial-gradient(circle at 60% 40%,rgba(104,131,255,.22),transparent 14rem),
+    linear-gradient(130deg,rgba(255,255,255,.015),rgba(14,30,58,.16));
+}
+.appFrame .sunDisc {
+  width: clamp(190px,18vw,250px);
+  height: clamp(190px,18vw,250px);
+  background: linear-gradient(135deg,#94a0ff 3%,#6f91f7 42%,#54d3c4 100%);
+  box-shadow: 0 0 0 16px rgba(137,155,255,.075),0 20px 55px rgba(42,74,173,.25);
+  opacity: .95;
+  animation: nl-orb-float 7s ease-in-out infinite;
+}
+.appFrame .heroKanji { color: rgba(255,255,255,.94); text-shadow: 0 12px 38px rgba(20,34,79,.26); }
+.appFrame .heroArtNote { color: #d3def5; }
+.appFrame .heroArtNote span { color: #62d8c5; }
+.appFrame .primaryButton {
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 11px;
+  background: linear-gradient(110deg,#fff,#eaf2ff);
+  color: #253e82;
+  box-shadow: 0 11px 28px rgba(4,13,35,.18);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+.appFrame .primaryButton:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.03);
+  box-shadow: 0 16px 34px rgba(4,13,35,.24);
+}
+.appFrame .sectionTop { margin-top: 31px; }
+.appFrame .sectionTop h2 { color: #1a2a46; letter-spacing: -.7px; }
+.appFrame .dashboardLevelControl { gap: 15px; }
+.appFrame .textLink { color: #5367d9; }
+.appFrame .statCard,.appFrame .panel,.appFrame .focusCard,.appFrame .vocabCard,.appFrame .masteryCard {
+  border: 1px solid #e5ebf4;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 9px 28px rgba(20,37,68,.045);
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.appFrame .statCard:hover,.appFrame .panel:hover,.appFrame .focusCard:hover,.appFrame .vocabCard:hover,.appFrame .masteryCard:hover {
+  border-color: #cbd5f3;
+  box-shadow: 0 17px 38px rgba(28,48,94,.085);
+  transform: translateY(-3px);
+}
+.appFrame .statCard { padding: 18px 18px 16px; }
+.appFrame .statIcon { border-radius: 11px; }
+.appFrame .tone_green { background: #eef0ff; color: #5367e8; }
+.appFrame .tone_orange { background: #fbf4e7; color: #a47b37; }
+.appFrame .tone_blue { background: #e9f6f8; color: #338ea2; }
+.appFrame .tone_purple { background: #f0ecff; color: #7a67c7; }
+.appFrame .statLabel { color: #7a879d; }
+.appFrame .statValue { color: #182844; letter-spacing: -.8px; }
+.appFrame .statNote { color: #96a1b3; }
+.appFrame .progressTrack { background: #edf1f7; }
+.appFrame .progressTrack > span { background: linear-gradient(90deg,#6679ed,#4fc6b2); }
+.appFrame .progressTrack.orange > span { background: linear-gradient(90deg,#c69b51,#e5c77c); }
+.appFrame .progressTrack.blue > span { background: linear-gradient(90deg,#4d9bab,#74c8ca); }
+.appFrame .panel { padding: 20px 21px; }
+.appFrame .panelHeader h3,.appFrame .panel h3 { color: #20304b; font-weight: 650; font-family: var(--font-family-sans); }
+.appFrame .smallBadge { border: 1px solid #e6ebf5; border-radius: 999px; background: #f7f9fd; color: #8190a7; }
+.appFrame .chartBars { border-bottom-color: #e6ecf5; background: repeating-linear-gradient(to bottom,transparent 0,transparent 32px,#f1f4f9 33px); }
+.appFrame .chartYAxis,.appFrame .chartColumn small { color: #9ba6b7; }
+.appFrame .chartBar,.appFrame .chartBarActive { border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg,#9ba7ff,#6579ec); }
+.appFrame .chartBarActive { background: linear-gradient(180deg,#56d2c2,#5d79ee); }
+.appFrame .chartLegend { border-top-color: #edf1f7; color: #8290a5; }
+.appFrame .legendGreen { background: #5367e8; }
+.appFrame .goalRing { box-shadow: 0 8px 22px rgba(83,103,232,.12); }
+.appFrame .goalRing > div { background: #fff; color: #1d2d4a; }
+.appFrame .goalRing span { color: #8390a5; }
+.appFrame .goalText > strong { color: #24344f; }
+.appFrame .goalText p,.appFrame .goalFoot { color: #8794a9; }
+.appFrame .focusCard {
+  border-top-width: 3px;
+  border-top-style: solid;
+  border-top-color: #6a7bed;
+  padding: 17px 18px 16px;
+  border-radius: 15px;
+}
+.appFrame .focusCard:hover { border-top-color: #45bda9; }
+.appFrame .focusTop > span { color: #a1abc0; }
+.appFrame .focusTop small { color: #586bd8; }
+.appFrame .focusCard h3 { color: #20304b; font-family: var(--font-family-sans); font-weight: 680; }
+.appFrame .focusCard p { color: #7c8aa0; }
+.appFrame .focusMeta { color: #8795aa; border-top: 1px solid #edf1f6; }
+.appFrame .focus_green { border-top-color: #6679ed; }
+.appFrame .focus_orange { border-top-color: #c9a45e; }
+.appFrame .focus_blue { border-top-color: #4babb8; }
+.appFrame .lessonRow,.appFrame .kanjiTile,.appFrame .lessonDetail,.appFrame .practiceMain,.appFrame .readingPanel,.appFrame .comprehensionPanel,.appFrame .flashStage,.appFrame .kanaChart,.appFrame .kanaQuiz,.appFrame .kanjiDetail,.appFrame .examIntro,.appFrame .examQuestion,.appFrame .examResult,.appFrame .planCard {
+  border-color: #e4eaf3;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(20,37,68,.045);
+}
+.appFrame .lessonRow:hover,.appFrame .kanjiTile:hover { border-color: #aebaf1; background: #f8f9ff; }
+.appFrame .lessonRowActive,.appFrame .kanjiSelected { border-color: #9ba9ef; background: #f0f2ff; box-shadow: inset 3px 0 #6176e8; }
+.appFrame .patternChip,.appFrame .formationBox,.appFrame .kanaFeedback,.appFrame .translationBox,.appFrame .kanjiExample,.appFrame .questionType {
+  border-radius: 10px;
+  background: #f0f3ff;
+  color: #5367bd;
+}
+.appFrame .secondaryButton,.appFrame .ghostButton {
+  border: 1px solid #e0e7f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #4d5e7d;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.appFrame .secondaryButton:hover,.appFrame .ghostButton:hover { transform: translateY(-1px); border-color: #b9c4ef; background: #f5f7ff; }
+.appFrame input,.appFrame select,.appFrame textarea {
+  border-color: #dfe6f1;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+.appFrame input:focus,.appFrame select:focus,.appFrame textarea:focus { border-color: #8291eb; box-shadow: 0 0 0 4px rgba(83,103,232,.1); }
+.appFrame .datePill,.appFrame .smallBadge,.appFrame .counterPill { border-color: #e3e9f2; }
+.appFrame .emptyState { border-color: #e1e8f2; border-radius: 15px; background: rgba(255,255,255,.8); }
+.appFrame .footer { border-top-color: #e4eaf3; background: rgba(255,255,255,.62); color: #91a0b3; }
+.appFrame .footer b { color: #4eaa9b; }
+.appFrame [data-tour] { scroll-margin: 28px; }
+@keyframes nl-orb-float {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.025); }
+}
+@media(max-width:1100px) {
+  .appFrame .contentArea { padding-top: 27px; }
+  .appFrame .heroCard { border-radius: 20px; }
+}
+@media(max-width:700px) {
+  .appFrame .sidebar { box-shadow: 0 9px 28px rgba(16,29,53,.12); }
+  .appFrame .topbar { padding-right: 15px; padding-left: 15px; }
+  .appFrame .contentArea { padding: 23px 15px 30px; }
+  .appFrame .heroCard { border-radius: 18px; }
+  .appFrame .heroCopy { padding: 25px 22px; }
+  .appFrame .statCard,.appFrame .panel,.appFrame .focusCard,.appFrame .vocabCard,.appFrame .masteryCard { border-radius: 14px; }
+  .appFrame .welcomeRow h1 { font-size: 26px; }
+  .appFrame .jlptCountdown { min-width: 110px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .appFrame .sunDisc { animation: none; }
+  .appFrame .heroCard,.appFrame .statCard,.appFrame .panel,.appFrame .focusCard { transition: none; }
+}
