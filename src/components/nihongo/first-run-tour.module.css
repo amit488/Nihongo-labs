@@ -1,0 +1,75 @@
+.tourRoot { position: fixed; inset: 0; z-index: 4000; pointer-events: none; }
+.shade,.fullShade { position: fixed; z-index: 4000; background: rgba(8,16,35,.72); backdrop-filter: blur(2px); pointer-events: auto; }
+.fullShade { inset: 0; }
+.focusFrame {
+  position: fixed;
+  z-index: 4001;
+  border: 2px solid rgba(255,255,255,.96);
+  border-radius: 15px;
+  box-shadow: 0 0 0 5px rgba(105,127,255,.25),0 0 34px rgba(84,217,196,.3);
+  pointer-events: none;
+  transition: top .22s ease,left .22s ease,width .22s ease,height .22s ease;
+}
+.bubble {
+  position: fixed;
+  z-index: 4002;
+  width: min(390px,calc(100vw - 32px));
+  padding: 23px 24px 19px;
+  border: 1px solid rgba(226,233,245,.95);
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse at 92% 0%,rgba(83,103,232,.07),transparent 15rem),
+    #fff;
+  color: #17243a;
+  box-shadow: 0 28px 86px rgba(1,10,30,.36),inset 0 1px #fff;
+  pointer-events: auto;
+  animation: tourBubbleIn .22s cubic-bezier(.2,.75,.25,1) both;
+}
+@keyframes tourBubbleIn {
+  from { opacity: 0; transform: translateY(7px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.bubbleTop { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brandGlyph {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg,#5367e8,#4dc7b4);
+  color: #fff;
+  font: 700 17px/1 var(--font-family-display,Georgia,serif);
+  box-shadow: 0 6px 15px rgba(83,103,232,.2);
+}
+.eyebrow { min-width: 0; color: #697bca; font-size: 10px; font-weight: 850; letter-spacing: 1.25px; }
+.stepCount { margin-left: auto; color: #9aa6b8; font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.progressTrack { height: 4px; margin: 17px 0 19px; overflow: hidden; border-radius: 10px; background: #edf1f7; }
+.progressTrack span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#5367e8,#4dc7b4); transition: width .24s ease; }
+.bubble h2 { margin: 0 0 9px; color: #17243a; font-size: 22px; font-weight: 760; letter-spacing: -.75px; line-height: 1.2; }
+.bubble > p { margin: 0; color: #697991; font-size: 13px; line-height: 1.7; }
+.detail { display: flex; align-items: flex-start; gap: 9px; margin-top: 16px; padding: 12px 13px; border: 1px solid #e7ebfa; border-radius: 11px; background: #f5f7ff; color: #55688f; font-size: 12px; line-height: 1.55; }
+.detail > span:first-child { color: #6479e8; }
+.error { margin: 12px 0 0 !important; color: #a34458 !important; font-size: 12px !important; }
+.dotRow { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 17px 0 15px; }
+.dot,.activeDot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 10px; background: #dce3ef; cursor: pointer; transition: width .18s,background .18s; }
+.activeDot { width: 21px; background: linear-gradient(90deg,#5367e8,#4dc7b4); }
+.dot:disabled,.activeDot:disabled { cursor: not-allowed; opacity: .5; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #edf1f7; padding-top: 14px; }
+.actionRight { display: flex; align-items: center; gap: 8px; }
+.skipButton,.backButton,.nextButton { min-height: 38px; padding: 0 12px; border-radius: 10px; font: 700 12px var(--font-family-sans,Inter,system-ui,sans-serif); cursor: pointer; transition: transform .16s,background .16s,border-color .16s; }
+.skipButton { border: 1px solid transparent; background: transparent; color: #8794a8; }
+.backButton { border: 1px solid #e1e7f1; background: #fff; color: #65748e; }
+.nextButton { display: inline-flex; align-items: center; justify-content: center; gap: 15px; border: 1px solid #5367e8; background: linear-gradient(110deg,#5367e8,#647bf0); color: #fff; box-shadow: 0 8px 19px rgba(83,103,232,.2); }
+.nextButton:hover:not(:disabled) { transform: translateY(-1px); background: linear-gradient(110deg,#455ad3,#536ce3); }
+.skipButton:hover:not(:disabled),.backButton:hover:not(:disabled) { background: #f2f5fc; }
+.skipButton:disabled,.backButton:disabled,.nextButton:disabled { opacity: .55; cursor: wait; }
+@media(max-width:560px) {
+  .bubble { padding: 20px 19px 16px; border-radius: 17px; }
+  .bubble h2 { font-size: 20px; }
+  .focusFrame { border-radius: 12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .bubble { animation: none; }
+  .focusFrame,.progressTrack span { transition: none; }
+}
