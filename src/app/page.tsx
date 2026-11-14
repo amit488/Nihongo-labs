@@ -51,6 +51,50 @@ export default function HomePage() {
         .featureList article>span,.featureList article>b{color:var(--brand)}
         .landingFooter{border-color:var(--line)}
         @media(max-width:800px){.landingNav nav .navCta{padding:11px 14px}.heroVisual{border-radius:22px}}
+
+        /* Interactive visual refresh v2 — polished editorial learning product. */
+        .landing{background:#f3f6fb;color:#17243a}
+        .landingNav{border-color:#e4eaf3}
+        .wordmarkIcon{background:linear-gradient(145deg,#5367e8,#4fc8b4);box-shadow:0 8px 19px rgba(83,103,232,.2)}
+        .landingNav nav a{color:#5f6f88;transition:color .18s,transform .18s}
+        .landingNav nav a:hover{color:#5367e8;transform:translateY(-2px)}
+        .landingNav nav .navCta{background:linear-gradient(110deg,#5367e8,#657cf0);border-radius:11px;box-shadow:0 12px 26px rgba(83,103,232,.2)}
+        .eyebrow{color:#6575c7}
+        .eyebrow>span{background:#5367e8;box-shadow:0 0 0 5px rgba(83,103,232,.1)}
+        .eyebrow i{color:#5367e8;background:#eef1ff}
+        .hero h1{color:#17243a;letter-spacing:-4.8px}
+        .hero h1 em,.sectionIntro h2 em{color:#5367e8}
+        .heroLead{color:#748198}
+        .heroVisual{background:radial-gradient(ellipse at 55% 48%,#e5eaff 0%,#f0f3ff 43%,rgba(240,243,255,0) 76%);border-radius:26px}
+        .paperCard{border-color:#e1e8f4;border-radius:18px;box-shadow:0 28px 70px rgba(20,37,68,.12)}
+        .paperCardBack{background:linear-gradient(145deg,#e7ebff,#f4f7ff);color:#9ba9d2}
+        .backGlyph{color:#9ba9d2}
+        .mainCard{border-radius:20px;box-shadow:0 32px 78px rgba(20,37,68,.17)}
+        .cardPattern{color:#263d79}
+        .cardPattern small{color:#5367e8}
+        .cardRule{background:#f1f4ff;border:1px solid #e5eaff;border-radius:9px}
+        .cardRule>span{color:#5367e8}
+        .floatingChip{border-color:#e1e8f3;border-radius:13px;box-shadow:0 16px 38px rgba(20,37,68,.13)}
+        .floatingChip span{color:#72819a}
+        .streakChip b{color:#5367e8}
+        .miniRing{border-color:#e5eaff;border-top-color:#4fc8b4;color:#5367e8}
+        .heroSeal{color:#8997be}
+        .featureSection{background:#fff;border-color:#e4eaf3}
+        .sectionIntro h2{color:#17243a}
+        .sectionIntro p,.featureList p{color:#748198}
+        .featureList article{border-color:#e9eef6;transition:transform .2s,padding .2s}
+        .featureList article:hover{padding-left:9px;transform:translateX(2px)}
+        .featureList article>span,.featureList article>b{color:#5367e8}
+        .landingFooter{border-color:#e4eaf3}
+        .landingFooter>a:last-child{color:#5367e8}
+        .landingFooter>a[href='/contact']{color:#65748b}
+        @media(max-width:800px){.landingNav nav .navCta{padding:11px 14px}.heroVisual{border-radius:21px}}
+        @media(prefers-reduced-motion:no-preference){
+          .paperCard.mainCard{animation:landingCardFloat 7s ease-in-out infinite}
+          .floatingChip{animation:landingChipFloat 6s ease-in-out infinite}
+          @keyframes landingCardFloat{0%,100%{transform:rotate(-3deg) translateY(0)}50%{transform:rotate(-2deg) translateY(-7px)}}
+          @keyframes landingChipFloat{0%,100%{translate:0 0}50%{translate:0 -5px}}
+        }
 `}</style>
     </main>
   );
