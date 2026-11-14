@@ -36,20 +36,20 @@ Before shipping new UI, compare it with adjacent pages and existing components t
 
 ## Shared visual tokens
 
-Use the global tokens in \`src/app/globals.css\` instead of introducing independent palettes:
+Use the global tokens in `src/app/globals.css` instead of introducing independent palettes:
 
 | Token | Role |
 |---|---|
-| \`--ink\` | Primary text and headings |
-| \`--muted\` | Supporting text |
-| \`--paper\` | Warm page background |
-| \`--surface\` | Elevated card and panel surface |
-| \`--surface-soft\` | Secondary surface |
-| \`--line\` | Subtle borders and dividers |
-| \`--brand\` / \`--brand-dark\` | Lacquer-red action and hover colors |
-| \`--navy\` | Ink-dark navigation and feature panels |
-| \`--sage\` | Supporting learning-state accent |
-| \`--brass\` | Restrained highlight and progress accent |
-| \`--shadow\` / \`--shadow-soft\` | Shared elevation |
+| `--ink` | Primary text and headings |
+| `--muted` | Supporting text |
+| `--paper` | Warm page background |
+| `--surface` | Elevated card and panel surface |
+| `--surface-soft` | Secondary surface |
+| `--line` | Subtle borders and dividers |
+| `--brand` / `--brand-dark` | Lacquer-red action and hover colors |
+| `--navy` | Ink-dark navigation and feature panels |
+| `--sage` | Supporting learning-state accent |
+| `--brass` | Restrained highlight and progress accent |
+| `--shadow` / `--shadow-soft` | Shared elevation |
 
 Keep large page backgrounds quiet. Use the brand color for meaningful actions and small emphasis, not as a large uninterrupted fill. Prefer rounded card corners, subtle borders, and restrained shadows over heavy outlines.
