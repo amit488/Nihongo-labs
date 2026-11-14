@@ -29,7 +29,10 @@ export async function signUpAction(formData: FormData): Promise<AuthActionResult
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      data: { display_name: displayName || parsed.data.email.split('@')[0] },
+      data: {
+        display_name: displayName || parsed.data.email.split('@')[0],
+        nihongo_onboarding: 'pending',
+      },
       emailRedirectTo: getEmailRedirectUrl(),
     },
   });
