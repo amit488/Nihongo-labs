@@ -149,3 +149,30 @@
   .dialog { border-radius: 16px; }
   .statsSection { border-radius: 13px; }
 }
+
+
+/* Quick Revision v2 — a focused, calm practice surface with confident progress states. */
+.dialog { border-color: #e4eaf3; border-radius: 21px; background: #fff; color: #17243a; box-shadow: 0 32px 90px rgba(8,19,43,.32); }
+.dialog.correct { border: 1px solid #a9dece; background: #eef9f5; color: #246e61; }
+.dialog.incorrect { border: 1px solid #e8bec4; background: #fff2f3; color: #9b4657; }
+.brandMark { border-color: #e4eaf3; border-radius: 12px; }
+.prompt { border-color: #e4eaf3; border-radius: 15px; background: #f7f9fe; color: #17243a; }
+.option { border-color: #e3e9f3; border-radius: 12px; background: #fff; color: #263956; transition: transform .18s,border-color .18s,background .18s,box-shadow .18s; }
+.option:hover { transform: translateY(-2px); border-color: #a9b5ef; background: #f8f9ff; box-shadow: 0 8px 20px rgba(83,103,232,.08); }
+.optionSelected { border: 2px solid #6478e9; background: #f0f2ff; }
+.optionSelected .optionLetter { background: #5367e8; color: #fff; }
+.optionLetter { border-radius: 8px; background: #edf1f7; color: #53627b; }
+.checkButton { border-color: #5367e8; border-radius: 11px; background: linear-gradient(110deg,#5367e8,#647bf0); color: #fff; }
+.checkButton:hover:not(:disabled) { background: #455ad3; }
+.forgotButton { border-color: #e1e8f2; border-radius: 11px; background: #f7f9fd; }
+.continueButton { border-radius: 11px; }
+.statsSection { border-color: #e4eaf3; border-radius: 16px; background: #fff; }
+.statsHeading h2,.statCard strong,.needsWork h3 { color: #17243a; }
+.statsEmpty { border-color: #dfe6f1; border-radius: 12px; }
+.statCard { border-color: #e4eaf3; border-radius: 12px; background: #f7f9fd; }
+.typeSummary > div { border-radius: 11px; background: #eef1ff; }
+.typeSummary span,.needsWorkType { color: #5367e8; }
+.needsWorkItem { border-color: #ebdfe2; border-radius: 11px; background: #fffafa; }
+.needsWorkType { color: #9b596b; }
+.errorToast { border-color: #e4eaf3; border-radius: 15px; background: #fff; color: #17243a; }
+@media(max-width:560px) { .dialog { border-radius: 17px; } .statsSection { border-radius: 14px; } }
