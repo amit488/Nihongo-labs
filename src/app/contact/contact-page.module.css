@@ -45,3 +45,57 @@
 .footer{max-width:1180px;margin:0 auto;padding:22px 30px 28px;border-top:1px solid #e6e9ed;display:flex;justify-content:space-between;gap:15px;color:#98a2aa;font-size:12px}
 @media(max-width:850px){.main{grid-template-columns:1fr;gap:34px;padding-top:46px}.intro{max-width:650px;padding-top:0}.lead{max-width:600px}.formCard{max-width:650px;width:100%}}
 @media(max-width:520px){.nav{height:66px;padding:0 17px}.workspaceLink{font-size:12px}.main{padding:35px 17px 55px;gap:26px}.intro h1{font-size:43px;letter-spacing:-2px}.lead{font-size:14px}.promise{margin-top:25px}.formCard{padding:22px 18px;border-radius:12px}.formHeading h2,.success h2{font-size:24px}.footer{padding:19px 17px;align-items:flex-start;flex-direction:column;gap:8px}}
+
+
+/* Contact page — complete the shared premium public-site theme. */
+.page {
+  background:
+    radial-gradient(ellipse at 14% 10%, rgba(198,155,97,.08), transparent 36rem),
+    var(--paper);
+  color: var(--ink);
+}
+.nav,.footer { border-color: var(--line); }
+.workspaceLink,.footer a { color: #59676e; }
+.workspaceLink span { color: var(--brand); }
+.eyebrow { color: var(--brand); }
+.eyebrow i { background: var(--brand); }
+.intro h1 { color: var(--ink); }
+.intro h1 em { color: var(--brand); }
+.lead { color: var(--muted); }
+.promise { border-color: var(--line); }
+.promiseIcon { border-radius: 11px; background: #f5e9e3; color: var(--brand); }
+.promise strong { color: var(--ink); }
+.promise p,.privacy { color: #78858a; }
+.formCard {
+  border-color: var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 25px 66px rgba(29,41,51,.085);
+}
+.formStep { color: var(--brand); }
+.formHeading h2,.success h2 { color: var(--ink); }
+.formHeading p,.success > p { color: var(--muted); }
+.field label,.messageLabel label { color: #43515a; }
+.field input,.field select,.field textarea {
+  border-color: #e2dbd0;
+  border-radius: 10px;
+  background: #fffefa;
+  color: var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(168,79,67,.1);
+}
+.submitButton {
+  border-radius: 999px;
+  background: var(--brand);
+  box-shadow: 0 10px 24px rgba(168,79,67,.16);
+}
+.submitButton:hover:not(:disabled) { background: var(--brand-dark); }
+.error { border-color: #ead6cf; border-radius: 10px; background: #fbf1ed; color: var(--brand-dark); }
+.successMark { background: #eaf2ec; color: var(--sage); }
+.secondaryButton { border-color: #dfc9bd; border-radius: 999px; background: #f8eee8; color: var(--brand-dark); }
+.backLink { color: #59676e; }
+@media(max-width:520px) {
+  .formCard { border-radius: 16px; }
+}
